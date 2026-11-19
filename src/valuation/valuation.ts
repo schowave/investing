@@ -38,9 +38,67 @@ export interface Proposals {
     /** Jährliche Tilgung je Aktie für überhöhte Schulden; mindert den tragbaren Rückfluss. */
     debtRepaymentPerShare: number | null;
     retentionCap: number | null;
+    /** Die Dividenden stammen aus der Dividendenhistorie statt aus gezahlter Summe und Aktienzahl. */
+    dividendsFromHistory: boolean;
+    /** Aktiensplit, um den die Reihen offenbar nicht bereinigt sind. */
+    unadjustedSplit: { date: string; ratio: number } | null;
   };
   /** Hinweise für die Oberfläche, z. B. gegriffene Deckelung oder fehlende Daten. */
   notes: string[];
+}
+
+export interface History {
+  /** Regelmäßige Dividende je Aktie nach Kalenderjahr des Ex-Tags, in Berichtswährung; `null`, wenn nicht nutzbar. */
+  dividendsByYear: Map<number, number> | null;
+  splits: readonly { date: string; ratio: number }[];
+}
+
+const MINOR_UNIT: Record<string, { currency: string; divisor: number }> = {
+  GBX: { currency: "GBP", divisor: 100 },
+  ILA: { currency: "ILS", divisor: 100 },
+  ZAC: { currency: "ZAR", divisor: 100 },
+};
+
+/**
+ * Summiert regelmäßige Dividenden je Kalenderjahr des Ex-Tags. Sonderdividenden und angekündigte, noch nicht
+ * fällige Zahlungen zählen nicht. Liefert `null`, wenn eine Zahlung in einer anderen Währung als der
+ * Berichtswährung vorliegt (Hinterlegungsscheine); dann bleibt es bei der Rechnung aus der gezahlten Summe.
+ */
+export function dividendsByYear(
+  payments: readonly { date: string; value: number; currency: string; period: string }[],
+  reportingCurrency: string,
+  today: string,
+): Map<number, number> | null {
+  const result = new Map<number, number>();
+  for (const payment of payments) {
+    if (payment.date > today || /special|extra/i.test(payment.period)) continue;
+    const minor = MINOR_UNIT[payment.currency.toUpperCase()];
+    const currency = minor?.currency ?? payment.currency.toUpperCase();
+    if (currency !== reportingCurrency.toUpperCase()) return null;
+    const year = Number(payment.date.slice(0, 4));
+    result.set(year, (result.get(year) ?? 0) + payment.value / (minor?.divisor ?? 1));
+  }
+  return result;
+}
+
+/**
+ * Findet einen Aktiensplit, um den die Aktienzahl offenbar nicht bereinigt ist: Die Aktienzahl springt im Jahr
+ * des Splits ungefähr um dessen Verhältnis. Dann passen Gewinn je Aktie und Kurs nicht zusammen.
+ */
+export function unadjustedSplit(
+  years: readonly { fiscalYear: number; shares: number | null }[],
+  splits: readonly { date: string; ratio: number }[],
+): { date: string; ratio: number } | null {
+  for (const split of splits) {
+    if (Math.abs(split.ratio - 1) < 0.2) continue;
+    const year = Number(split.date.slice(0, 4));
+    for (const candidate of [year, year + 1]) {
+      const now = years.find((y) => y.fiscalYear === candidate)?.shares;
+      const before = years.find((y) => y.fiscalYear === candidate - 1)?.shares;
+      if (now && before && Math.abs(now / before / split.ratio - 1) < 0.25) return split;
+    }
+  }
+  return null;
 }
 
 const REGIONS: readonly string[] = ["Europa", "Nordamerika", "Japan", "Asien", "Südamerika", "Afrika", "Ozeanien"];
@@ -64,13 +122,15 @@ export function proposeInputs(
   years: readonly FundamentalsYear[],
   reportingPerEur: number | null,
   currentYear: number,
+  history: History = { dividendsByYear: null, splits: [] },
 ): Proposals {
   const values: InputValues = {};
   const notes: string[] = [];
   const details: Proposals["details"] = {
     fiscalYears: [], earningsLevel: null, dividendLevel: null, netBuybacksPerShare: null,
     sustainablePayout: null, historicalGrowth: null, revenueGrowth: null, earningsGrowthPerShare: null,
-    earningsGrowthTotal: null, debtRepaymentPerShare: null, retentionCap: null,
+    earningsGrowthTotal: null, debtRepaymentPerShare: null, retentionCap: null, dividendsFromHistory: false,
+    unadjustedSplit: null,
   };
 
   values["risk.currency"] = proposeCurrency(stock.reportingCurrency);
@@ -101,7 +161,29 @@ export function proposeInputs(
   }
 
   // Rückflussniveau
-  const dividends = ten.map((y) => y.dividendPerShare ?? 0);
+  // Dividenden: bevorzugt aus der Dividendenhistorie (echte Beträge je Aktie, ohne Sonderzahlungen). Sie gilt nur,
+  // wenn sie zur Rechnung aus gezahlter Summe und Aktienzahl passt; sonst beziehen sich beide auf verschiedene Stückelungen.
+  const paid = ten.map((y) => y.dividendPerShare ?? 0);
+  let dividends = paid;
+  details.unadjustedSplit = unadjustedSplit(ten, history.splits);
+  if (history.dividendsByYear !== null) {
+    const listed = ten.map((y) => history.dividendsByYear!.get(y.fiscalYear) ?? 0);
+    const ratios = paid.map((value, i) => (value > 0 && listed[i]! > 0 ? value / listed[i]! : null)).filter((r): r is number => r !== null).sort((x, y) => x - y);
+    const ratio = ratios.length > 0 ? ratios[Math.floor(ratios.length / 2)]! : 1;
+    if (ratio >= 0.5 && ratio <= 2) {
+      dividends = listed;
+      details.dividendsFromHistory = true;
+    } else {
+      // Entspricht der Abstand einem Aktiensplit, sind die Zahlen je Aktie nicht um ihn bereinigt.
+      details.unadjustedSplit ??= history.splits.findLast((split) => Math.abs(ratio / split.ratio - 1) < 0.25) ?? null;
+      if (!details.unadjustedSplit) {
+        notes.push(`Dividendenhistorie und Abschlusszahlen beziehen sich auf verschiedene Stückelungen (Faktor ${ratio.toFixed(1)}); es gilt die Rechnung aus den Abschlüssen.`);
+      }
+    }
+  }
+  if (details.unadjustedSplit) {
+    notes.push(`Aktiensplit vom ${details.unadjustedSplit.date} ist in den Zahlen offenbar nicht bereinigt; Werte je Aktie und Kurs passen nicht zusammen.`);
+  }
   const level = earningsLevel(eps);
   const divLevel = dividendLevel(dividends);
   const buybacks = netBuybacksPerShare(

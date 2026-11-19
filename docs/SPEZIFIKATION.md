@@ -279,6 +279,9 @@ Backtest gibt es nicht.
 - Einzelne Titel außerhalb der Indizes werden über ihre ISIN geladen (`npm run import:isin`) und kommen auf die Watchlist. Die Positionen der Wikifolios stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht automatisch abrufen; die Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
 - Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle.
 
+- Mit einem Tarif, der Kursdaten enthält, kommen dazu (`npm run import:history`, drei Abrufe je Aktie): die Dividendenhistorie je Aktie, Aktiensplits und Monatsschlusskurse seit 1990. Die Bewertung nimmt die Dividenden dann aus der Historie (ohne Sonderzahlungen, nach Kalenderjahr des Ex-Tags), sofern sie zur Rechnung aus gezahlter Summe und Aktienzahl passt (Abstand höchstens Faktor 2). Passt sie nicht und entspricht der Abstand einem Aktiensplit, gelten die Zahlen je Aktie als nicht bereinigt und der Titel wird im Screening ausgeblendet. Die Monatskurse sind für einen späteren Rückblick gespeichert und werden noch nicht ausgewertet.
+- Mit großem Tagesbudget holt der Abgleich die Schlusskurse je Börse in einem Sammelabruf (zählt als 100 Abrufe), sobald dort mindestens 150 Titel anstehen.
+
 ### 9.1 Betrieb nach der Kündigung des Tarifs
 
 Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Tag) weiterläuft:

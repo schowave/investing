@@ -9,6 +9,7 @@ import { fetchEcbRates } from "../data/ecb.ts";
 import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
 import type { DailyClose } from "../data/eodhd.ts";
 import { searchEodhd } from "../data/eodhdFundamentals.ts";
+import { fetchBulkLastDay } from "../data/eodhdHistory.ts";
 import { fetchSupplementRates } from "../data/fxSupplement.ts";
 import { fetchBondYield, fetchInflationForecasts } from "../data/reference.ts";
 import { BOND_KEY, loadPortfolio } from "../valuation/portfolioRun.ts";
@@ -24,6 +25,9 @@ const RESERVE = 2;
 /** Der Datenvorrat bekommt nur Kurse, wenn das Budget deutlich über dem kostenlosen Tarif liegt. */
 const STOCKPILE_MIN_BUDGET = 500;
 const PARALLEL = 4;
+/** Ein Sammelabruf zählt beim Anbieter als 100 Abrufe. */
+const BULK_COST = 100;
+const BULK_MIN_STOCKS = 150;
 
 export interface SyncReport {
   date: string;
@@ -129,7 +133,7 @@ export async function runDailySync(
   for (const portfolio of db.portfolios()) for (const id of db.holdings(portfolio.id).keys()) held.add(id);
   const priceDates = db.latestPriceDates();
   const group = (s: Stock) => (held.has(s.id) ? 0 : s.watched ? 1 : 2);
-  const queue = all
+  let queue = all
     .filter((s) => (priceDates.get(s.id) ?? "") < yesterday)
     .sort((a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id));
   report.pricesCurrent = all.length - queue.length;
@@ -142,6 +146,32 @@ export async function runDailySync(
       report.budget = FALLBACK_BUDGET - RESERVE;
     }
   }
+  // --- Sammelabruf: Mit großem Budget kommen die Schlusskurse einer ganzen Börse in einem Abruf (zählt als 100).
+  // Das lohnt sich ab einer Handvoll Titeln je Börse und schont das Budget für den Datenvorrat.
+  const exchangeOf = (s: Stock) => s.id.slice(s.id.lastIndexOf(".") + 1);
+  if (token !== null && report.budget >= STOCKPILE_MIN_BUDGET) {
+    const perExchange = new Map<string, Stock[]>();
+    for (const stock of queue) perExchange.set(exchangeOf(stock), [...(perExchange.get(exchangeOf(stock)) ?? []), stock]);
+    for (const [exchange, stocks] of perExchange) {
+      if (stocks.length < BULK_MIN_STOCKS || report.budget < BULK_COST) continue;
+      try {
+        const closes = await fetchBulkLastDay(exchange, token, fetchFn);
+        report.budget -= BULK_COST;
+        for (const stock of stocks) {
+          const close = closes.get(stock.id);
+          if (!close) continue;
+          db.saveRawCloses(stock.id, [close]);
+          priceDates.set(stock.id, close.date);
+          report.pricesLoaded++;
+        }
+      } catch (error) {
+        // Im Tarif nicht enthalten: Es bleibt beim Einzelabruf.
+        if (error instanceof EodhdError && (error.status === 403 || error.status === 402)) break;
+      }
+    }
+    queue = queue.filter((s) => (priceDates.get(s.id) ?? "") < yesterday);
+  }
+
   const tracked = queue.filter((s) => group(s) < 2);
   const stockpile = report.budget >= STOCKPILE_MIN_BUDGET ? queue.filter((s) => group(s) === 2) : [];
   const planned = [...tracked, ...stockpile].slice(0, report.budget);
@@ -200,7 +230,9 @@ export async function runDailySync(
       stockId: stock.id, date, priceDate, price: valuation.price,
       payoutLevel: valuation.inputs.payoutLevel ?? null, growth: valuation.inputs.growth ?? null,
       riskScore: valuation.riskScore, innerReturn: valuation.returns?.base ?? null,
-      implausible: looksImplausible(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel),
+      implausible:
+        proposals.details.unadjustedSplit !== null ||
+        looksImplausible(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel),
     });
   }
   db.saveScreening(screening);

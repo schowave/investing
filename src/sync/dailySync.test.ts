@@ -22,6 +22,8 @@ interface Fake {
   /** Antworten der Symbolsuche: letzter Schlusskurs je Symbol. */
   search?: Record<string, number>;
   ecbOk?: boolean;
+  /** Antworten des Sammelabrufs je Symbol; ohne Angabe ist er gesperrt. */
+  bulk?: Record<string, number>;
   /** Tageslimit und bisheriger Verbrauch laut Konto. */
   account?: { limit: number; used: number };
   extraRates?: Record<string, number>;
@@ -50,6 +52,11 @@ function fakeFetch(fake: Fake) {
     if (kind === "user") {
       const account = fake.account ?? { limit: 100000, used: 0 };
       return Response.json({ dailyRateLimit: account.limit, apiRequests: account.used, subscriptionType: "test" });
+    }
+    if (kind === "eod-bulk-last-day") {
+      calls.push(`sammel ${symbol}`);
+      if (!fake.bulk) return new Response("", { status: 403 });
+      return Response.json(Object.entries(fake.bulk).filter(([id]) => id.endsWith(`.${symbol}`)).map(([id, close]) => ({ code: id.slice(0, id.lastIndexOf(".")), date: "2026-11-18", close })));
     }
     if (kind === "search") {
       calls.push(`suche ${symbol}`);
@@ -180,6 +187,28 @@ describe("runDailySync", () => {
     expect(db.latestFxRate("KZT")).toBe(487.5);
     // Kurse der EZB werden nicht überschrieben.
     expect(db.latestFxRate("USD")).toBe(1.25);
+    db.close();
+  });
+});
+
+describe("Sammelabruf", () => {
+  it("holt die Kurse einer Börse mit vielen Titeln in einem Abruf und den Rest einzeln", async () => {
+    const db = setup();
+    const many: Record<string, number> = {};
+    for (let i = 0; i < 160; i++) {
+      db.addStockIfMissing(stock(`T${i}.US`, { watched: false }));
+      many[`T${i}.US`] = 10 + i;
+    }
+    const { fetchFn, calls } = fakeFetch({ bulk: many, closes: { "A.XETRA": [{ date: "2026-11-18", close: 40 }], "B.US": [{ date: "2026-11-18", close: 5 }], "VORRAT.US": [] } });
+
+    const report = await runDailySync(db, "geheim", NOW, fetchFn);
+
+    expect(calls.filter((c) => c.startsWith("sammel"))).toEqual(["sammel US"]);
+    // B.US und VORRAT.US stehen nicht im Sammelabruf und werden einzeln geholt, A.XETRA ebenso (zu wenige Titel an der Börse).
+    expect(calls.filter((c) => !c.startsWith("sammel")).map((c) => c.split(" ")[0]).sort()).toEqual(["A.XETRA", "B.US", "VORRAT.US"]);
+    expect(db.latestPrice("T7.US")).toEqual({ date: "2026-11-18", close: 17 });
+    expect(report.pricesLoaded).toBe(163);
+    expect(report.budget).toBe(100000 - 2 - 100);
     db.close();
   });
 });

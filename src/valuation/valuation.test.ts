@@ -4,7 +4,7 @@ import { Database } from "../data/db.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
 import { valueStock } from "./run.ts";
-import { evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
+import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, unadjustedSplit } from "./valuation.ts";
 import type { InputValues } from "./valuation.ts";
 
 const stock: Stock = {
@@ -253,5 +253,61 @@ describe("Rohantworten und Gründungsjahr", () => {
     expect(db.stock(stock.id)!.foundedYear).toBe(1950);
     expect(db.stock("NEU.US")!.foundedYear).toBe(1990);
     db.close();
+  });
+});
+
+describe("Dividendenhistorie und Splits", () => {
+  const pay = (date: string, value: number, currency = "GBP", period = "Quarterly") => ({ date, value, currency, period });
+
+  it("summiert regelmäßige Dividenden je Jahr, ohne Sonderzahlungen und ohne angekündigte", () => {
+    const byYear = dividendsByYear(
+      [pay("2024-03-01", 0.5), pay("2024-09-01", 0.6), pay("2025-03-01", 0.7), pay("2025-06-01", 3, "GBP", "Special"), pay("2027-02-18", 0.9)],
+      "GBP",
+      "2026-11-19",
+    )!;
+    expect([...byYear]).toEqual([[2024, 1.1], [2025, 0.7]]);
+  });
+
+  it("rechnet Pence in Pfund und gibt bei fremder Währung auf", () => {
+    expect(dividendsByYear([pay("2025-03-01", 40, "GBX")], "GBP", "2026-11-19")!.get(2025)).toBeCloseTo(0.4);
+    expect(dividendsByYear([pay("2025-03-01", 0.4, "USD")], "KZT", "2026-11-19")).toBeNull();
+  });
+
+  it("nimmt für die Bewertung die Dividendenhistorie, wenn sie vorliegt", () => {
+    const history = { dividendsByYear: new Map(steadyYears().map((y) => [y.fiscalYear, 1.5] as [number, number])), splits: [] };
+    const { details } = proposeInputs(stock, steadyYears(), 1, 2026, history);
+    expect(details.dividendsFromHistory).toBe(true);
+    expect(details.dividendLevel).toBe(1.5);
+    // Ein Jahr ohne Eintrag heißt: keine Dividende gezahlt.
+    const none = proposeInputs(stock, steadyYears(), 1, 2026, { dividendsByYear: new Map(), splits: [] });
+    expect(none.details.dividendLevel).toBe(0);
+  });
+
+  it("verwirft eine Dividendenhistorie in anderer Stückelung und erkennt daran einen unbereinigten Split", () => {
+    // Abschlüsse rechnen mit 2 je Aktie, die Historie mit 0,4: Faktor 5 wie der Split.
+    const fifth = new Map(steadyYears().map((y) => [y.fiscalYear, 0.4] as [number, number]));
+    const split = proposeInputs(stock, steadyYears(), 1, 2026, { dividendsByYear: fifth, splits: [{ date: "2025-02-11", ratio: 5 }] });
+    expect(split.details.dividendsFromHistory).toBe(false);
+    expect(split.details.dividendLevel).toBe(2);
+    expect(split.details.unadjustedSplit).toEqual({ date: "2025-02-11", ratio: 5 });
+
+    // Ohne passenden Split (Hinterlegungsschein): nur ein Hinweis, kein Split-Verdacht.
+    const receipt = proposeInputs(stock, steadyYears(), 1, 2026, { dividendsByYear: fifth, splits: [] });
+    expect(receipt.details.unadjustedSplit).toBeNull();
+    expect(receipt.notes.some((n) => n.includes("Stückelungen"))).toBe(true);
+  });
+
+  it("erkennt einen Split, um den die Aktienzahl nicht bereinigt ist", () => {
+    const jumped = [2023, 2024, 2025].map((fiscalYear) => ({ fiscalYear, shares: fiscalYear >= 2025 ? 500 : 100 }));
+    const steady = [2023, 2024, 2025].map((fiscalYear) => ({ fiscalYear, shares: 500 }));
+    const split = [{ date: "2025-02-11", ratio: 5 }];
+    expect(unadjustedSplit(jumped, split)).toEqual(split[0]);
+    expect(unadjustedSplit(steady, split)).toBeNull();
+    expect(unadjustedSplit(jumped, [])).toBeNull();
+
+    const years = steadyYears((y) => (y.shares = y.fiscalYear >= 2025 ? 500 : 100));
+    const { notes, details } = proposeInputs(stock, years, 1, 2026, { dividendsByYear: null, splits: split });
+    expect(details.unadjustedSplit).toEqual(split[0]);
+    expect(notes.some((n) => n.includes("Aktiensplit"))).toBe(true);
   });
 });

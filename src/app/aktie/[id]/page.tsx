@@ -191,7 +191,7 @@ export default async function StockPage(props: {
         <table>
           <tbody>
             <tr><td>Gewinnniveau je Aktie</td><td className="num">{amount(d.earningsLevel)}</td></tr>
-            <tr><td>Dividendenniveau je Aktie</td><td className="num">{amount(d.dividendLevel)}</td></tr>
+            <tr><td>Dividendenniveau je Aktie ({d.dividendsFromHistory ? "aus der Dividendenhistorie" : "aus gezahlter Summe und Aktienzahl"})</td><td className="num">{amount(d.dividendLevel)}</td></tr>
             <tr><td>Netto-Rückkäufe je Aktie (fünf Jahre)</td><td className="num">{amount(d.netBuybacksPerShare)}</td></tr>
             <tr><td>Tragbarer Rückfluss je Aktie</td><td className="num">{amount(d.sustainablePayout)}</td></tr>
             <tr><td>Tilgung überhöhter Schulden je Aktie (schon abgezogen)</td><td className="num">{amount(d.debtRepaymentPerShare)}</td></tr>

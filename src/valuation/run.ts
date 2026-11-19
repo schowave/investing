@@ -1,7 +1,7 @@
 // Bewertet eine Aktie aus der Datenbank und speichert den Tagesstand.
 
 import type { Database, Stock } from "../data/db.ts";
-import { evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
+import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
 
 export interface StockValuation {
@@ -14,7 +14,12 @@ export interface StockValuation {
 /** Rechnet die Bewertung, ohne etwas zu speichern. @param date ISO-Datum der Bewertung, z. B. 2026-11-19. */
 export function computeValuation(db: Database, stock: Stock, date: string): StockValuation {
   const reportingPerEur = db.latestFxRate(stock.reportingCurrency);
-  const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)));
+  const payments = db.dividends(stock.id);
+  const history = {
+    dividendsByYear: payments === null ? null : dividendsByYear(payments, stock.reportingCurrency, date),
+    splits: db.splits(stock.id),
+  };
+  const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)), history);
 
   const manual: InputValues = {};
   for (const input of db.manualInputs(stock.id)) {

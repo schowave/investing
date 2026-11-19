@@ -202,6 +202,34 @@ CREATE TABLE IF NOT EXISTS reference_rates (
   value REAL NOT NULL,
   date TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS dividends (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  date TEXT NOT NULL,
+  value REAL NOT NULL,
+  currency TEXT NOT NULL,
+  period TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (stock_id, date)
+);
+CREATE TABLE IF NOT EXISTS splits (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  date TEXT NOT NULL,
+  ratio REAL NOT NULL,
+  PRIMARY KEY (stock_id, date)
+);
+CREATE TABLE IF NOT EXISTS monthly_prices (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  month TEXT NOT NULL,
+  date TEXT NOT NULL,
+  close REAL NOT NULL,
+  adjusted_close REAL NOT NULL,
+  PRIMARY KEY (stock_id, month)
+);
+CREATE TABLE IF NOT EXISTS history_loaded (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  kind TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  PRIMARY KEY (stock_id, kind)
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -516,6 +544,69 @@ export class Database {
       | { finished_at: string; ok: number; report: string }
       | undefined;
     return row ? { finishedAt: row.finished_at, ok: row.ok === 1, report: JSON.parse(row.report) } : null;
+  }
+
+  /** Ersetzt die Dividendenhistorie einer Aktie und merkt, dass sie geladen ist (auch wenn sie leer ist). */
+  saveDividends(stockId: string, payments: readonly { date: string; value: number; currency: string; period: string }[]): void {
+    const insert = this.#db.prepare("INSERT OR REPLACE INTO dividends (stock_id, date, value, currency, period) VALUES (?, ?, ?, ?, ?)");
+    this.#transaction(() => {
+      this.#db.prepare("DELETE FROM dividends WHERE stock_id = ?").run(stockId);
+      payments.forEach((p) => insert.run(stockId, p.date, p.value, p.currency, p.period));
+      this.#markLoaded(stockId, "dividends");
+    });
+  }
+
+  /** Dividendenzahlungen, älteste zuerst; `null`, wenn die Historie nie geladen wurde. */
+  dividends(stockId: string): { date: string; value: number; currency: string; period: string }[] | null {
+    if (!this.historyLoaded(stockId, "dividends")) return null;
+    return this.#db.prepare("SELECT date, value, currency, period FROM dividends WHERE stock_id = ? ORDER BY date").all(stockId) as {
+      date: string; value: number; currency: string; period: string;
+    }[];
+  }
+
+  saveSplits(stockId: string, splits: readonly { date: string; ratio: number }[]): void {
+    const insert = this.#db.prepare("INSERT OR REPLACE INTO splits (stock_id, date, ratio) VALUES (?, ?, ?)");
+    this.#transaction(() => {
+      this.#db.prepare("DELETE FROM splits WHERE stock_id = ?").run(stockId);
+      splits.forEach((x) => insert.run(stockId, x.date, x.ratio));
+      this.#markLoaded(stockId, "splits");
+    });
+  }
+
+  splits(stockId: string): { date: string; ratio: number }[] {
+    return this.#db.prepare("SELECT date, ratio FROM splits WHERE stock_id = ? ORDER BY date").all(stockId) as { date: string; ratio: number }[];
+  }
+
+  /** Monatsschlusskurse in der Einheit der Kursnotiz (bei London Pence). */
+  saveMonthlyPrices(stockId: string, closes: readonly { date: string; close: number; adjustedClose: number }[]): void {
+    const insert = this.#db.prepare("INSERT OR REPLACE INTO monthly_prices (stock_id, month, date, close, adjusted_close) VALUES (?, ?, ?, ?, ?)");
+    this.#transaction(() => {
+      closes.forEach((c) => insert.run(stockId, c.date.slice(0, 7), c.date, c.close, c.adjustedClose));
+      this.#markLoaded(stockId, "monthly_prices");
+    });
+  }
+
+  monthlyPrices(stockId: string): { month: string; date: string; close: number; adjustedClose: number }[] {
+    const rows = this.#db
+      .prepare("SELECT month, date, close, adjusted_close FROM monthly_prices WHERE stock_id = ? ORDER BY month")
+      .all(stockId) as { month: string; date: string; close: number; adjusted_close: number }[];
+    return rows.map((r) => ({ month: r.month, date: r.date, close: r.close, adjustedClose: r.adjusted_close }));
+  }
+
+  #markLoaded(stockId: string, kind: string): void {
+    this.#db
+      .prepare("INSERT INTO history_loaded (stock_id, kind, fetched_at) VALUES (?, ?, ?) ON CONFLICT (stock_id, kind) DO UPDATE SET fetched_at = excluded.fetched_at")
+      .run(stockId, kind, new Date().toISOString());
+  }
+
+  historyLoaded(stockId: string, kind: string): boolean {
+    return this.#db.prepare("SELECT 1 FROM history_loaded WHERE stock_id = ? AND kind = ?").get(stockId, kind) !== undefined;
+  }
+
+  /** Kennungen aller Aktien, für die diese Historie geladen ist. */
+  stockIdsWithHistory(kind: string): Set<string> {
+    const rows = this.#db.prepare("SELECT stock_id FROM history_loaded WHERE kind = ?").all(kind) as { stock_id: string }[];
+    return new Set(rows.map((r) => r.stock_id));
   }
 
   /** Bezugsgrößen des Marktes, z. B. `bond:EUR10Y` oder `inflation:KZT`, als Anteil (0.034). */
