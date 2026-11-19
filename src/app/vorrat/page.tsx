@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS } from "../../valuation/valuation.ts";
 import { addStocks, setWatched } from "../actions.ts";
 import { amount, isoDate, percent } from "../format.ts";
 import { PendingButton } from "../pendingButton.tsx";
@@ -163,8 +164,8 @@ export default async function Stockpile(props: {
         )}
       </section>
       <p className="meta" style={{ marginTop: 10 }}>
-        Ausgeblendet sind Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt, und
-        Titel mit unbereinigtem Aktiensplit. Das sind meist Datenfehler.
+        Ausgeblendet sind Titel, deren Rückfluss über {percent(MAX_PAYOUT_YIELD, 0)} des Kurses oder deren Kurs unter dem{" "}
+        {MIN_PRICE_TO_EARNINGS}-Fachen des Gewinnniveaus liegt, und Titel mit unbereinigtem Aktiensplit. Das sind meist Datenfehler.
       </p>
 
       {others.length > 0 && (

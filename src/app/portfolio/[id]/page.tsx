@@ -146,6 +146,14 @@ export default async function PortfolioPage(props: {
           <span className="sub">im Zielportfolio {targetCount}</span>
         </div>
         <div className="figure">
+          <dt>Innere Rendite im Schnitt</dt>
+          <dd className={view.heldReturn === null ? "muted-value" : ""}>{percent(view.heldReturn)}</dd>
+          <span className="sub">
+            gehaltene Aktien nach Wert gewichtet; im Zielportfolio {percent(view.targetReturn)}
+            {view.heldWithoutReturn.length > 0 ? `; ohne ${view.heldWithoutReturn.length} Titel ohne belastbare Rendite` : ""}
+          </span>
+        </div>
+        <div className="figure">
           <dt>Baranteil</dt>
           <dd>{percent(view.cashWeight)}</dd>
           <span className="sub">im Zielportfolio {percent(view.targetCashWeight)}</span>

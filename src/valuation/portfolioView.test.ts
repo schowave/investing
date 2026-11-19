@@ -64,6 +64,22 @@ describe("buildPortfolioView", () => {
     expect(view.rows[0]!.valueEur).toBeNull();
   });
 
+  it("mittelt die innere Rendite des Bestands und des Ziels nach Gewicht, ohne Bargeld", () => {
+    const view = buildPortfolioView(PROFILE_FOCUSED, 5000, [
+      item("A", { shares: 300, innerReturn: 0.15 }),
+      item("B", { shares: 100, innerReturn: 0.07 }),
+      item("OHNE", { shares: 100, innerReturn: null }),
+      // Zahlen passen nicht zum Kurs: Die Rendite ist nicht belastbar.
+      item("ZWEIFEL", { shares: 100, innerReturn: 0.9, doubtful: true }),
+    ]);
+    // 3000 Euro zu 15 % und 1000 Euro zu 7 %.
+    expect(view.heldReturn).toBeCloseTo(0.13);
+    expect(view.heldWithoutReturn).toEqual(["OHNE", "ZWEIFEL"]);
+    // Ziel: A bleibt bei 30 %, B wird auf das Limit von 12 % aufgestockt.
+    expect(view.targetReturn).toBeCloseTo((0.3 * 0.15 + 0.12 * 0.07) / 0.42);
+    expect(buildPortfolioView(PROFILE_FOCUSED, 1000, []).heldReturn).toBeNull();
+  });
+
   it("zeigt bei leerem Portfolio nur Zielgewichte", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 0, [item("GUT")]);
     expect(view.rows[0]).toMatchObject({ action: "kaufen", changeEur: 0 });

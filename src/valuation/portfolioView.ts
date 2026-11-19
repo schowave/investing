@@ -14,6 +14,8 @@ export interface PortfolioItem {
   shares: number;
   /** Kurs je Aktie in Euro; `null`, wenn Kurs oder Wechselkurs fehlen. */
   priceEur: number | null;
+  /** Zahlen und Kurs passen nicht zusammen (`doubtfulNumbers`); die Rendite zählt dann nicht in den Schnitt. */
+  doubtful?: boolean;
 }
 
 interface PortfolioRow {
@@ -50,6 +52,27 @@ export interface PortfolioView {
   regions: Share[];
   /** Gehaltene Titel ohne Kurs; ihr Wert fehlt in der Summe. */
   unpriced: string[];
+  /**
+   * Innere Rendite der gehaltenen Aktien im Schnitt, nach Wert gewichtet: was der Bestand bringt, wenn nicht mehr
+   * umgeschichtet wird. Bargeld und sonstige Anlagen zählen nicht mit. `null`, wenn kein gehaltener Titel eine Rendite hat.
+   */
+  heldReturn: number | null;
+  /** Dasselbe für die Titel des Zielportfolios. */
+  targetReturn: number | null;
+  /** Gehaltene Titel ohne berechenbare oder ohne belastbare Rendite; sie fehlen im Schnitt. */
+  heldWithoutReturn: string[];
+}
+
+/** Mit dem Gewicht gemittelte innere Rendite; Titel ohne Gewicht oder ohne Rendite bleiben außen vor. */
+function averageReturn(entries: readonly { weight: number; innerReturn: number | null }[]): number | null {
+  let weight = 0;
+  let sum = 0;
+  for (const entry of entries) {
+    if (!(entry.weight > 0) || entry.innerReturn === null) continue;
+    weight += entry.weight;
+    sum += entry.weight * entry.innerReturn;
+  }
+  return weight > 0 ? sum / weight : null;
 }
 
 /** So weit kann dein Urteil den Risikowert höchstens senken (Boni der Urteilsfaktoren). */
@@ -120,6 +143,7 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
     .sort((a, b) => b.targetWeight - a.targetWeight || b.heldWeight - a.heldWeight || a.id.localeCompare(b.id));
 
   const byId = new Map(items.map((item) => [item.id, item]));
+  const usable = (item: PortfolioItem) => (item.doubtful ? null : item.innerReturn);
   return {
     totalEur,
     cashWeight: totalEur > 0 ? cashEur / totalEur : 0,
@@ -129,5 +153,8 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
     sectors: shares(rows, byId, (i) => i.sector),
     regions: shares(rows, byId, (i) => i.region),
     unpriced: items.filter((item) => item.shares > 0 && item.priceEur === null).map((item) => item.id),
+    heldReturn: averageReturn(items.map((item) => ({ weight: weight(item), innerReturn: usable(item) }))),
+    targetReturn: averageReturn(items.map((item) => ({ weight: targetWeight.get(item.id) ?? 0, innerReturn: usable(item) }))),
+    heldWithoutReturn: items.filter((item) => weight(item) > 0 && usable(item) === null).map((item) => item.id),
   };
 }

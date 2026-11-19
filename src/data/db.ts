@@ -2,7 +2,7 @@
 
 import { DatabaseSync } from "node:sqlite";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { and, asc, count, desc, eq, isNull, lte, max, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, lte, max, or, type SQL, sql } from "drizzle-orm";
 import { drizzle, type NodeSQLiteDatabase } from "drizzle-orm/node-sqlite";
 import { migrateDatabase } from "./migrate.ts";
 import * as t from "./schema.ts";
@@ -435,6 +435,23 @@ export class Database {
     if (!row) return null;
     const { stockId: _, ...valuation } = row;
     return valuation;
+  }
+
+  /**
+   * Einzelheiten des Tagesstands, der an einem Tag galt: der jüngste bis zu diesem Tag, sonst der erste danach.
+   * `null`, wenn es keinen gibt.
+   */
+  valuationDetailsAsOf(stockId: string, date: string): unknown {
+    const pick = (condition: SQL, order: SQL) =>
+      this.#db
+        .select({ details: t.valuations.details })
+        .from(t.valuations)
+        .where(and(eq(t.valuations.stockId, stockId), condition))
+        .orderBy(order)
+        .limit(1)
+        .get();
+    const row = pick(lte(t.valuations.date, date), desc(t.valuations.date)) ?? pick(gt(t.valuations.date, date), asc(t.valuations.date));
+    return row?.details ?? null;
   }
 
   /** Gespeicherte Tagesstände einer Aktie, jüngster zuerst. */

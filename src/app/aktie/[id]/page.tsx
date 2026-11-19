@@ -18,6 +18,7 @@ import { currentProposals, LEVELS_VERSION } from "../../../judgement/factors.ts"
 import { researchAvailable } from "../../../judgement/research.ts";
 import { situationSignals } from "../../../judgement/situation.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
+import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
 import { doubtfulNumbers } from "../../../valuation/valuation.ts";
@@ -89,7 +90,7 @@ export default async function StockPage(props: {
   const stock = db.stock(id);
   if (!stock) notFound();
 
-  const { proposals, valuation: v, priceDate } = computeValuation(db, stock, today());
+  const { proposals, valuation: v, priceDate, review } = computeValuation(db, stock, today());
   const doubtful = doubtfulNumbers(v, proposals);
   const years = db.fundamentals(stock.id).slice(-10);
   const history = db.valuationHistory(stock.id, 12);
@@ -253,6 +254,15 @@ export default async function StockPage(props: {
           oder Währung. Die Rendite ist so nicht verwertbar; setze das Rückflussniveau von Hand passend zum Kurs.
         </div>
       )}
+      {needsReview(review) && (
+        <div className="notice">
+          <strong>Bewertung prüfen.</strong>{" "}
+          {review.overdue && `Sie ist vom ${isoDate(review.assessedOn)} und damit älter als ${REVIEW_MONTHS} Monate. `}
+          {review.changes.length > 0 &&
+            `Seit dem ${isoDate(review.assessedOn)} haben sich die Vorschläge aus den Zahlen verschoben: ${review.changes.join("; ")}. `}
+          Sieh dir Rückfluss, Wachstum und dein Urteil noch einmal an. Speichern bestätigt die Bewertung mit dem heutigen Datum.
+        </div>
+      )}
       {query.lauf && (
         <div className="notice ok">
           Abschlüsse und Historie werden im Hintergrund neu geladen (13 Abrufe), danach neu bewertet. Stand auf der Seite{" "}
@@ -317,7 +327,10 @@ export default async function StockPage(props: {
         <form className="card" id="urteil" action={saveInputs.bind(null, stock.id)}>
           <div className="card-head">
             <h2>Bewertung</h2>
-            <span className="meta">{v.missing.length === 0 ? "alle Eingaben gesetzt" : `${v.missing.length} offen`}</span>
+            <span className="meta">
+              {v.missing.length === 0 ? "alle Eingaben gesetzt" : `${v.missing.length} offen`}
+              {review.assessedOn ? `, zuletzt gespeichert am ${isoDate(review.assessedOn)}` : ""}
+            </span>
           </div>
 
           <p className="section-label">Dein Urteil</p>
@@ -341,7 +354,9 @@ export default async function StockPage(props: {
           </div>
 
           <p className="section-label">Rückfluss und Wachstum</p>
-          <span className="hint">Ein leeres Feld übernimmt den Vorschlag aus den Zahlen der letzten zehn Jahre.</span>
+          <span className="hint">
+            Ein leeres Feld übernimmt den Vorschlag aus den Zahlen der letzten {d.fiscalYears.length || 10} Jahre.
+          </span>
           <div className="scroll">
             <table>
               {head}

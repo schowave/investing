@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit, withHurdle } from "../calc/index.ts";
 import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
+import { needsReview } from "../valuation/review.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { doubtfulNumbers } from "../valuation/valuation.ts";
 import { startSync } from "./actions.ts";
@@ -39,6 +40,8 @@ export default function Ranking() {
   const incomplete = rows.filter((r) => !r.valuation.complete && r.valuation.riskScore < EXCLUSION_SCORE);
   const promising = incomplete.filter((r) => clears(r) && !doubtful(r));
   const next = promising[0] ?? incomplete[0];
+  // Fertige Bewertungen, die älter als ein Jahr sind oder deren Zahlen sich seither verschoben haben.
+  const toReview = rows.filter((r) => r.valuation.complete && needsReview(r.review));
   const firstBelow = rows.findIndex((r) => order(r) < hurdle);
   const priceDates = rows
     .map((r) => r.priceDate)
@@ -58,6 +61,9 @@ export default function Ranking() {
   } else if (incomplete.length > 0) {
     finding = `Noch kein Titel ist Kandidat fürs Portfolio: ${plural(incomplete.length, "Bewertung wartet", "Bewertungen warten")} auf dein Urteil${promising.length > 0 ? `, ${promising.length === 1 ? "eine davon liegt" : `${promising.length} davon liegen`} vorläufig über der Anleiherendite` : ""}.`;
   } else finding = "Alle Titel sind bewertet, keiner schlägt die Anleiherendite.";
+  if (toReview.length > 0) {
+    finding += ` ${plural(toReview.length, "Bewertung ist", "Bewertungen sind")} zu prüfen: überfällig oder die Zahlen haben sich seither verschoben.`;
+  }
 
   return (
     <>
@@ -103,6 +109,7 @@ export default function Ranking() {
           <dd className={incomplete.length === 0 ? "muted-value" : ""}>{incomplete.length}</dd>
           <span className="sub">
             {incomplete.length === 0 ? "nichts zu tun" : "Urteil zu Branche, Management und weiteren Faktoren fehlt"}
+            {toReview.length > 0 ? `; ${toReview.length} ältere zu prüfen` : ""}
           </span>
         </div>
         <div className="figure">
@@ -137,7 +144,7 @@ export default function Ranking() {
               </thead>
               <tbody>
                 {rows.map((row, index) => {
-                  const { stock, valuation: v } = row;
+                  const { stock, valuation: v, review } = row;
                   const suspect = doubtful(row);
                   const base = v.returns?.base ?? null;
                   const excluded = v.riskScore >= EXCLUSION_SCORE;
@@ -203,6 +210,16 @@ export default function Ranking() {
                             {v.missing.length > 0 ? `${v.missing.length} offen, bewerten` : "Kurs fehlt"}
                           </Link>
                         )}
+                        {v.complete && needsReview(review) && (
+                          <Link
+                            className="tag warn"
+                            href={`${link}#urteil`}
+                            title={review.overdue ? "Bewertung älter als ein Jahr" : review.changes.join("; ")}
+                          >
+                            prüfen
+                          </Link>
+                        )}
+                        {v.complete && review.assessedOn && <small>bewertet am {isoDate(review.assessedOn)}</small>}
                       </td>
                     </tr>,
                   ];

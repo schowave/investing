@@ -48,6 +48,7 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
         complete: valuation.complete,
         shares: holdings.get(stock.id) ?? 0,
         priceEur: price && perEur ? price.close / perEur : null,
+        doubtful: reason !== null,
       };
     }),
     portfolio.otherEur,

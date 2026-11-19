@@ -9,10 +9,12 @@ import {
   dividendLevel,
   dividendWasCut,
   earningsLevel,
+  FULL_YEARS,
   growthProposal,
   historicalGrowth,
   lowerGrowth,
   MANUAL_FOR_FINANCIALS,
+  MIN_YEARS,
   netBuybacksPerShare,
   payoutLevelProposal,
   proposeAge,
@@ -130,7 +132,7 @@ function allNumbers(values: readonly (number | null)[]): values is number[] {
 }
 
 /**
- * Vorschläge aus den letzten zehn Geschäftsjahren. Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und
+ * Vorschläge aus den letzten zehn Geschäftsjahren; bei jüngeren Unternehmen genügen fünf. Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und
  * aktienbasierte Vergütung zählen als 0; fehlen dagegen Gewinn oder Aktienzahl, gibt es keinen Vorschlag.
  *
  * @param years Geschäftsjahre, ältestes zuerst (beliebig viele; verwendet werden die letzten zehn).
@@ -173,13 +175,21 @@ export function proposeInputs(
     if (stock.foundedYear !== null || age >= 20) values["risk.age"] = proposeAge(age);
   }
 
-  const ten = years.slice(-10);
+  const ten = years.slice(-FULL_YEARS);
   details.fiscalYears = ten.map((y) => y.fiscalYear);
-  if (ten.length < 10) {
-    notes.push(`Nur ${ten.length} Geschäftsjahre vorhanden, zehn sind nötig.`);
+  if (ten.length < MIN_YEARS) {
+    notes.push(`Nur ${ten.length} Geschäftsjahre vorhanden, mindestens ${MIN_YEARS} sind nötig.`);
     return { values, details, notes };
   }
-  const last = ten[9]!;
+  // Der Autor bewertet auch junge Börsenwerte (Höegh Autoliners, Kaspi). Eine kürzere Reihe trägt die Vorschläge,
+  // aber nichts, was Stetigkeit über zehn Jahre belegen soll.
+  const short = ten.length < FULL_YEARS;
+  if (short) {
+    notes.push(
+      `Nur ${ten.length} statt ${FULL_YEARS} Geschäftsjahre: Niveau und Wachstum stehen auf einer kürzeren Reihe und sind unsicherer.`,
+    );
+  }
+  const last = ten.at(-1)!;
   if (last.fiscalYear < currentYear - 2) notes.push(`Letzter Abschluss ist von ${last.fiscalYear}.`);
 
   const eps = ten.map((y) => y.epsDiluted);
@@ -230,7 +240,8 @@ export function proposeInputs(
       shares: shares[i]!,
     })),
   );
-  const fcfPerShare = ten.slice(5).map((y, i) => (y.freeCashFlow === null ? null : y.freeCashFlow / shares[i + 5]!));
+  const five = ten.slice(-5);
+  const fcfPerShare = five.map((y) => (y.freeCashFlow === null ? null : y.freeCashFlow / y.shares!));
   // Schulden über dem Dreifachen des EBITDA müssen getilgt werden; das Geld steht den Eigentümern nicht zu.
   let repayment = 0;
   if (!stock.isFinancial && last.netDebt !== null && last.ebitda !== null) {
@@ -286,10 +297,12 @@ export function proposeInputs(
   }
 
   // Risikofaktoren aus Zahlen
-  const earningsRating = proposeEarnings(
+  // Der Bonus für stetig steigende Gewinne verlangt die volle Reihe.
+  const earned = proposeEarnings(
     eps,
     ten.map((y) => y.ebit),
   );
+  const earningsRating = short ? Math.max(0, earned) : earned;
   values["risk.earnings"] = earningsRating;
   if (last.totalAssets !== null && reportingPerEur !== null) values["risk.size"] = proposeSize(last.totalAssets / reportingPerEur);
   else if (reportingPerEur === null) notes.push(`Kein Wechselkurs für ${stock.reportingCurrency}, Größe nicht bewertbar.`);
@@ -313,7 +326,8 @@ export function proposeInputs(
       values["risk.financing"] = proposeFinancing({
         netDebt,
         operatingCashFlow,
-        earningsRating,
+        // Der Nachlass für stetige Gewinne ebenso.
+        earningsRating: short ? undefined : earningsRating,
         ebit: last.ebit,
         interestExpense: last.interestExpense ?? 0,
         currentAssets: last.currentAssets,
@@ -321,7 +335,6 @@ export function proposeInputs(
       });
     }
     // Kapitalrendite und Marge als Durchschnitt der letzten fünf Jahre, damit ein Ausreißerjahr nicht entscheidet.
-    const five = ten.slice(5);
     const returns = five.map((y) => (y.ebit === null || y.totalAssets === null ? null : y.ebit / (y.totalAssets - (y.cash ?? 0))));
     const margins = five.map((y) => (y.ebit === null || !y.revenue ? null : y.ebit / y.revenue));
     if (allNumbers(returns)) values["risk.returnOnCapital"] = proposeProfitability(mean(returns));
@@ -331,6 +344,7 @@ export function proposeInputs(
   values["risk.cashFlow"] = proposeCashFlow({
     // Der freie Cashflow einer Bank oder Versicherung sagt nichts über ihre Ertragskraft; dort zählen die Gewinnjahre.
     positiveFreeCashFlowYears: stock.isFinancial ? eps.filter((e) => e > 0).length : ten.filter((y) => (y.freeCashFlow ?? 0) > 0).length,
+    years: ten.length,
     paysOut: divLevel > 0 || buybacks > 0,
     dividendCutInLastTenYears: dividendWasCut(dividends),
   });
@@ -444,10 +458,13 @@ export function parseManualInput(key: InputKey, text: string): { value: number }
   return { value };
 }
 
-/** Rückfluss über diesem Anteil des Kurses gilt als Datenfehler. */
-const MAX_PAYOUT_YIELD = 0.2;
-/** Ein Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler. */
-const MIN_PRICE_TO_EARNINGS = 3;
+/**
+ * Rückfluss über diesem Anteil des Kurses gilt als Datenfehler. Die Schwelle liegt über dem, was der Autor als echte
+ * Gelegenheit nennt: Petrobras, Halyk und Stalexport mit rund 20 %, Höegh Autoliners mit über 25 %.
+ */
+export const MAX_PAYOUT_YIELD = 0.3;
+/** Ein Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler; das Dreifache kommt vor (Interview). */
+export const MIN_PRICE_TO_EARNINGS = 2;
 
 /**
  * Grobe Prüfung, ob Kurs und Fundamentaldaten zusammenpassen. Sie fängt vor allem Hinterlegungsscheine, deren

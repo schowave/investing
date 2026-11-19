@@ -1,0 +1,118 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { Database } from "../data/db.ts";
+import { steadyYears, stock } from "../test/fixtures.ts";
+import type { Basis } from "./review.ts";
+import { basisOf, needsReview, reviewOf, storedBasis } from "./review.ts";
+import { computeValuation, valueStock } from "./run.ts";
+
+const basis: Basis = { payoutLevel: 3, growth: 0.05, earningsLevel: 6, numberRisk: 0.2 };
+
+describe("reviewOf", () => {
+  it("verlangt ohne Eingabe von Hand keine Prüfung", () => {
+    const review = reviewOf({ assessedOn: null, today: "2026-11-19", before: null, now: basis });
+    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [] });
+    expect(needsReview(review)).toBe(false);
+  });
+
+  it("meldet eine Bewertung nach zwölf Monaten als überfällig", () => {
+    const at = (today: string) => reviewOf({ assessedOn: "2025-11-19", today, before: basis, now: basis });
+    expect(at("2026-11-19").overdue).toBe(false);
+    expect(at("2026-11-20").overdue).toBe(true);
+    expect(needsReview(at("2026-11-20"))).toBe(true);
+  });
+
+  it("lässt Verschiebungen innerhalb der Bandbreite stehen", () => {
+    const now = { payoutLevel: 3.3, growth: 0.06, earningsLevel: 5.4, numberRisk: 0.25 };
+    expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: basis, now }).changes).toEqual([]);
+  });
+
+  it("nennt, was sich über die Bandbreite hinaus verschoben hat", () => {
+    const now = { payoutLevel: 2.5, growth: 0.025, earningsLevel: 7.2, numberRisk: 0.32 };
+    expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: basis, now }).changes).toEqual([
+      "Rückfluss 3,00 → 2,50 (−17 %)",
+      "Gewinnniveau 6,00 → 7,20 (+20 %)",
+      "Wachstum 5,0 % → 2,5 %",
+      "Risiko aus Zahlen 20 % → 32 %",
+    ]);
+  });
+
+  it("meldet weggefallene und neue Vorschläge", () => {
+    const review = reviewOf({
+      assessedOn: "2026-06-01",
+      today: "2026-11-19",
+      before: { ...basis, growth: null, payoutLevel: 0 },
+      now: { ...basis, earningsLevel: null, payoutLevel: 1 },
+    });
+    expect(review.changes).toEqual(["Rückfluss 0,00 → 1,00", "Gewinnniveau: kein Vorschlag mehr", "Wachstum: neu"]);
+  });
+
+  it("vergleicht nicht, wenn kein Tagesstand aus der Zeit der Bewertung vorliegt", () => {
+    expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: null, now: basis }).changes).toEqual([]);
+  });
+});
+
+describe("Grundlage einer Bewertung", () => {
+  it("summiert nur die Risikofaktoren aus Zahlen", () => {
+    const values = { payoutLevel: 2, "risk.earnings": -0.1, "risk.size": 0.15, "risk.moat": 0.2 };
+    expect(basisOf({ values, details: {} })).toEqual({
+      payoutLevel: 2,
+      growth: null,
+      earningsLevel: null,
+      numberRisk: expect.closeTo(0.05),
+    });
+  });
+
+  it("liest sie aus einem gespeicherten Tagesstand und verwirft fremde Formen", () => {
+    expect(storedBasis({ proposals: { values: { growth: 0.03 }, details: { earningsLevel: 4 } } })).toEqual({
+      payoutLevel: null,
+      growth: 0.03,
+      earningsLevel: 4,
+      numberRisk: 0,
+    });
+    expect(storedBasis({ inputs: {} })).toBeNull();
+    expect(storedBasis(null)).toBeNull();
+  });
+});
+
+describe("Prüfstand aus der Datenbank", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("misst am Tagesstand vom Tag der Bewertung", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    db.saveRawCloses(stock.id, [{ date: "2025-05-30", close: 40 }]);
+    expect(computeValuation(db, stock, "2025-06-01").review.assessedOn).toBeNull();
+
+    db.setManualInput(stock.id, "risk.moat", 0.05);
+    valueStock(db, stock, "2025-06-01");
+    valueStock(db, stock, "2025-06-15");
+    expect(computeValuation(db, stock, "2025-07-01").review).toEqual({ assessedOn: "2025-06-01", overdue: false, changes: [] });
+
+    // Neue Abschlüsse: Der freie Cashflow trägt nur noch 2,50 statt 3,00 je Aktie.
+    db.saveFundamentals(
+      stock.id,
+      steadyYears((y) => (y.freeCashFlow = 250)),
+      "eodhd",
+    );
+    const later = computeValuation(db, stock, "2026-06-02").review;
+    expect(later.changes).toEqual(["Rückfluss 3,00 → 2,50 (−17 %)"]);
+    expect(later.overdue).toBe(true);
+    db.close();
+  });
+
+  it("nimmt ohne früheren Tagesstand den ersten nach der Bewertung", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    db.setManualInput(stock.id, "growth", 0.01);
+    expect(db.valuationDetailsAsOf(stock.id, "2025-06-01")).toBeNull();
+    valueStock(db, stock, "2025-06-03");
+    expect(storedBasis(db.valuationDetailsAsOf(stock.id, "2025-06-01"))?.payoutLevel).toBeCloseTo(3);
+    db.close();
+  });
+});

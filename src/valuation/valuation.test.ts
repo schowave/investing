@@ -45,12 +45,33 @@ describe("proposeInputs", () => {
     expect(notes.some((n) => n.includes("gedeckelt"))).toBe(true);
   });
 
-  it("macht bei weniger als zehn Jahren nur Vorschläge aus den Stammdaten", () => {
-    const { values, notes } = proposeInputs(stock, steadyYears().slice(3), 1, 2026);
+  it("macht bei weniger als fünf Jahren nur Vorschläge aus den Stammdaten", () => {
+    const { values, notes } = proposeInputs(stock, steadyYears().slice(6), 1, 2026);
     expect(values.payoutLevel).toBeUndefined();
     expect(values["risk.earnings"]).toBeUndefined();
     expect(values["risk.currency"]).toBe(0);
-    expect(notes[0]).toContain("Nur 7 Geschäftsjahre");
+    expect(notes[0]).toContain("Nur 4 Geschäftsjahre");
+  });
+
+  it("bewertet junge Börsenwerte aus fünf bis neun Jahren, ohne Bonus für Stetigkeit", () => {
+    const { values, details, notes } = proposeInputs(stock, steadyYears().slice(3), 1, 2026);
+    expect(details.fiscalYears).toHaveLength(7);
+    expect(notes[0]).toContain("Nur 7 statt 10 Geschäftsjahre");
+    expect(values.payoutLevel).toBeCloseTo(3);
+    // Erste gegen letzte drei Jahre, vier Jahre auseinander.
+    expect(values.growth).toBeCloseTo((5.8 / 5.4) ** 0.25 - 1);
+    // Jedes Jahr gestiegen, aber der Bonus verlangt zehn Jahre.
+    expect(values["risk.earnings"]).toBe(0);
+    expect(values["risk.cashFlow"]).toBe(0);
+  });
+
+  it("gibt bei kurzer Reihe keinen Nachlass auf Schulden für stetige Gewinne", () => {
+    const indebted = (y: { netDebt: number | null }) => (y.netDebt = 3600);
+    const full = proposeInputs(stock, steadyYears(indebted), 1, 2026).values["risk.financing"]!;
+    const short = proposeInputs(stock, steadyYears(indebted).slice(3), 1, 2026).values["risk.financing"]!;
+    // Nettoschulden beim Sechsfachen des operativen Cashflows: voller Abzug 30 %, bei zehn stetig steigenden Jahren 40 % davon.
+    expect(full).toBeCloseTo(0.12);
+    expect(short).toBeCloseTo(0.3);
   });
 
   it("schlägt bei Finanzwerten Finanzierung, Kapitalrendite und Marge nicht vor und nimmt das Gewinnniveau als Deckel", () => {
@@ -367,10 +388,12 @@ describe("doubtfulNumbers", () => {
   it("begründet, warum Zahlen und Kurs nicht zusammenpassen", () => {
     const proposals = proposeInputs(stock, years, 1, 2026);
     expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBeNull();
-    // Kurs beim Doppelten des Gewinnniveaus; kleiner Rückfluss, damit nur diese Regel greift.
+    // Kurs beim Anderthalbfachen des Gewinnniveaus; kleiner Rückfluss, damit nur diese Regel greift.
     const earnings = proposals.details.earningsLevel!;
-    const cheap = evaluate(proposals.values, { payoutLevel: earnings * 0.1 }, earnings * 2);
-    expect(doubtfulNumbers(cheap, proposals)).toBe("Kurs ist nur das 2,0-Fache des Gewinnniveaus.");
+    const cheap = evaluate(proposals.values, { payoutLevel: earnings * 0.1 }, earnings * 1.5);
+    expect(doubtfulNumbers(cheap, proposals)).toBe("Kurs ist nur das 1,5-Fache des Gewinnniveaus.");
+    // Ein Kurs-Gewinn-Verhältnis von 3 und ein Viertel des Kurses als Rückfluss kommen vor (Höegh Autoliners).
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: earnings * 0.75 }, earnings * 3), proposals)).toBeNull();
     expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 20 }, 40), proposals)).toBe("Rückfluss ist 50 % des Kurses.");
   });
 

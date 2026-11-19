@@ -5,13 +5,16 @@ import {
   DEFAULT_RETURN_PARAMS,
   DEFAULT_SCENARIO_SPREAD,
   EXCLUSION_SCORE,
+  FULL_YEARS,
   hurdleRate,
+  MIN_YEARS,
   PROFILE_FOCUSED,
   PROFILE_GLOBAL,
   RISK_FACTOR_IDS,
   RISK_FACTORS,
 } from "../../calc/index.ts";
 import { BOND_KEY } from "../../valuation/portfolioRun.ts";
+import { REVIEW_MONTHS } from "../../valuation/review.ts";
 import { STRATEGY_CLAIM, STRATEGY_NAME } from "../brand.ts";
 import { percent } from "../format.ts";
 import { database } from "../server.ts";
@@ -79,6 +82,10 @@ export default function Strategy() {
             {whole(DEFAULT_GROWTH_PARAMS.inflationAllowance)} für Preissteigerungen), und {percent(DEFAULT_GROWTH_PARAMS.maxGrowth)} als
             feste Obergrenze. Über {DEFAULT_RETURN_PARAMS.fadeYears} Jahre schmilzt es auf höchstens{" "}
             {whole(DEFAULT_RETURN_PARAMS.maxTerminalGrowth)} ab, denn kein Unternehmen wächst auf Dauer schneller als die Wirtschaft.
+          </p>
+          <p>
+            Junge Börsenwerte mit weniger als {FULL_YEARS} Geschäftsjahren werden aus der kürzeren Reihe bewertet, sobald mindestens{" "}
+            {MIN_YEARS} Jahre vorliegen. Die Aktienseite weist darauf hin; einen Bonus oder Nachlass für stetige Gewinne gibt es dann nicht.
           </p>
           <p>
             Wer wächst, behält Gewinn ein. Flacht das Wachstum ab, wird dieser Gewinn frei: Die Rechnung lässt die Ausschüttungsquote über
@@ -176,6 +183,11 @@ export default function Strategy() {
               nachzukaufen, nicht zu verkaufen.
             </li>
             <li>Limits gelten beim Kauf. Eine Position, die durch Kursgewinne wächst, wird nicht gekürzt.</li>
+            <li>
+              Eine Bewertung trägt das Datum, an dem sie zuletzt gespeichert wurde. Nach {REVIEW_MONTHS} Monaten ist sie zu prüfen, und
+              früher, wenn sich Rückfluss oder Gewinnniveau seither um mehr als {whole(DEFAULT_SCENARIO_SPREAD.payoutFactor)} oder das
+              Wachstum um mehr als einen Prozentpunkt verschoben haben. Kleinere Verschiebungen deckt die Bandbreite ab.
+            </li>
           </ul>
           <div className="scroll">
             <table>

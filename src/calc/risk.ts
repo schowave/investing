@@ -195,14 +195,16 @@ export function proposeProfitability(ratio: number): number {
 
 /** Faktor 12. */
 export function proposeCashFlow(args: {
-  /** Jahre mit positivem freiem Cashflow, von zehn. */
+  /** Jahre mit positivem freiem Cashflow. */
   positiveFreeCashFlowYears: number;
+  /** Betrachtete Jahre, in der Regel zehn. Verlangt sind acht von zehn. */
+  years: number;
   /** Zahlt Dividende oder kauft netto Aktien zurück. */
   paysOut: boolean;
   dividendCutInLastTenYears: boolean;
 }): number {
   if (args.positiveFreeCashFlowYears === 0 && !args.paysOut) return 0.25;
-  if (args.positiveFreeCashFlowYears >= 8 && args.paysOut) return args.dividendCutInLastTenYears ? 0.05 : 0;
+  if (args.positiveFreeCashFlowYears >= 0.8 * args.years && args.paysOut) return args.dividendCutInLastTenYears ? 0.05 : 0;
   return 0.125;
 }
 

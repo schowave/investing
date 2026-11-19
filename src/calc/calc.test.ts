@@ -137,6 +137,17 @@ describe("Eingaben", () => {
     expect(historicalGrowth([-1, -1, -1, -1, -1, 1, 1, 1, 1, 1])).toBeNull();
   });
 
+  it("rechnet mit fünf bis neun Jahren aus den beiden Hälften der Reihe", () => {
+    // Sieben Jahre mit 10 % Wachstum: erste gegen letzte drei Jahre, vier Jahre auseinander.
+    const seven = Array.from({ length: 7 }, (_, i) => 1.1 ** i);
+    expect(historicalGrowth(seven)!).toBeCloseTo(0.1);
+    // Die Mitte der Reihe liegt dreieinhalb Jahre zurück.
+    const average = seven.reduce((sum, v) => sum + v, 0) / 7;
+    expect(levelFromAverage(seven, 10)!).toBeCloseTo(average * 1.35);
+    expect(earningsLevel([1, 2, 1.5, 2.5, 2])).toBeLessThanOrEqual(2.5);
+    expect(() => historicalGrowth([1, 2, 3, 4])).toThrow("Erwartet 5 bis 10 Geschäftsjahre");
+  });
+
   it("nimmt die letzte Dividende, wenn sie nie gesenkt wurde, sonst höchstens die letzte", () => {
     expect(dividendLevel([1, 1, 1.1, 1.2, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7])).toBe(1.7);
     expect(dividendLevel([2, 2, 2, 2, 2, 2, 2, 2, 2, 1])).toBe(1);
@@ -284,9 +295,12 @@ describe("Risiko", () => {
     expect(proposeProfitability(0.25)).toBe(-0.05);
     expect(proposeProfitability(0.075)).toBeCloseTo(0.075);
     expect(proposeProfitability(0.02)).toBeCloseTo(0.15);
-    expect(proposeCashFlow({ positiveFreeCashFlowYears: 10, paysOut: true, dividendCutInLastTenYears: false })).toBe(0);
-    expect(proposeCashFlow({ positiveFreeCashFlowYears: 10, paysOut: true, dividendCutInLastTenYears: true })).toBe(0.05);
-    expect(proposeCashFlow({ positiveFreeCashFlowYears: 0, paysOut: false, dividendCutInLastTenYears: false })).toBe(0.25);
+    expect(proposeCashFlow({ positiveFreeCashFlowYears: 10, years: 10, paysOut: true, dividendCutInLastTenYears: false })).toBe(0);
+    expect(proposeCashFlow({ positiveFreeCashFlowYears: 10, years: 10, paysOut: true, dividendCutInLastTenYears: true })).toBe(0.05);
+    expect(proposeCashFlow({ positiveFreeCashFlowYears: 0, years: 10, paysOut: false, dividendCutInLastTenYears: false })).toBe(0.25);
+    // Acht von zehn Jahren, bei kürzerer Reihe derselbe Anteil.
+    expect(proposeCashFlow({ positiveFreeCashFlowYears: 6, years: 7, paysOut: true, dividendCutInLastTenYears: false })).toBe(0);
+    expect(proposeCashFlow({ positiveFreeCashFlowYears: 5, years: 7, paysOut: true, dividendCutInLastTenYears: false })).toBe(0.125);
     expect(proposeCurrency("gbp")).toBe(0);
     expect(proposeCurrency("KZT")).toBe(0.1);
   });

@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { EXCLUSION_SCORE } from "../calc/index.ts";
+import { needsReview } from "../valuation/review.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { STRATEGY_NAME } from "./brand.ts";
 import { isoDate } from "./format.ts";
@@ -19,14 +20,15 @@ export const dynamic = "force-dynamic";
 export default function RootLayout({ children }: { children: ReactNode }) {
   const db = database();
   const watchlist = db.stocks();
-  // Dieselbe Zählung wie auf der Rangliste: unvollständig bewertet und nicht wegen des Risikos ausgeschlossen.
+  // Dieselbe Zählung wie auf der Rangliste: unvollständig bewertet und nicht wegen des Risikos ausgeschlossen, dazu
+  // fertige Bewertungen, die wieder anzusehen sind.
   const open = watchlist.filter((stock) => {
-    const { valuation } = computeValuation(db, stock, today());
-    return !valuation.complete && valuation.riskScore < EXCLUSION_SCORE;
+    const { valuation, review } = computeValuation(db, stock, today());
+    return valuation.complete ? needsReview(review) : valuation.riskScore < EXCLUSION_SCORE;
   }).length;
   const lastSync = db.latestSyncRun();
   const items: NavItem[] = [
-    { href: "/", label: "Rangliste", count: open, countLabel: "offene Bewertungen" },
+    { href: "/", label: "Rangliste", count: open, countLabel: "offene oder zu prüfende Bewertungen" },
     { href: "/portfolio", label: "Portfolios" },
     { href: "/vorrat", label: "Datenvorrat" },
     { href: "/abgleich", label: "Abgleich", count: db.activeJobs().length, countLabel: "laufende oder wartende Läufe" },

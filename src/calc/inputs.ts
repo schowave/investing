@@ -1,14 +1,19 @@
 // Vorschläge für die Eingaben (Spezifikation Abschnitt 5).
-// Alle Reihen sind Geschäftsjahre, ältestes zuerst, und müssen zehn Werte haben.
+// Alle Reihen sind Geschäftsjahre, ältestes zuerst: zehn Werte, bei jüngeren Unternehmen mindestens fünf.
 
-const YEARS = 10;
+/** Volle Reihe (Buch Kap. 5.2). */
+export const FULL_YEARS = 10;
+/** Aus weniger Jahren lässt sich weder ein Niveau noch ein Wachstum ablesen. */
+export const MIN_YEARS = 5;
 
 function mean(values: readonly number[]): number {
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-function requireTenYears(series: readonly number[]): void {
-  if (series.length !== YEARS) throw new Error(`Erwartet ${YEARS} Geschäftsjahre, erhalten ${series.length}`);
+function requireYears(series: readonly number[]): void {
+  if (series.length < MIN_YEARS || series.length > FULL_YEARS) {
+    throw new Error(`Erwartet ${MIN_YEARS} bis ${FULL_YEARS} Geschäftsjahre, erhalten ${series.length}`);
+  }
 }
 
 /**
@@ -29,26 +34,33 @@ export function dividendWasCut(dividendsPerShare: readonly number[]): boolean {
   return !neverFalls(dividendsPerShare, false);
 }
 
-/** Wachstum aus dem Vergleich der ersten und letzten fünf Jahre; `null`, wenn nicht bestimmbar. */
+/**
+ * Wachstum aus dem Vergleich der ersten und der letzten Hälfte der Reihe (bei zehn Jahren je fünf, fünf Jahre
+ * auseinander); `null`, wenn nicht bestimmbar. Bei ungerader Länge bleibt das mittlere Jahr außen vor.
+ */
 export function historicalGrowth(series: readonly number[]): number | null {
-  requireTenYears(series);
-  const early = mean(series.slice(0, 5));
-  const late = mean(series.slice(5));
+  requireYears(series);
+  const half = Math.floor(series.length / 2);
+  const early = mean(series.slice(0, half));
+  const late = mean(series.slice(-half));
   if (!(early > 0) || !(late > 0)) return null;
-  return (late / early) ** (1 / 5) - 1;
+  return (late / early) ** (1 / (series.length - half)) - 1;
 }
 
-/** Niveau aus dem Durchschnitt der letzten 10 oder 5 Jahre, hochgerechnet mit dem Wachstum. */
+/**
+ * Niveau aus dem Durchschnitt der ganzen Reihe (`10`) oder der letzten fünf Jahre (`5`), hochgerechnet mit dem
+ * Wachstum. Die Mitte der Reihe liegt eine halbe Länge zurück (bei zehn Jahren fünf).
+ */
 export function levelFromAverage(series: readonly number[], years: 10 | 5): number | null {
   const growth = historicalGrowth(series);
   if (growth === null) return null;
-  return years === 10 ? mean(series) * (1 + growth * 5) : mean(series.slice(5)) * (1 + growth * 2);
+  return years === 10 ? mean(series) * (1 + (growth * series.length) / 2) : mean(series.slice(-5)) * (1 + growth * 2);
 }
 
 /** Gewinnniveau je Aktie. */
 export function earningsLevel(earningsPerShare: readonly number[]): number | null {
-  requireTenYears(earningsPerShare);
-  if (neverFalls(earningsPerShare, true)) return earningsPerShare[YEARS - 1]!;
+  requireYears(earningsPerShare);
+  if (neverFalls(earningsPerShare, true)) return earningsPerShare.at(-1)!;
   const fromTen = levelFromAverage(earningsPerShare, 10);
   const fromFive = levelFromAverage(earningsPerShare, 5);
   if (fromTen === null || fromFive === null) return null;
@@ -58,8 +70,8 @@ export function earningsLevel(earningsPerShare: readonly number[]): number | nul
 
 /** Dividendenniveau je Aktie (ohne Sonderdividenden). */
 export function dividendLevel(dividendsPerShare: readonly number[]): number {
-  requireTenYears(dividendsPerShare);
-  const last = dividendsPerShare[YEARS - 1]!;
+  requireYears(dividendsPerShare);
+  const last = dividendsPerShare.at(-1)!;
   if (neverFalls(dividendsPerShare, false)) return last;
   const fromTen = levelFromAverage(dividendsPerShare, 10) ?? mean(dividendsPerShare);
   // Bei stark fallender Reihe wird die Hochrechnung negativ; eine Dividende ist nie kleiner als 0.

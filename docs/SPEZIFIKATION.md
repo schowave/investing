@@ -13,12 +13,13 @@ Anlageberatung; alle Bewertungen beruhen auf den Annahmen der Nutzer.
 
 ## 2. Quellen und ihr Gewicht
 
-| Quelle                                                                                                                    | Inhalt                                                                                                                   | Verwendung                                           |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| Folien „Yield Investing" (15.11.2026)                                                                                     | Innere Rendite per invertiertem DCF, Ausfallwahrscheinlichkeit, Ranking, Beispiel Imperial Brands                        | Maßgeblich für Kennzahl und Auswahl                  |
-| Buch, Stefan Meißner, „Langfristige Vermögensvermehrung mit wertorientierten Investments" (PDF, Stand 2012), Kap. 5 und 6 | Gewinn- und Dividendenniveau, Wachstum, Risikoraster, Positionslimit, Streuung, Umschichtung                             | Maßgeblich für Eingaben, Risiko und Portfolio-Regeln |
-| Wikifolio-Handelsideen (FocusedYieldInvesting, Global Yield Investing)                                                    | Zwei Portfolio-Profile, Risiko bestimmt Abschlag und Positionsgröße                                                      | Bestätigung, Grundlage der Profile                   |
-| Interview mit dem Autor (Podcast „Bulle & Mensch“, Mitschrift in `docs/Interview.md`)                                     | Rückflüsse in zwei Phasen, Auswahl nach Rang ohne Renditeziel, kein Bargeld, Größenordnung der Ausfallwahrscheinlichkeit | Maßgeblich für Abschnitt 4.3 und 7.1                 |
+| Quelle                                                                                                                    | Inhalt                                                                                                                   | Verwendung                                                        |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Folien „Yield Investing" (19.11.2026)                                                                                     | Innere Rendite per invertiertem DCF, Ausfallwahrscheinlichkeit, Ranking, Beispiel Imperial Brands                        | Maßgeblich für Kennzahl und Auswahl                               |
+| Buch, Stefan Meißner, „Langfristige Vermögensvermehrung mit wertorientierten Investments" (PDF, Stand 2012), Kap. 5 und 6 | Gewinn- und Dividendenniveau, Wachstum, Risikoraster, Positionslimit, Streuung, Umschichtung                             | Maßgeblich für Eingaben, Risiko und Portfolio-Regeln              |
+| Wikifolio-Handelsideen (FocusedYieldInvesting, Global Yield Investing)                                                    | Zwei Portfolio-Profile, Risiko bestimmt Abschlag und Positionsgröße                                                      | Bestätigung, Grundlage der Profile                                |
+| Interview mit dem Autor (Podcast „Bulle & Mensch“, Mitschrift in `docs/Interview.md`)                                     | Rückflüsse in zwei Phasen, Auswahl nach Rang ohne Renditeziel, kein Bargeld, Größenordnung der Ausfallwahrscheinlichkeit | Maßgeblich für Abschnitt 4.3 und 7.1                              |
+| Gespräch mit dem Autor (Börsenradio, „Wikifolio-Trader der Woche“, Mitschrift in `docs/podcast.md`)                       | Positionen mit Zahlen: Höegh Autoliners, Safe Bulkers, Lion Finance, Stalexport; Risikomerkmale; Tenge-Inflation         | Prüfsteine für Abschnitt 5 (kurze Historie) und 9 (Plausibilität) |
 
 Wo die Quellen keine Zahl nennen, steht eine eigene Annahme. Alle eigenen Annahmen sind in
 Abschnitt 12 gesammelt und in der Anwendung als Einstellungen änderbar.
@@ -123,7 +124,11 @@ der manuelle Wert, wenn er gesetzt ist; die Oberfläche zeigt immer, welcher gil
 Fundamentaldaten ändern nur den Vorschlag und erzeugen einen Hinweis, sie überschreiben nie
 einen manuellen Wert.
 
-Grundlage sind zehn Geschäftsjahre je Aktie (Buch Kap. 5.2).
+Grundlage sind zehn Geschäftsjahre je Aktie (Buch Kap. 5.2). Jüngere Börsenwerte werden aus der kürzeren Reihe bewertet,
+sobald fünf Jahre vorliegen (der Autor hält mit Höegh Autoliners und Kaspi solche Titel): Das Wachstum vergleicht dann die
+erste mit der letzten Hälfte der Reihe, das Niveau rechnet den Durchschnitt um die halbe Länge der Reihe hoch. Die
+Bewertung nennt die kürzere Reihe. Was Stetigkeit über zehn Jahre belegen soll, entfällt: der Bonus in Faktor 1 und der
+Nachlass in Faktor 2.
 
 **Wachstum der Vergangenheit** (für Gewinn, Dividende, Umsatz je Aktie gleich):
 `g = (Durchschnitt der letzten 5 Jahre / Durchschnitt der ersten 5 Jahre)^(1/5) − 1`
@@ -210,7 +215,7 @@ Zwischen den Stützpunkten wird linear interpoliert.
 | 6   | Sitz in Europa, Nordamerika, Japan 0 %; sonst 12,5 % als Ausgangswert zur manuellen Anpassung                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 8   | ≥ 10 % 0 %; ≤ 5 % 15 %; ≥ 20 % Bonus 5 % (EBIT / (Bilanzsumme − Zahlungsmittel))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 9   | ≥ 10 % 0 %; ≤ 5 % 15 %; ≥ 20 % Bonus 5 %                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| 12  | Freier Cashflow in mindestens 8 von 10 Jahren positiv und Ausschüttung (Dividende oder Netto-Rückkäufe) ohne Kürzung 0 %; mit Dividendenkürzung in den letzten 10 Jahren 5 %; weder freier Cashflow noch Ausschüttung 25 %; alle übrigen Fälle 12,5 %. Bei Banken und Versicherern zählen statt des freien Cashflows die Gewinnjahre                                                                                                                                                                                                                                                                                                                                                                         |
+| 12  | Freier Cashflow in mindestens 8 von 10 Jahren (bei kürzerer Reihe in 80 % der Jahre) positiv und Ausschüttung (Dividende oder Netto-Rückkäufe) ohne Kürzung 0 %; mit Dividendenkürzung in den letzten 10 Jahren 5 %; weder freier Cashflow noch Ausschüttung 25 %; alle übrigen Fälle 12,5 %. Bei Banken und Versicherern zählen statt des freien Cashflows die Gewinnjahre                                                                                                                                                                                                                                                                                                                                  |
 | 14  | Berichtswährung EUR, USD, CHF, GBP, JPY 0 %; sonst 10 %                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ### 6.3 Klassen und Ausfallwahrscheinlichkeit
@@ -324,9 +329,24 @@ Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 | Auslöser                                         | Was passiert                                                                                       |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | Täglich nach Börsenschluss                       | Kurse und Wechselkurse laden, innere Renditen und Zielportfolios neu rechnen, Tagesstand speichern |
-| Neue Fundamentaldaten                            | Vorschläge neu rechnen; Hinweis „Vorschlag hat sich geändert" bei abweichendem Vorschlag           |
-| Bewertung älter als 12 Monate                    | Aufgabe „Bewertung überfällig"                                                                     |
+| Neue Fundamentaldaten                            | Vorschläge neu rechnen; Hinweis „prüfen“, wenn sie sich seit der Bewertung verschoben haben (8.1)  |
+| Bewertung älter als 12 Monate                    | Hinweis „prüfen“ auf Rangliste und Aktienseite; der Titel bleibt zulässig                          |
 | Fehlender manueller Faktor oder fehlende Eingabe | Aufgabe „Bewertung unvollständig"                                                                  |
+
+### 8.1 Bewertung prüfen
+
+Der Autor versieht jede Bewertung mit einem Datum und gleicht monatlich ab, ob sich die Zahlen seither verschoben haben:
+Bei wenigen Prozent bleibt sie stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an (Interview).
+
+- Tag der Bewertung ist der Tag, an dem zuletzt eine Eingabe von Hand gespeichert wurde. Speichern ohne Änderung bestätigt
+  die Bewertung mit dem heutigen Datum und hält die Vorschläge dieses Tages als Tagesstand fest.
+- Zu prüfen ist eine vollständige Bewertung, wenn sie älter als zwölf Monate ist oder wenn sich die Vorschläge aus den
+  Zahlen gegenüber dem Tagesstand vom Tag der Bewertung über die Bandbreite (4.1) hinaus verschoben haben: Rückfluss- oder
+  Gewinnniveau um mehr als 10 %, Wachstum um mehr als einen Prozentpunkt, Summe der Risikofaktoren aus Zahlen um mehr als
+  fünf Punkte. Auch eine geänderte Rechenregel verschiebt Vorschläge und löst den Hinweis aus.
+- Rangliste, Aktienseite und der Zähler in der Navigation zeigen den Hinweis; die Aktienseite nennt, was sich verschoben
+  hat. Der Titel bleibt Kandidat.
+- Analystenschätzungen gehen nicht ein (Abschnitt 13).
 
 Der tägliche Abgleich läuft mit `mise run sync`. Er holt Kurse ab dem letzten gespeicherten Tag
 (höchstens ein Jahr zurück), sodass nach einer Pause keine Lücke bleibt, und richtet sich nach dem
@@ -349,7 +369,7 @@ Backtest gibt es nicht.
 - Kurse: Tagesschlusskurse von EODHD. Sperrt der Tarif die Kurshistorie (Tarif „Fundamentals"), liefert die Symbolsuche den letzten Schlusskurs; das kostet ebenfalls einen Abruf je Aktie.
 - Gewinn je Aktie wird aus Jahresüberschuss und Aktienzahl gerechnet, die Dividende je Aktie aus gezahlter Dividendensumme und Aktienzahl. Die fertigen Felder des Anbieters mischen außerhalb der USA Einheiten. Die so gerechnete Dividende schwankt leicht; ein Rückgang bis 3 % gilt nicht als Kürzung.
 - Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und aktienbasierte Vergütung zählen als 0. Fehlen Gewinn oder Aktienzahl in einem der zehn Jahre, gibt es keinen Vorschlag.
-- Titel mit weniger als zehn Geschäftsjahren werden markiert und nicht stillschweigend bewertet.
+- Titel mit fünf bis neun Geschäftsjahren werden aus der kürzeren Reihe bewertet und markiert (Abschnitt 5); unter fünf Jahren gibt es keinen Vorschlag.
 - Wechselkurse: EZB-Referenzkurse. Währungen, die die EZB nicht führt (Tenge bei Halyk), kommen von open.er-api.com (frei mit Quellenangabe). Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose.
 - Fundamentaldaten je Aktie und Geschäftsjahr: Gewinn je Aktie, Dividende je Aktie, Aktienzahl, Rückkäufe und Ausgabe von Aktien, aktienbasierte Vergütung, Umsatz, EBIT, Bilanzsumme, Eigenkapital, Umlaufvermögen, kurzfristige Verbindlichkeiten, langfristiges Fremdkapital, Zahlungsmittel, operativer Cashflow, freier Cashflow.
 - Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr. Im Datenvorrat kommen sie ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse). Das Gründungsjahr wird aus dem Beschreibungstext gelesen; fehlt es dort und reichen die Abschlüsse 20 Jahre zurück, gilt die Existenzdauer als erfüllt.
@@ -360,7 +380,7 @@ Backtest gibt es nicht.
 - Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
 
 - Einzelne Titel außerhalb der Indizes werden über ihre ISIN geladen (`pnpm run import:isin`) und kommen auf die Watchlist. Die Positionen der Wikifolios stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht automatisch abrufen; die Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
-- Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle. Dieselbe Prüfung markiert Titel der Watchlist und gehaltene Titel: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen den Grund.
+- Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 30 % des Kurses oder deren Kurs unter dem Doppelten des Gewinnniveaus liegt. Die früheren Schwellen (20 % und das Dreifache) trafen, was der Autor als Gelegenheit nennt: Petrobras, Halyk und Stalexport mit rund 20 % Ausschüttung, Höegh Autoliners mit über 25 % und einem Kurs beim Dreifachen des Gewinns. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle. Dieselbe Prüfung markiert Titel der Watchlist und gehaltene Titel: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen den Grund.
 
 - Mit einem Tarif, der Kursdaten enthält, kommen dazu (`pnpm run import:history`, drei Abrufe je Aktie): die Dividendenhistorie je Aktie, Aktiensplits und Monatsschlusskurse seit 1990. Die Bewertung nimmt die Dividenden dann aus der Historie (ohne Sonderzahlungen, nach Kalenderjahr des Ex-Tags), sofern sie zur Rechnung aus gezahlter Summe und Aktienzahl passt (Abstand höchstens Faktor 2). Passt sie nicht und entspricht der Abstand einem Aktiensplit, gelten die Zahlen je Aktie als nicht bereinigt und der Titel wird im Screening ausgeblendet. Die Monatskurse sind für einen späteren Rückblick gespeichert und werden noch nicht ausgewertet.
 - Mit großem Tagesbudget holt der Abgleich die Schlusskurse je Börse in einem Sammelabruf (zählt als 100 Abrufe), sobald dort mindestens 150 Titel anstehen.
@@ -389,15 +409,15 @@ Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Ta
 
 Seiten:
 
-| Seite         | Inhalt                                                                                                                                  |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Rangliste     | Watchlist nach innerer Rendite, mit Risikoklasse, Limit und Status der Bewertung                                                        |
-| Aktie         | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen                        |
-| Portfolio     | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
-| Datenvorrat   | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist                              |
-| Aufgaben      | überfällige und unvollständige Bewertungen, geänderte Vorschläge                                                                        |
-| Strategie     | Regeln, Risikoraster, Profile, Grenzen und Herkunft                                                                                     |
-| Einstellungen | Profile und alle Parameter aus Abschnitt 12                                                                                             |
+| Seite         | Inhalt                                                                                                                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rangliste     | Watchlist nach innerer Rendite, mit Risikoklasse, Limit und Status der Bewertung                                                                                                                                            |
+| Aktie         | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen                                                                                                            |
+| Portfolio     | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, innere Rendite von Bestand und Ziel im Schnitt (nach Wert gewichtet, ohne Bargeld), Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
+| Datenvorrat   | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist                                                                                                                  |
+| Aufgaben      | keine eigene Seite: unvollständige und zu prüfende Bewertungen stehen in der Rangliste und im Zähler der Navigation                                                                                                         |
+| Strategie     | Regeln, Risikoraster, Profile, Grenzen und Herkunft                                                                                                                                                                         |
+| Einstellungen | Profile und alle Parameter aus Abschnitt 12                                                                                                                                                                                 |
 
 Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i Group,
 Universal Health Services, BASF.
@@ -450,6 +470,9 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 | Tauschschwelle                                                                  | 1 und 2 Prozentpunkte                                                                                                     | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"                                  |
 | Mindestposition                                                                 | 3 % und 2 %                                                                                                               | Buch nennt einen Mindestanteil ohne Zahl                                                  |
 | Überfällige Bewertungen bleiben zulässig                                        | –                                                                                                                         | Buch verlangt die jährliche Prüfung, nennt keine Folge                                    |
+| Schwellen für „Bewertung prüfen“                                                | Bandbreite aus 4.1, beim Risiko aus Zahlen fünf Punkte                                                                    | Interview nennt „plus minus wenige Prozent“, keine Zahl                                   |
+| Mindesthistorie                                                                 | fünf Geschäftsjahre                                                                                                       | Buch verlangt zehn; der Autor hält jüngere Börsenwerte                                    |
+| Schwellen der Plausibilitätsprüfung                                             | Rückfluss über 30 % des Kurses, Kurs unter dem Doppelten des Gewinnniveaus                                                | im Datenvorrat liegen darüber fast nur Vorzugspapiere und Hinterlegungsscheine            |
 | Stufen der Urteilsfaktoren für Jev                                              | Abschnitt 6.4                                                                                                             | Buch nennt nur Höchstabzug und Anforderung; geeicht an seinen Beispielen                  |
 
 ## 13. Offen
@@ -460,6 +483,11 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 - **Kalibrierung der Ausfallwahrscheinlichkeit** an historischen Ausfallraten nach Bonitätsklasse.
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.
 - **Treffsicherheit von Jev:** Vorschläge an Titeln prüfen, deren späterer Verlauf bekannt ist; die Sicherheit laut Jev ist nicht an echten Ergebnissen geeicht.
+- **Basislimits gegen die Wikifolios:** Die Folien (Stand 23.11.26) zeigen im globalen Depot drei Positionen über dem Basislimit von 6,5 % (Comcast 8,7 %, Charter 8,3 %, Universal Health 7,8 %) und im fokussierten Charter mit 15,8 %. Mit dem Buchwert von 12,5 % träfe das Limit Comcast und Charter fast genau. Der Autor füllt aber nur die oberen Positionen auf; unser Verfahren füllt jede bis zum Limit und käme dann auf halb so viele Titel.
+- **Wachstum ohne Vorschlag:** Bei negativem oder nicht bestimmbarem Gewinnwachstum (Höegh Autoliners, Stalexport, Safe Bulkers) bleibt das Wachstum von Hand zu setzen; bis dahin gibt es keine Rendite und keinen Rang.
+- **Zykliker im Risikoraster:** Safe Bulkers kommt allein aus Zahlen auf 68 % und fiele mit jedem Abzug im Urteil über 75 %; der Autor hält den Titel.
+- **Unternehmen ohne Ausschüttung:** Der Autor bewertet sie über den Gewinn und eine spätere Ausschüttung; bei Rückfluss 0 rechnet die Anwendung keine Rendite.
+- **Analystenschätzungen:** Der Autor stützt Niveau und monatlichen Abgleich auf Schätzungen; die Anwendung rechnet nur aus Abschlüssen.
 - **Vergleichsmaßstab:** Abstand der inneren Rendite zur Anleiherendite und zu einem Weltindex anzeigen.
 
 ## 14. Nicht in Version 1

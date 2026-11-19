@@ -7,6 +7,7 @@ import { JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
 import { currentProposals } from "../judgement/factors.ts";
 import { judgeStock } from "../judgement/judge.ts";
+import { valueStock } from "../valuation/run.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
 import { database, today } from "./server.ts";
 
@@ -14,7 +15,8 @@ import { database, today } from "./server.ts";
 export async function saveInputs(stockId: string, form: FormData): Promise<void> {
   const db = database();
   const page = `/aktie/${encodeURIComponent(stockId)}`;
-  if (!db.stock(stockId)) redirect("/");
+  const stock = db.stock(stockId);
+  if (!stock) redirect("/");
 
   const updates: { key: string; value: number | null }[] = [];
   for (const key of INPUT_KEYS) {
@@ -41,6 +43,8 @@ export async function saveInputs(stockId: string, form: FormData): Promise<void>
     const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
     db.setManualInput(stockId, key, value, fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : (before?.note ?? ""));
   }
+  // Der Tagesstand hält fest, auf welchen Vorschlägen die Bewertung steht; daran misst sich später, was sich verschoben hat.
+  valueStock(db, stock, today());
   revalidatePath("/");
   revalidatePath(page);
   redirect(`${page}?gespeichert=1`);
