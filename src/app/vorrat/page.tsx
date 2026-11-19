@@ -98,7 +98,7 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
                     </small>
                   </td>
                   <td className="num">
-                    <span className="yield">{percent(row.innerReturn)}</span>
+                    <span className="return">{percent(row.innerReturn)}</span>
                     {row.implausible && <small>unplausibel</small>}
                   </td>
                   <td className="num">

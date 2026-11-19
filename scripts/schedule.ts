@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import { join } from "node:path";
 
-const LABEL = "de.yield-investing.sync";
+const LABEL = "de.schowave.investing.sync";
 const plistPath = join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
 const domain = `gui/${userInfo().uid}`;
 const project = process.cwd();

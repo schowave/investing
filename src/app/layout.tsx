@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { STRATEGY_NAME } from "./brand.ts";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Yield Investing", description: "Rangliste nach innerer Rendite" };
+export const metadata: Metadata = { title: STRATEGY_NAME, description: "Aktien nach innerer Rendite und Risiko ordnen" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,12 +12,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <header className="masthead">
           <Link href="/" className="brand">
-            Yield Investing
+            {STRATEGY_NAME}
           </Link>
           <nav>
             <Link href="/">Rangliste</Link>
             <Link href="/portfolio">Portfolios</Link>
             <Link href="/vorrat">Datenvorrat</Link>
+            <Link href="/strategie">Strategie</Link>
           </nav>
         </header>
         <main>{children}</main>

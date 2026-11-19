@@ -32,8 +32,8 @@ export default function Ranking() {
     <>
       <h1>Rangliste</h1>
       <p className="lede">
-        Watchlist nach innerer Rendite. Solange Eingaben offen sind, ist die Rendite vorläufig und der Risikowert eine
-        Untergrenze. Kurse vom {isoDate(priceDates.at(-1) ?? null)}.
+        Die Watchlist, geordnet nach dem, was im heutigen Kurs an Rendite steckt. Solange Eingaben offen sind, ist die
+        Rendite vorläufig und der Risikowert eine Untergrenze. Kurse vom {isoDate(priceDates.at(-1) ?? null)}.
       </p>
       <p className="meta">
         {lastSync
@@ -75,7 +75,7 @@ export default function Ranking() {
                     </small>
                   </td>
                   <td className="num">
-                    <span className="yield">{percent(base)}</span>
+                    <span className="return">{percent(base)}</span>
                     {v.returns && (
                       <small>
                         {percent(v.returns.cautious)} bis {percent(v.returns.optimistic)}

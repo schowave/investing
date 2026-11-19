@@ -1,4 +1,4 @@
-# Spezifikation: Yield-Investing-Werkzeug
+# Spezifikation: Strategie „Rückflussrendite"
 
 Stand: 19.11.2026. Status: abgestimmt.
 
@@ -290,6 +290,7 @@ Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Ta
 - Bewertungen (Annahmen, Risikofaktoren) sind für alle Nutzer gemeinsam. Portfolios gehören einem Nutzer; jeder kann mehrere führen.
 - Technik: Next.js und TypeScript, SQLite, ein Container; zuerst lokal, später auf einem kleinen Server.
 - Das Rechenmodul (innere Rendite, Vorschläge, Risikowert, Zielportfolio) ist ein eigenes Modul ohne Datenbank- und Netzwerkzugriff.
+- Die Oberfläche tritt als eigene Strategie „Rückflussrendite" auf (Name in `src/app/brand.ts`). Die Seite „Strategie" erklärt die Regeln in eigenen Worten, nennt die Herkunft und die eigenen Abweichungen und zieht alle Zahlen aus den Parametern des Rechenmoduls.
 - Oberfläche auf Deutsch mit den Begriffen aus Abschnitt 3 und einem festen Hinweis, dass die Seite keine Anlageberatung ist.
 
 Seiten:
@@ -301,6 +302,7 @@ Seiten:
 | Portfolio | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
 | Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist |
 | Aufgaben | überfällige und unvollständige Bewertungen, geänderte Vorschläge |
+| Strategie | Regeln, Risikoraster, Profile, Grenzen und Herkunft |
 | Einstellungen | Profile und alle Parameter aus Abschnitt 12 |
 
 Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i Group,

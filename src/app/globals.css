@@ -58,8 +58,8 @@ tbody tr:hover td { background: var(--surface); }
 td small, .sub { display: block; color: var(--muted); font-size: 12px; }
 .name { font: 600 16px/1.25 "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; text-decoration: none; }
 .name:hover { text-decoration: underline; }
-.yield { font-weight: 700; font-size: 16px; color: var(--accent); }
-.below .yield { color: var(--muted); }
+.return { font-weight: 700; font-size: 16px; color: var(--accent); }
+.below .return { color: var(--muted); }
 tr.threshold td { padding: 4px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--warn); background: var(--warn-soft); border-bottom: 1px solid var(--warn); }
 
 .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
@@ -110,3 +110,10 @@ button.danger:hover { background: var(--bad); color: var(--paper); }
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 6px; margin-right: 6px; background: var(--muted); vertical-align: middle; }
 .legend span.target::before { background: var(--accent); }
 .columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 40px; }
+
+.prose { max-width: 68ch; }
+.prose p { margin: 0 0 14px; }
+.prose ul { margin: 0 0 14px; padding-left: 20px; }
+.prose li { margin-bottom: 6px; }
+.formula { font: 15px/1.5 ui-monospace, "SF Mono", Menlo, monospace; padding: 10px 14px; margin: 0 0 14px; background: var(--surface); border-left: 3px solid var(--accent); overflow-x: auto; white-space: nowrap; }
+.claim { font-size: 19px; font-style: italic; color: var(--muted); margin: 0 0 24px; max-width: 60ch; }
