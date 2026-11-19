@@ -11,7 +11,7 @@ const holder = globalThis as { investingDb?: Database };
 export function database(): Database {
   if (!(holder.investingDb instanceof Database)) {
     try {
-      holder.investingDb?.close();
+      (holder.investingDb as { close?: () => void } | undefined)?.close?.();
     } catch {
       // Die alte Verbindung war schon geschlossen.
     }
