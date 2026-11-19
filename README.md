@@ -149,6 +149,7 @@ LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀─────�
 | --------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `mise run deploy:lxc`                   | LXC einmalig anlegen und einrichten (SSH-Schlüssel `~/.ssh/pve_ed25519`)                   |
 | `mise run deploy:env`                   | Zugangsdaten aus `.env.local` in den LXC kopieren                                          |
+| `mise run deploy:config`                | Betriebsdateien von `main` neu einspielen (macht sonst der Update-Timer aus dem Image)     |
 | `mise run deploy:db`                    | Lokale Datenbank konsistent kopieren und einspielen (die dortige bleibt als `.vor-import`) |
 | `mise run deploy:status`                | `/healthz`, Timer und die letzten Updates und Abgleiche                                    |
 | `mise run docker:build`, `docker:smoke` | Image lokal bauen und mit leerer Datenbank testen                                          |

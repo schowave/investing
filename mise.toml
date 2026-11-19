@@ -176,6 +176,14 @@ scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes deploy/proxmox/create-lxc.sh "$PVE_H
 ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "CTID=$INVESTING_CTID bash /tmp/investing-create-lxc.sh && rm /tmp/investing-create-lxc.sh"
 '''
 
+[tasks."deploy:config"]
+description = "Betriebsdateien (compose.yaml, Units, Update-Skript) von main neu in den LXC einspielen; sonst macht das der Update-Timer"
+run = '''
+ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "pct exec $INVESTING_CTID -- bash -euc '
+  rm -rf /tmp/investing && git clone -q --depth 1 https://github.com/schowave/investing.git /tmp/investing
+  bash /tmp/investing/deploy/lxc/install.sh && rm -rf /tmp/investing'"
+'''
+
 [tasks."deploy:env"]
 description = "Zugangsdaten aus .env.local als /opt/investing/.env in den LXC kopieren und neu starten"
 run = '''
