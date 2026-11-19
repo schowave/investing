@@ -17,7 +17,7 @@ const RETURN_OPTIONS = [
   { value: "0.15", label: "Rendite bis 15 %" },
 ];
 
-export default async function Stockpile(props: { searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string }> }) {
+export default async function Stockpile(props: { searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string; alle?: string }> }) {
   const params = await props.searchParams;
   const query = (params.q ?? "").trim();
   const region = params.region ?? "";
@@ -25,19 +25,21 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
   const maxReturn = RETURN_OPTIONS.some((o) => o.value === params.rendite) && params.rendite ? Number(params.rendite) : undefined;
   const db = database();
 
-  const ranked = db.screening({ query: query || undefined, region: region || undefined, maxRisk, maxReturn }, LIMIT);
+  const includeImplausible = params.alle === "1";
+  const ranked = db.screening({ query: query || undefined, region: region || undefined, maxRisk, maxReturn, includeImplausible }, LIMIT);
   // Titel ohne berechenbare Rendite (kein Kurs, zu wenige Jahre) erscheinen nur bei einer Suche.
   const rankedIds = new Set(ranked.map((r) => r.stock.id));
   const others = query.length >= 2 ? db.searchStocks(query, 40).filter((h) => !rankedIds.has(h.stock.id)) : [];
-  const returnTo = `/vorrat?${new URLSearchParams({ q: query, region, risiko: params.risiko ?? "", rendite: params.rendite ?? "" })}`;
+  const returnTo = `/vorrat?${new URLSearchParams({ q: query, region, risiko: params.risiko ?? "", rendite: params.rendite ?? "", alle: params.alle ?? "" })}`;
 
   return (
     <>
       <h1>Datenvorrat</h1>
       <p className="lede">
         Alle gespeicherten Titel nach vorläufiger innerer Rendite. Sie beruht allein auf den automatischen Vorschlägen;
-        die sechs Risikofaktoren von Hand fehlen, der Risikowert ist deshalb eine Untergrenze. Sehr hohe Renditen sind
-        meist Datenfehler oder Sonderfälle und kein Kaufsignal.
+        die sechs Risikofaktoren von Hand fehlen, der Risikowert ist deshalb eine Untergrenze. Ausgeblendet sind Titel,
+        deren Rückfluss über 20 % des Kurses liegt oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt; das sind
+        meist Hinterlegungsscheine, deren Zahlen nicht zum Kurs passen.
       </p>
       <form className="row" action="/vorrat">
         <input type="search" name="q" defaultValue={query} placeholder="Name oder Symbol" aria-label="Suche" />
@@ -57,6 +59,9 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
+        <label className="meta">
+          <input type="checkbox" name="alle" value="1" defaultChecked={includeImplausible} /> auch unplausible Titel
+        </label>
         <button type="submit">Anzeigen</button>
       </form>
 
@@ -94,6 +99,7 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
                   </td>
                   <td className="num">
                     <span className="yield">{percent(row.innerReturn)}</span>
+                    {row.implausible && <small>unplausibel</small>}
                   </td>
                   <td className="num">
                     {amount(row.price)}

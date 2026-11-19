@@ -22,6 +22,7 @@ function store(symbol: string, raw: string, keepRaw: boolean): void {
   if (parsed.years.length === 0) throw new Error("keine Jahresabschlüsse");
   db.addStockIfMissing(stockFromEodhd(symbol, parsed));
   if (parsed.foundedYear !== null) db.setFoundedYearIfMissing(symbol, parsed.foundedYear);
+  if (parsed.securityType !== null) db.setSecurityType(symbol, parsed.securityType);
   if (keepRaw) db.saveRawDocument(symbol, KIND, raw);
   db.saveFundamentals(symbol, parsed.years, "eodhd");
 }

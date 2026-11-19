@@ -270,6 +270,9 @@ Backtest gibt es nicht.
 - Ein Kurs kann je Aktie von Hand eingetragen werden, solange der Anbieter keinen liefert.
 - Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
 
+- Einzelne Titel außerhalb der Indizes werden über ihre ISIN geladen (`npm run import:isin`) und kommen auf die Watchlist. Die Positionen der Wikifolios stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht automatisch abrufen; die Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
+- Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle.
+
 ### 9.1 Betrieb nach der Kündigung des Tarifs
 
 Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Tag) weiterläuft:

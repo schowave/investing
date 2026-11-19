@@ -79,6 +79,8 @@ export interface ScreeningRow {
   /** Summe der gesetzten Risikofaktoren (Untergrenze). */
   riskScore: number;
   innerReturn: number | null;
+  /** Zahlen passen nicht zum Kurs (z. B. Hinterlegungsschein mit anderem Verhältnis). */
+  implausible: boolean;
 }
 
 export interface ManualInput {
@@ -189,7 +191,8 @@ CREATE TABLE IF NOT EXISTS screening (
   payout_level REAL,
   growth REAL,
   risk_score REAL NOT NULL,
-  inner_return REAL
+  inner_return REAL,
+  implausible INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
@@ -241,6 +244,11 @@ export class Database {
     const columns = this.#db.prepare("PRAGMA table_info(stocks)").all() as { name: string }[];
     if (!columns.some((c) => c.name === "watched")) {
       this.#db.exec("ALTER TABLE stocks ADD COLUMN watched INTEGER NOT NULL DEFAULT 1");
+    }
+    if (!columns.some((c) => c.name === "security_type")) this.#db.exec("ALTER TABLE stocks ADD COLUMN security_type TEXT");
+    const screeningColumns = this.#db.prepare("PRAGMA table_info(screening)").all() as { name: string }[];
+    if (!screeningColumns.some((c) => c.name === "implausible")) {
+      this.#db.exec("ALTER TABLE screening ADD COLUMN implausible INTEGER NOT NULL DEFAULT 0");
     }
   }
 
@@ -514,14 +522,14 @@ export class Database {
 
   saveScreening(rows: readonly ScreeningRow[]): void {
     const statement = this.#db.prepare(
-      `INSERT INTO screening (stock_id, date, price_date, price, payout_level, growth, risk_score, inner_return)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO screening (stock_id, date, price_date, price, payout_level, growth, risk_score, inner_return, implausible)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (stock_id) DO UPDATE SET date = excluded.date, price_date = excluded.price_date, price = excluded.price,
          payout_level = excluded.payout_level, growth = excluded.growth, risk_score = excluded.risk_score,
-         inner_return = excluded.inner_return`,
+         inner_return = excluded.inner_return, implausible = excluded.implausible`,
     );
     this.#transaction(() =>
-      rows.forEach((r) => statement.run(r.stockId, r.date, r.priceDate, r.price, r.payoutLevel, r.growth, r.riskScore, r.innerReturn)),
+      rows.forEach((r) => statement.run(r.stockId, r.date, r.priceDate, r.price, r.payoutLevel, r.growth, r.riskScore, r.innerReturn, r.implausible ? 1 : 0)),
     );
   }
 
@@ -529,8 +537,10 @@ export class Database {
    * Titel mit berechenbarer innerer Rendite, höchste zuerst.
    * @param filter `region` und `maxRisk` (Risikowert höchstens) sind optional; `query` sucht in Name und Symbol.
    */
-  screening(filter: { region?: string; maxRisk?: number; maxReturn?: number; query?: string }, limit: number): { stock: Stock; row: ScreeningRow }[] {
-    const where = ["c.inner_return IS NOT NULL"];
+  screening(filter: { region?: string; maxRisk?: number; maxReturn?: number; query?: string; includeImplausible?: boolean }, limit: number): { stock: Stock; row: ScreeningRow }[] {
+    // Nur Stammaktien: Vorzugspapiere und Anleihen tragen die Zahlen des Mutterkonzerns.
+    const where = ["c.inner_return IS NOT NULL", "(s.security_type IS NULL OR s.security_type = 'Common Stock')"];
+    if (!filter.includeImplausible) where.push("c.implausible = 0");
     const args: (string | number)[] = [];
     if (filter.region) {
       where.push("s.region = ?");
@@ -551,7 +561,7 @@ export class Database {
     }
     const rows = this.#db
       .prepare(
-        `SELECT s.*, c.date AS c_date, c.price_date, c.price, c.payout_level, c.growth, c.risk_score, c.inner_return
+        `SELECT s.*, c.date AS c_date, c.price_date, c.price, c.payout_level, c.growth, c.risk_score, c.inner_return, c.implausible
          FROM screening c JOIN stocks s ON s.id = c.stock_id WHERE ${where.join(" AND ")}
          ORDER BY c.inner_return DESC LIMIT ?`,
       )
@@ -562,7 +572,7 @@ export class Database {
       row: {
         stockId: String(r.id), date: String(r.c_date), priceDate: r.price_date === null ? null : String(r.price_date),
         price: optional(r.price), payoutLevel: optional(r.payout_level), growth: optional(r.growth),
-        riskScore: Number(r.risk_score), innerReturn: optional(r.inner_return),
+        riskScore: Number(r.risk_score), innerReturn: optional(r.inner_return), implausible: r.implausible === 1,
       },
     }));
   }
@@ -609,6 +619,11 @@ export class Database {
     }
     if (pending.length > 0) this.#db.exec("VACUUM");
     return pending.length;
+  }
+
+  /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
+  setSecurityType(id: string, type: string): void {
+    this.#db.prepare("UPDATE stocks SET security_type = ? WHERE id = ?").run(type, id);
   }
 
   /** Trägt das Gründungsjahr nach, wenn noch keines gesetzt ist. */

@@ -11,6 +11,8 @@ export interface EodhdFundamentals {
   sector: string | null;
   country: string | null;
   name: string | null;
+  /** Art des Wertpapiers, z. B. "Common Stock". */
+  securityType: string | null;
   /** Aus dem Beschreibungstext gelesen ("founded in 1901"); `null`, wenn dort nichts steht. */
   foundedYear: number | null;
   /** Währung der Kursnotiz, wie der Anbieter sie nennt (z. B. GBX für Pence). */
@@ -80,6 +82,7 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     sector: text(root.General?.Sector),
     country: text(root.General?.CountryISO),
     name: text(root.General?.Name),
+    securityType: text(root.General?.Type),
     foundedYear: foundedYearFrom(text(root.General?.Description)),
     quoteCurrency: text(root.General?.CurrencyCode),
   };
@@ -151,6 +154,9 @@ export interface SearchHit {
   name: string;
   exchange: string;
   type: string;
+  isin: string | null;
+  /** Hauptnotiz des Unternehmens laut Anbieter. */
+  isPrimary: boolean;
   /** Letzter Schlusskurs in der Einheit der Kursnotiz (bei London Pence). */
   previousClose: number | null;
   previousCloseDate: string | null;
@@ -170,6 +176,8 @@ export async function searchEodhd(query: string, token: string, fetchFn: typeof 
     name: String(r.Name ?? ""),
     exchange: String(r.Exchange),
     type: String(r.Type ?? ""),
+    isin: typeof r.ISIN === "string" && r.ISIN !== "" ? r.ISIN : null,
+    isPrimary: r.isPrimary === true,
     previousClose: typeof r.previousClose === "number" && r.previousClose > 0 ? r.previousClose : null,
     previousCloseDate: typeof r.previousCloseDate === "string" ? r.previousCloseDate : null,
   }));

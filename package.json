@@ -16,7 +16,8 @@
     "evaluate": "node scripts/evaluate.ts",
     "set": "node scripts/set-input.ts",
     "schedule": "node scripts/schedule.ts",
-    "compact": "node scripts/compact.ts"
+    "compact": "node scripts/compact.ts",
+    "import:isin": "node --env-file-if-exists=.env.local scripts/import-isin.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

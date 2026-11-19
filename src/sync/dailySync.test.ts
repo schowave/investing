@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Database } from "../data/db.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
-import { runDailySync, syncSucceeded } from "./dailySync.ts";
+import { looksImplausible, runDailySync, syncSucceeded } from "./dailySync.ts";
 
 const ECB = `<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.25"/><Cube currency="GBP" rate="0.8"/></Cube></Cube>`;
 const NOW = new Date("2026-11-19T22:15:00Z");
@@ -170,5 +170,15 @@ describe("runDailySync", () => {
     // Kurse der EZB werden nicht überschrieben.
     expect(db.latestFxRate("USD")).toBe(1.25);
     db.close();
+  });
+});
+
+describe("looksImplausible", () => {
+  it("meldet Rückflüsse und Gewinne, die nicht zum Kurs passen", () => {
+    expect(looksImplausible(28.49, 2.12, 2.99)).toBe(false);
+    expect(looksImplausible(16.4, 20.03, 2)).toBe(true);
+    expect(looksImplausible(10, 0.5, 5)).toBe(true);
+    expect(looksImplausible(null, 5, 5)).toBe(false);
+    expect(looksImplausible(10, undefined, null)).toBe(false);
   });
 });
