@@ -126,7 +126,7 @@ einen manuellen Wert.
 
 Grundlage sind zehn Geschäftsjahre je Aktie (Buch Kap. 5.2). Jüngere Börsenwerte werden aus der kürzeren Reihe bewertet,
 sobald fünf Jahre vorliegen (der Autor hält mit Höegh Autoliners und Kaspi solche Titel): Das Wachstum vergleicht dann die
-erste mit der letzten Hälfte der Reihe, das Niveau rechnet den Durchschnitt um die halbe Länge der Reihe hoch. Die
+erste mit der letzten Hälfte der Reihe, das Niveau rechnet den Durchschnitt um die halbe Länge der Reihe (abgerundet) hoch. Die
 Bewertung nennt die kürzere Reihe. Was Stetigkeit über zehn Jahre belegen soll, entfällt: der Bonus in Faktor 1 und der
 Nachlass in Faktor 2.
 

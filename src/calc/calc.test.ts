@@ -141,9 +141,17 @@ describe("Eingaben", () => {
     // Sieben Jahre mit 10 % Wachstum: erste gegen letzte drei Jahre, vier Jahre auseinander.
     const seven = Array.from({ length: 7 }, (_, i) => 1.1 ** i);
     expect(historicalGrowth(seven)!).toBeCloseTo(0.1);
-    // Die Mitte der Reihe liegt dreieinhalb Jahre zurück.
+    // Hochgerechnet wird um die halbe Länge, abgerundet: hier drei Jahre.
     const average = seven.reduce((sum, v) => sum + v, 0) / 7;
-    expect(levelFromAverage(seven, 10)!).toBeCloseTo(average * 1.35);
+    expect(levelFromAverage(seven, 10)!).toBeCloseTo(average * 1.3);
+    // Jede Länge von fünf bis zehn trifft ein gleichmäßiges Wachstum genau.
+    for (const length of [5, 6, 7, 8, 9, 10]) {
+      const series = Array.from({ length }, (_, i) => 2 * 1.06 ** i);
+      expect(historicalGrowth(series)!).toBeCloseTo(0.06);
+    }
+    // Bei fünf Jahren stimmen Rechnung aus der ganzen Reihe und Kontrollrechnung überein.
+    const five = [1, 1.2, 1.1, 1.4, 1.5];
+    expect(levelFromAverage(five, 10)!).toBeCloseTo(levelFromAverage(five, 5)!);
     expect(earningsLevel([1, 2, 1.5, 2.5, 2])).toBeLessThanOrEqual(2.5);
     expect(() => historicalGrowth([1, 2, 3, 4])).toThrow("Erwartet 5 bis 10 Geschäftsjahre");
   });

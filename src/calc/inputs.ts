@@ -49,12 +49,13 @@ export function historicalGrowth(series: readonly number[]): number | null {
 
 /**
  * Niveau aus dem Durchschnitt der ganzen Reihe (`10`) oder der letzten fünf Jahre (`5`), hochgerechnet mit dem
- * Wachstum. Die Mitte der Reihe liegt eine halbe Länge zurück (bei zehn Jahren fünf).
+ * Wachstum. Hochgerechnet wird um die halbe Länge der Reihe, abgerundet: bei zehn Jahren fünf wie im Buch, bei fünf
+ * Jahren zwei wie in der Kontrollrechnung, sodass beide dort übereinstimmen.
  */
 export function levelFromAverage(series: readonly number[], years: 10 | 5): number | null {
   const growth = historicalGrowth(series);
   if (growth === null) return null;
-  return years === 10 ? mean(series) * (1 + (growth * series.length) / 2) : mean(series.slice(-5)) * (1 + growth * 2);
+  return years === 10 ? mean(series) * (1 + growth * Math.floor(series.length / 2)) : mean(series.slice(-5)) * (1 + growth * 2);
 }
 
 /** Gewinnniveau je Aktie. */

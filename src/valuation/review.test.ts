@@ -46,6 +46,16 @@ describe("reviewOf", () => {
     expect(review.changes).toEqual(["Rückfluss 0,00 → 1,00", "Gewinnniveau: kein Vorschlag mehr", "Wachstum: neu"]);
   });
 
+  it("zeigt bei negativem Gewinnniveau die Richtung richtig", () => {
+    const review = reviewOf({
+      assessedOn: "2026-06-01",
+      today: "2026-11-19",
+      before: { ...basis, earningsLevel: -1 },
+      now: { ...basis, earningsLevel: -1.2 },
+    });
+    expect(review.changes).toEqual(["Gewinnniveau -1,00 → -1,20 (−20 %)"]);
+  });
+
   it("vergleicht nicht, wenn kein Tagesstand aus der Zeit der Bewertung vorliegt", () => {
     expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: null, now: basis }).changes).toEqual([]);
   });

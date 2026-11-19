@@ -66,7 +66,8 @@ function levelChange(label: string, before: number | null, now: number | null, t
   if (before === null && now === null) return null;
   if (before === null || now === null) return `${label}: ${before === null ? "neu" : "kein Vorschlag mehr"}`;
   if (before === 0 && now === 0) return null;
-  const shift = before === 0 ? Infinity : now / before - 1;
+  // Am Betrag gemessen, damit das Vorzeichen auch bei negativem Niveau die Richtung zeigt.
+  const shift = before === 0 ? Infinity : (now - before) / Math.abs(before);
   if (Math.abs(shift) <= threshold + 1e-9) return null;
   return `${label} ${number(before, 2)} → ${number(now, 2)}${Number.isFinite(shift) ? ` (${signed(shift)})` : ""}`;
 }

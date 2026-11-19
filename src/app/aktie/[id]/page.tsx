@@ -254,7 +254,7 @@ export default async function StockPage(props: {
           oder Währung. Die Rendite ist so nicht verwertbar; setze das Rückflussniveau von Hand passend zum Kurs.
         </div>
       )}
-      {needsReview(review) && (
+      {v.complete && needsReview(review) && (
         <div className="notice">
           <strong>Bewertung prüfen.</strong>{" "}
           {review.overdue && `Sie ist vom ${isoDate(review.assessedOn)} und damit älter als ${REVIEW_MONTHS} Monate. `}
