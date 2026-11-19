@@ -240,6 +240,13 @@ Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 | Bewertung älter als 12 Monate | Aufgabe „Bewertung überfällig" |
 | Fehlender manueller Faktor oder fehlende Eingabe | Aufgabe „Bewertung unvollständig" |
 
+Der tägliche Abgleich läuft mit `npm run sync`. Er holt Kurse für die Watchlist und alle gehaltenen
+Titel ab dem letzten gespeicherten Tag (höchstens ein Jahr zurück), sodass nach einer Pause keine
+Lücke bleibt. Scheitert der Abruf für einen Titel, läuft der Abgleich weiter und rechnet mit dem
+letzten bekannten Kurs; die Rangliste zeigt, ob der letzte Lauf vollständig war. Lokal richtet
+`npm run schedule -- an` einen macOS-Dienst ein, der täglich um 23:15 Uhr läuft. Der kostenlose
+Tarif des Anbieters erlaubt 20 Abrufe am Tag, also höchstens 20 Titel.
+
 Der tägliche Stand (Annahmen, Risikowert, innere Rendite, Zielportfolio) wird dauerhaft
 gespeichert, um die Risikoeinstufung später an der tatsächlichen Entwicklung zu prüfen. Einen
 Backtest gibt es nicht.

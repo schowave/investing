@@ -16,6 +16,7 @@ export default function Ranking() {
     .map((stock) => computeValuation(db, stock, date))
     .sort((a, b) => (b.valuation.returns?.base ?? -1) - (a.valuation.returns?.base ?? -1));
   const firstBelow = rows.findIndex((r) => (r.valuation.returns?.base ?? -1) < MIN_RETURN);
+  const lastSync = db.latestSyncRun();
   const priceDates = rows.map((r) => r.priceDate).filter((d): d is string => d !== null).sort();
 
   return (
@@ -24,6 +25,11 @@ export default function Ranking() {
       <p className="lede">
         Watchlist nach innerer Rendite. Solange Eingaben offen sind, ist die Rendite vorläufig und der Risikowert eine
         Untergrenze. Kurse vom {isoDate(priceDates.at(-1) ?? null)}.
+      </p>
+      <p className="meta">
+        {lastSync
+          ? `Letzter Abgleich am ${isoDate(lastSync.finishedAt.slice(0, 10))}${lastSync.ok ? "." : ", nicht alle Kurse oder Wechselkurse wurden geladen."}`
+          : "Noch kein täglicher Abgleich gelaufen."}
       </p>
       <div className="scroll">
         <table>

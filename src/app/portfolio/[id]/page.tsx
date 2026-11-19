@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PROFILE_FOCUSED, PROFILE_GLOBAL } from "../../../calc/index.ts";
-import { buildPortfolioView } from "../../../valuation/portfolioView.ts";
+import { loadPortfolio } from "../../../valuation/portfolioRun.ts";
 import type { Share } from "../../../valuation/portfolioView.ts";
-import { computeValuation } from "../../../valuation/run.ts";
 import { deletePortfolio, saveHoldings } from "../../actions.ts";
-import { amount, fieldValue, percent } from "../../format.ts";
+import { amount, fieldValue, isoDate, percent } from "../../format.ts";
 import { database, today } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
@@ -56,30 +54,9 @@ export default async function PortfolioPage(props: {
   const portfolio = Number.isInteger(id) ? db.portfolio(id) : null;
   if (!portfolio) notFound();
 
-  const profile = portfolio.profile === "global" ? PROFILE_GLOBAL : PROFILE_FOCUSED;
-  const holdings = db.holdings(portfolio.id);
-  const date = today();
-  // Gehaltene Titel zählen auch dann, wenn sie nicht mehr auf der Watchlist stehen.
-  const watchlist = db.stocks();
-  const extra = [...holdings.keys()].filter((stockId) => !watchlist.some((s) => s.id === stockId)).map((stockId) => db.stock(stockId)!);
-  const stocks = [...watchlist, ...extra];
+  const { profile, holdings, stocks, view } = loadPortfolio(db, portfolio, today());
   const names = new Map(stocks.map((s) => [s.id, s.name]));
-
-  const view = buildPortfolioView(
-    profile,
-    portfolio.cashEur,
-    stocks.map((stock) => {
-      const { valuation } = computeValuation(db, stock, date);
-      const price = db.latestPrice(stock.id);
-      const perEur = db.latestFxRate(stock.priceCurrency);
-      return {
-        id: stock.id, sector: stock.sector, region: stock.region,
-        innerReturn: valuation.returns?.base ?? null, riskScore: valuation.riskScore, complete: valuation.complete,
-        shares: holdings.get(stock.id) ?? 0,
-        priceEur: price && perEur ? price.close / perEur : null,
-      };
-    }),
-  );
+  const history = db.portfolioSnapshots(portfolio.id, 30);
   const targetCount = view.rows.filter((r) => r.targetWeight > 0).length;
 
   return (
@@ -223,6 +200,30 @@ export default async function PortfolioPage(props: {
           <button type="submit">Bestand speichern</button>
         </div>
       </form>
+
+      {history.length > 0 && (
+        <>
+          <h2>Verlauf</h2>
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th className="num">Wert</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.date}>
+                    <td>{isoDate(h.date)}</td>
+                    <td className="num">{euro(h.totalEur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <h2>Portfolio löschen</h2>
       <form action={deletePortfolio.bind(null, portfolio.id)}>

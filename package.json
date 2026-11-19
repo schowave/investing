@@ -14,7 +14,8 @@
     "import:eodhd": "node --env-file-if-exists=.env.local scripts/import-eodhd.ts",
     "import:index": "node --env-file-if-exists=.env.local scripts/import-index.ts",
     "evaluate": "node scripts/evaluate.ts",
-    "set": "node scripts/set-input.ts"
+    "set": "node scripts/set-input.ts",
+    "schedule": "node scripts/schedule.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

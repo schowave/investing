@@ -50,6 +50,7 @@ export default async function StockPage(props: {
 
   const { proposals, valuation: v, priceDate } = computeValuation(db, stock, today());
   const years = db.fundamentals(stock.id).slice(-10);
+  const history = db.valuationHistory(stock.id, 30);
   const d = proposals.details;
   const excluded = v.riskScore >= EXCLUSION_SCORE;
   const { payoutLevel, growth } = v.inputs;
@@ -225,6 +226,36 @@ export default async function StockPage(props: {
                     </td>
                   ))}
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {history.length > 0 && (
+        <>
+          <h2>Verlauf der Bewertung</h2>
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th className="num">Kurs</th>
+                  <th className="num">Risikowert</th>
+                  <th className="num">Innere Rendite</th>
+                  <th>Stand</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.date}>
+                    <td>{isoDate(h.date)}</td>
+                    <td className="num">{amount(h.price)}</td>
+                    <td className="num">{percent(h.riskScore, 0)}</td>
+                    <td className="num">{percent(h.innerReturn)}</td>
+                    <td>{h.complete ? "vollständig" : "vorläufig"}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

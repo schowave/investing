@@ -153,6 +153,19 @@ CREATE TABLE IF NOT EXISTS holdings (
   shares REAL NOT NULL,
   PRIMARY KEY (portfolio_id, stock_id)
 );
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+  portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  total_eur REAL NOT NULL,
+  details TEXT NOT NULL,
+  PRIMARY KEY (portfolio_id, date)
+);
+CREATE TABLE IF NOT EXISTS sync_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  finished_at TEXT NOT NULL,
+  ok INTEGER NOT NULL,
+  report TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -418,6 +431,42 @@ export class Database {
       innerReturnOptimistic: optional(row.inner_return_optimistic),
       details: JSON.parse(String(row.details)),
     };
+  }
+
+  /** Gespeicherte Tagesstände einer Aktie, jüngster zuerst. */
+  valuationHistory(stockId: string, limit: number): { date: string; price: number | null; riskScore: number; innerReturn: number | null; complete: boolean }[] {
+    const rows = this.#db
+      .prepare("SELECT date, price, risk_score, inner_return, complete FROM valuations WHERE stock_id = ? ORDER BY date DESC LIMIT ?")
+      .all(stockId, limit) as { date: string; price: number | null; risk_score: number; inner_return: number | null; complete: number }[];
+    return rows.map((r) => ({ date: r.date, price: r.price, riskScore: r.risk_score, innerReturn: r.inner_return, complete: r.complete === 1 }));
+  }
+
+  /** Speichert den Tagesstand eines Portfolios (Ist, Ziel, Vorschläge); je Portfolio und Tag gilt der letzte. */
+  savePortfolioSnapshot(portfolioId: number, date: string, totalEur: number, details: unknown): void {
+    this.#db
+      .prepare(
+        `INSERT INTO portfolio_snapshots (portfolio_id, date, total_eur, details) VALUES (?, ?, ?, ?)
+         ON CONFLICT (portfolio_id, date) DO UPDATE SET total_eur = excluded.total_eur, details = excluded.details`,
+      )
+      .run(portfolioId, date, totalEur, JSON.stringify(details));
+  }
+
+  portfolioSnapshots(portfolioId: number, limit: number): { date: string; totalEur: number; details: unknown }[] {
+    const rows = this.#db
+      .prepare("SELECT date, total_eur, details FROM portfolio_snapshots WHERE portfolio_id = ? ORDER BY date DESC LIMIT ?")
+      .all(portfolioId, limit) as { date: string; total_eur: number; details: string }[];
+    return rows.map((r) => ({ date: r.date, totalEur: r.total_eur, details: JSON.parse(r.details) }));
+  }
+
+  saveSyncRun(ok: boolean, report: unknown): void {
+    this.#db.prepare("INSERT INTO sync_runs (finished_at, ok, report) VALUES (?, ?, ?)").run(new Date().toISOString(), ok ? 1 : 0, JSON.stringify(report));
+  }
+
+  latestSyncRun(): { finishedAt: string; ok: boolean; report: unknown } | null {
+    const row = this.#db.prepare("SELECT finished_at, ok, report FROM sync_runs ORDER BY id DESC LIMIT 1").get() as
+      | { finished_at: string; ok: number; report: string }
+      | undefined;
+    return row ? { finishedAt: row.finished_at, ok: row.ok === 1, report: JSON.parse(row.report) } : null;
   }
 
   /** Bewahrt die unveränderte Antwort eines Anbieters auf; je Aktie und Art gilt die jüngste. */
