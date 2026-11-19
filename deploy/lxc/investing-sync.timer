@@ -1,0 +1,10 @@
+[Unit]
+Description=investing: täglicher Abgleich um 23:15
+
+[Timer]
+OnCalendar=*-*-* 23:15:00
+# War der LXC um 23:15 aus, läuft der Abgleich nach dem Start nach.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+.git
+.github
+.next
+.claude
+.taste-skill
+node_modules
+data
+coverage
+.env*
+*.tsbuildinfo

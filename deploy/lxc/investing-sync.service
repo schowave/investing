@@ -1,0 +1,11 @@
+[Unit]
+Description=investing: täglicher Abgleich (Sicherung, Kurse, Wechselkurse, Bewertungen)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/investing
+# Im laufenden Container: gleiche Datenbank, gleiche Umgebung (.env) wie die Oberfläche.
+ExecStart=/usr/bin/docker compose exec -T investing node scripts/sync.ts
+TimeoutStartSec=3h

@@ -38,6 +38,16 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
   Bei großen Tabellen (`raw_documents`) vorher sichern und danach `mise run db:compact`.
 - Pfad der Datenbank: `INVESTING_DB` (Standard `data/investing.sqlite`).
 
+## Betrieb
+
+- Läuft im LXC 108 auf dem Proxmox (`deploy/`). Jeder grüne Push auf `main` baut das Image (`.github/workflows/ci.yml`,
+  Job `image`) und veröffentlicht es als `ghcr.io/schowave/investing:latest`; der LXC holt es binnen fünf Minuten.
+  Ein Push auf `main` ist also ein Deployment.
+- Das Image muss mit leerer Datenbank starten und `/healthz` mit seiner Version melden (`mise run docker:smoke`),
+  sonst rollt der LXC zurück. Pfade im Container: Datenbank `/data/investing.sqlite`, Arbeitsverzeichnis `/app`
+  (schreibgeschützt für den App-Benutzer). Skripte schreiben nur neben `INVESTING_DB`, nie relativ zu `data/`.
+- Der nächtliche Abgleich läuft im LXC (`investing-sync.timer`), nicht auf dem Mac.
+
 ## Worktrees
 
 Ein neuer Worktree bekommt `.env.local` und eine eigene Kopie von `data/investing.sqlite`:

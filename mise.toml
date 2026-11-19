@@ -13,9 +13,14 @@ node = "26.13.1"
 pnpm = "12.22.0"
 lefthook = "2.2.2"
 actionlint = "1.7.12"
+shellcheck = "0.11.0"
 
 [env]
 INVESTING_DB = "data/investing.sqlite"
+# Proxmox-Host für die deploy:*-Tasks (Schlüssel und Adresse überschreibbar).
+PVE_HOST = "root@192.168.1.110"
+PVE_SSH_KEY = "{{env.HOME}}/.ssh/pve_ed25519"
+INVESTING_CTID = "108"
 
 # --- Workspace-Standard ---------------------------------------------------------
 
@@ -28,8 +33,8 @@ description = "Alles, was vor einem Push grün sein muss: Lint/Format, Typen, Te
 depends = ["lint", "typecheck", "test:coverage", "knip", "db:check"]
 
 [tasks.lint]
-description = "Biome (Lint und Format, ohne zu ändern) und actionlint für die Workflows"
-run = ["pnpm exec biome ci .", "actionlint"]
+description = "Biome (Lint und Format, ohne zu ändern), actionlint für die Workflows, shellcheck für die Shell-Skripte"
+run = ["pnpm exec biome ci .", "actionlint", "git ls-files -z '*.sh' | xargs -0 shellcheck"]
 
 [tasks.fmt]
 description = "Formatieren und sichere Lint-Korrekturen anwenden (Biome)"
@@ -129,4 +134,73 @@ if [ -f data/investing.sqlite ]; then echo "data/investing.sqlite ist schon da, 
 # .backup statt cp: konsistent, auch wenn im Haupt-Checkout gerade ein Abgleich schreibt.
 sqlite3 "$main/data/investing.sqlite" ".backup data/investing.sqlite"
 echo "Datenbank aus $main kopiert"
+'''
+
+# --- Image und Betrieb auf dem Proxmox -------------------------------------------
+# Das Image baut GitHub bei jedem grünen Push auf main (ci.yml) und legt es als latest auf ghcr.io ab.
+# Der LXC holt es per investing-update.timer selbst. Die Tasks hier sind für die Einrichtung und zum Nachsehen.
+
+[tasks."docker:build"]
+description = "Image lokal bauen (investing:dev, investing:latest), wie es das CI baut"
+run = "./scripts/docker-image.sh"
+
+[tasks."docker:smoke"]
+description = "Gebautes Image mit leerer Datenbank starten und /healthz prüfen (IMAGE, VERSION wie beim Bauen)"
+run = '''
+set -e
+image="${IMAGE:-investing}:${VERSION:-dev}"
+docker rm -f investing-smoke >/dev/null 2>&1 || true
+docker run -d --name investing-smoke -p 3999:3000 "$image" >/dev/null
+trap 'docker rm -f investing-smoke >/dev/null' EXIT
+for _ in $(seq 1 60); do
+  if curl -sf localhost:3999/healthz | grep -q "\"version\":\"${VERSION:-dev}\""; then
+    curl -sf -o /dev/null localhost:3999/ && echo "Rauchtest ok: $image" && exit 0
+  fi
+  sleep 1
+done
+docker logs investing-smoke
+exit 1
+'''
+
+[tasks."deploy:lxc"]
+description = "LXC (Standard 108) auf dem Proxmox anlegen und einrichten (einmalig, über SSH)"
+run = '''
+set -e
+scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes deploy/proxmox/create-lxc.sh "$PVE_HOST:/tmp/investing-create-lxc.sh"
+ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "CTID=$INVESTING_CTID bash /tmp/investing-create-lxc.sh && rm /tmp/investing-create-lxc.sh"
+'''
+
+[tasks."deploy:env"]
+description = "Zugangsdaten aus .env.local als /opt/investing/.env in den LXC kopieren und neu starten"
+run = '''
+set -e
+test -f .env.local
+ssh_() { ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "$@"; }
+scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes .env.local "$PVE_HOST:/tmp/investing.env"
+ssh_ "pct push $INVESTING_CTID /tmp/investing.env /opt/investing/.env --perms 600 && rm /tmp/investing.env \
+  && pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose up -d --force-recreate investing'"
+'''
+
+[tasks."deploy:db"]
+description = "Lokale Datenbank konsistent kopieren und im LXC einspielen (die dortige bleibt als .vor-import)"
+run = '''
+set -e
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+sqlite3 "$INVESTING_DB" ".backup $tmp/investing.sqlite"
+test "$(sqlite3 "$tmp/investing.sqlite" 'PRAGMA integrity_check')" = ok
+echo "Kopie: $(du -h "$tmp/investing.sqlite" | cut -f1)"
+opts=(-i "$PVE_SSH_KEY" -o IdentitiesOnly=yes)
+scp "${opts[@]}" "$tmp/investing.sqlite" "$PVE_HOST:/tmp/investing-import.sqlite"
+scp "${opts[@]}" deploy/proxmox/copy-db.sh "$PVE_HOST:/tmp/investing-copy-db.sh"
+ssh "${opts[@]}" "$PVE_HOST" "CTID=$INVESTING_CTID bash /tmp/investing-copy-db.sh /tmp/investing-import.sqlite; s=\$?; rm -f /tmp/investing-import.sqlite /tmp/investing-copy-db.sh; exit \$s"
+'''
+
+[tasks."deploy:status"]
+description = "Stand im LXC: /healthz, Timer, letzte Updates und Abgleiche"
+run = '''
+ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "pct exec $INVESTING_CTID -- bash -c '
+  curl -s localhost:3000/healthz; echo
+  systemctl list-timers \"investing-*\" --no-pager
+  journalctl -u investing-update -u investing-sync -n 20 --no-pager'"
 '''

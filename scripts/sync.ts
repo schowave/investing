@@ -2,19 +2,24 @@
 // Aufruf: pnpm run sync   (ein EODHD-Abruf je Aktie; reicht das Tagesbudget nicht, kommt der Rest am nächsten Tag)
 
 import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { rotateBackup } from "../src/data/backup.ts";
 import { Database } from "../src/data/db.ts";
 import { START_WATCHLIST } from "../src/data/seed.ts";
 import { runDailySync, syncSucceeded } from "../src/sync/dailySync.ts";
 
-mkdirSync("data", { recursive: true });
-const db = new Database(process.env.INVESTING_DB ?? "data/investing.sqlite");
+const path = process.env.INVESTING_DB ?? "data/investing.sqlite";
+// Neben der Datenbank, nicht relativ zum Arbeitsverzeichnis: im Container liegt sie unter /data.
+mkdirSync(dirname(path), { recursive: true });
+const db = new Database(path);
 START_WATCHLIST.forEach((stock) => {
   db.addStockIfMissing(stock);
 });
 
 // Vor jedem Abgleich sichern: geht etwas schief, liegt der Stand vom Vortag in data/backups.
-console.log(`Gesichert: ${rotateBackup(db, process.env.INVESTING_BACKUPS ?? "data/backups", new Date().toISOString().slice(0, 10))}`);
+console.log(
+  `Gesichert: ${rotateBackup(db, process.env.INVESTING_BACKUPS ?? "data/backups", new Date().toISOString().slice(0, 10), Number(process.env.INVESTING_BACKUP_KEEP ?? 7))}`,
+);
 
 const token = process.env.EODHD_API_TOKEN ?? null;
 if (!token) console.log("EODHD_API_TOKEN fehlt in .env.local, Kurse werden nicht geladen.");

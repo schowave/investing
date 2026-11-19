@@ -126,6 +126,33 @@ Für Vorschläge zu den Urteilsfaktoren kommen optional `TYPESAFE_API_KEY` (Jev)
 
 `mise tasks` zeigt alle Befehle. pnpm-Skripte bekommen ihre Argumente ohne `--`.
 
+## Betrieb auf dem Proxmox
+
+```text
+Push auf main ──▶ CI: check, Image bauen, Rauchtest ──▶ ghcr.io/schowave/investing:<commit>, latest
+                                                                     │
+LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀───────┘ holt latest, startet neu,
+                         prüft /healthz, bei Fehler zurück auf die vorherige Version
+                         investing-sync.timer (täglich 23:15): Sicherung und Abgleich im Container
+```
+
+- **Ausrollen passiert von selbst.** Jeder grüne Push auf `main`, auch ein Renovate-Update, landet
+  spätestens fünf Minuten später im LXC. Startet eine neue Version nicht gesund, läuft die vorherige weiter.
+- **Daten** liegen im LXC unter `/opt/investing/data` (Datenbank, `backups/` mit den letzten drei Tagen).
+  Die nächtliche Proxmox-Sicherung enthält den LXC.
+- **Zugangsdaten** (`EODHD_API_TOKEN`, optional `TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY`) stehen in
+  `/opt/investing/.env`; `mise run deploy:env` kopiert sie aus `.env.local`.
+- **Von außen** über den Cloudflare Tunnel (LXC 102) mit Cloudflare Access, Anwendung `familie-dienste`.
+  Die App selbst hat keine Anmeldung.
+
+| Befehl (auf dem Mac)                    | Zweck                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `mise run deploy:lxc`                   | LXC einmalig anlegen und einrichten (SSH-Schlüssel `~/.ssh/pve_ed25519`)                   |
+| `mise run deploy:env`                   | Zugangsdaten aus `.env.local` in den LXC kopieren                                          |
+| `mise run deploy:db`                    | Lokale Datenbank konsistent kopieren und einspielen (die dortige bleibt als `.vor-import`) |
+| `mise run deploy:status`                | `/healthz`, Timer und die letzten Updates und Abgleiche                                    |
+| `mise run docker:build`, `docker:smoke` | Image lokal bauen und mit leerer Datenbank testen                                          |
+
 ## Entwicklung
 
 ```sh

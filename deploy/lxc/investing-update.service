@@ -1,0 +1,9 @@
+[Unit]
+Description=investing: neuestes Image holen und starten
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/investing/investing-update.sh

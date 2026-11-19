@@ -1,0 +1,17 @@
+# investing im LXC auf dem Proxmox. Liegt unter /opt/investing, Daten in /opt/investing/data.
+# Das Image baut GitHub bei jedem grünen Push auf main (ghcr.io); investing-update.timer holt neue Versionen.
+services:
+  investing:
+    image: ghcr.io/schowave/investing:latest
+    container_name: investing
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env # EODHD_API_TOKEN, optional TYPESAFE_API_KEY, ANTHROPIC_API_KEY, SEC_USER_AGENT
+        required: false
+    environment:
+      # Die Proxmox-Sicherung hält ältere Stände; im LXC genügen drei tägliche Sicherungen.
+      INVESTING_BACKUP_KEEP: "3"
+    volumes:
+      - ./data:/data # gehört UID 10001 (Benutzer im Container)

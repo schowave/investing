@@ -1,6 +1,9 @@
 name: CI
 
 # Dieselben mise-Tasks wie lokal: Werkzeuge aus mise.toml/mise.lock, Pakete aus pnpm-lock.yaml.
+# Jeder grüne Push auf main baut das Image und legt es als latest auf ghcr.io ab. Der LXC auf dem
+# Proxmox holt es per investing-update.timer selbst (deploy/lxc/), startet neu und prüft /healthz.
+# Pull requests (auch die von Renovate) bauen und testen das Image, ohne es zu veröffentlichen.
 on:
   push:
     branches: [main]
@@ -9,6 +12,11 @@ on:
 
 permissions:
   contents: read
+
+# Zwei Pushes kurz hintereinander: der ältere Lauf darf kein älteres Image nach dem neueren veröffentlichen.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -24,3 +32,31 @@ jobs:
       - run: mise run check
       # Der Build prüft, was check nicht sieht: Server-Komponenten, Routen, Bundling.
       - run: mise run build
+
+  image:
+    name: Image bauen, testen und veröffentlichen
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/schowave/investing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          install: false
+      - name: Version ist der kurze Commit
+        run: echo "VERSION=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+      - run: mise run docker:build
+      # Startet mit leerer Datenbank: Migrationen, Server und /healthz mit der richtigen Version.
+      - run: mise run docker:smoke
+      - name: Bei ghcr.io anmelden
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Nach ghcr.io pushen (der LXC holt latest binnen 5 Minuten)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
