@@ -300,6 +300,7 @@ Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Ta
 - Technik: Next.js und TypeScript, SQLite, ein Container; zuerst lokal, später auf einem kleinen Server.
 - Das Rechenmodul (innere Rendite, Vorschläge, Risikowert, Zielportfolio) ist ein eigenes Modul ohne Datenbank- und Netzwerkzugriff.
 - Die Oberfläche tritt als eigene Strategie „Rückflussrendite" auf (Name in `src/app/brand.ts`). Die Seite „Strategie" erklärt die Regeln in eigenen Worten, nennt die Herkunft und die eigenen Abweichungen und zieht alle Zahlen aus den Parametern des Rechenmoduls.
+- Jede Seite nennt oben ihren Befund in einem Satz und bietet den häufigsten nächsten Schritt als Knopf an (Rangliste: den aussichtsreichsten unvollständig bewerteten Titel bewerten). Auf der Aktienseite stehen die Urteilsfaktoren zuerst, die Faktoren aus Zahlen sind eingeklappt. Für einen gehaltenen, unvollständig bewerteten Titel gibt es keinen Verkaufsvorschlag, sondern den Hinweis „erst bewerten".
 - Oberfläche auf Deutsch mit den Begriffen aus Abschnitt 3 und einem festen Hinweis, dass die Seite keine Anlageberatung ist.
 
 Seiten:

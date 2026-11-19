@@ -24,7 +24,8 @@ export interface PortfolioRow {
   valueEur: number | null;
   heldWeight: number;
   targetWeight: number;
-  action: "kaufen" | "verkaufen" | "halten" | null;
+  /** "bewerten": gehalten, aber unvollständig bewertet; ohne Urteil gibt es keinen Verkaufsvorschlag. */
+  action: "kaufen" | "verkaufen" | "halten" | "bewerten" | null;
   /** Gewichtsänderung des Vorschlags, 0 ohne Vorschlag. */
   change: number;
   changeEur: number;
@@ -86,7 +87,9 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
   const rows = items
     .filter((item) => item.shares > 0 || targetWeight.has(item.id))
     .map((item): PortfolioRow => {
-      const suggested = proposal.get(item.id);
+      // Ein fehlendes Urteil ist kein Grund zu verkaufen: Erst bewerten, dann entscheiden.
+      const needsRating = item.shares > 0 && !item.complete && item.riskScore < EXCLUSION_SCORE;
+      const suggested = needsRating ? undefined : proposal.get(item.id);
       const inTarget = targetWeight.has(item.id);
       return {
         id: item.id,
@@ -94,7 +97,7 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
         valueEur: item.shares > 0 && item.priceEur === null ? null : value(item),
         heldWeight: weight(item),
         targetWeight: targetWeight.get(item.id) ?? 0,
-        action: suggested?.action ?? (inTarget ? "halten" : null),
+        action: needsRating ? "bewerten" : (suggested?.action ?? (inTarget ? "halten" : null)),
         change: suggested?.change ?? 0,
         changeEur: (suggested?.change ?? 0) * totalEur,
         reason: inTarget ? null : reasonFor(item, profile),

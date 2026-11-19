@@ -3,44 +3,57 @@ import { notFound } from "next/navigation";
 import { loadPortfolio } from "../../../valuation/portfolioRun.ts";
 import type { Share } from "../../../valuation/portfolioView.ts";
 import { deletePortfolio, saveHoldings } from "../../actions.ts";
-import { amount, fieldValue, isoDate, percent } from "../../format.ts";
+import { amount, isoDate, percent } from "../../format.ts";
 import { database, today } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
 
 const euro = (value: number | null) => (value === null ? "–" : `${amount(value, 0)} €`);
+const fieldNumber = (value: number | undefined) => (value ? String(Math.round(value * 10000) / 10000) : "");
 
-function Distribution({ title, shares }: { title: string; shares: Share[] }) {
+function Distribution({ title, column, shares }: { title: string; column: string; shares: Share[] }) {
   const largest = Math.max(0.0001, ...shares.flatMap((s) => [s.held, s.target]));
   return (
-    <div>
-      <h2>{title}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>{title.replace("Verteilung nach ", "")}</th>
-            <th className="num">Ist</th>
-            <th className="num">Ziel</th>
-            <th aria-hidden="true"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {shares.map((s) => (
-            <tr key={s.name}>
-              <td>{s.name}</td>
-              <td className="num">{percent(s.held)}</td>
-              <td className="num">{percent(s.target)}</td>
-              <td aria-hidden="true">
-                <div className="bars">
-                  <div className="bar" style={{ width: `${(s.held / largest) * 100}%` }} />
-                  <div className="bar target" style={{ width: `${(s.target / largest) * 100}%` }} />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <section className="card">
+      <div className="card-head">
+        <h2>{title}</h2>
+        <p className="legend">
+          <span><i className="l-held" />Ist</span>
+          <span><i className="l-target" />Ziel</span>
+        </p>
+      </div>
+      {shares.length === 0 ? (
+        <p className="empty">Noch keine Positionen.</p>
+      ) : (
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>{column}</th>
+                <th className="num">Ist</th>
+                <th className="num">Ziel</th>
+                <th aria-hidden="true"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {shares.map((s) => (
+                <tr key={s.name}>
+                  <td>{s.name}</td>
+                  <td className="num">{percent(s.held)}</td>
+                  <td className="num">{percent(s.target)}</td>
+                  <td aria-hidden="true">
+                    <div className="bars">
+                      <div className="bar" style={{ width: `${(s.held / largest) * 100}%` }} />
+                      <div className="bar target" style={{ width: `${(s.target / largest) * 100}%` }} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -56,184 +69,226 @@ export default async function PortfolioPage(props: {
 
   const { profile, holdings, stocks, view } = loadPortfolio(db, portfolio, today());
   const names = new Map(stocks.map((s) => [s.id, s.name]));
-  const history = db.portfolioSnapshots(portfolio.id, 30);
+  const history = db.portfolioSnapshots(portfolio.id, 12);
   const targetCount = view.rows.filter((r) => r.targetWeight > 0).length;
+  const buys = view.rows.filter((r) => r.action === "kaufen");
+  const sells = view.rows.filter((r) => r.action === "verkaufen");
+  const empty = holdings.size === 0 && portfolio.cashEur === 0;
+  const unrated = view.rows.filter((r) => r.action === "bewerten").length;
+
+  let finding: string;
+  if (empty) finding = "Noch kein Bestand eingetragen. Trag unten Stückzahlen und Barbestand ein, dann erscheinen hier die Vorschläge.";
+  else if (sells.length + buys.length === 0) finding = targetCount === 0 ? "Kein Titel ist derzeit Kandidat; das Zielportfolio besteht nur aus Barbestand." : "Bestand und Ziel stimmen überein, es gibt nichts zu tun.";
+  else {
+    const parts = [];
+    if (sells.length > 0) parts.push(`${sells.length === 1 ? "ein Verkauf" : `${sells.length} Verkäufe`} über ${euro(-sells.reduce((sum, r) => sum + r.changeEur, 0))}`);
+    if (buys.length > 0) parts.push(`${buys.length === 1 ? "ein Kauf" : `${buys.length} Käufe`} über ${euro(buys.reduce((sum, r) => sum + r.changeEur, 0))}`);
+    finding = `Vorgeschlagen: ${parts.join(" und ")}.`;
+  }
+  if (!empty && unrated > 0) finding += ` ${unrated === 1 ? "Eine gehaltene Position ist" : `${unrated} gehaltene Positionen sind`} noch nicht vollständig bewertet.`;
 
   return (
     <>
-      <h1>{portfolio.name}</h1>
-      <p className="meta">
-        Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} ·
-        Mindestrendite {percent(profile.minReturn)} · Tauschschwelle {percent(profile.swapThreshold, 0)}
-      </p>
-
-      <dl className="figures">
-        <div className="figure">
-          <dt>Wert</dt>
-          <dd>{euro(view.totalEur)}</dd>
-          <span className="sub">davon bar {euro(portfolio.cashEur)}</span>
+      <Link className="crumb" href="/portfolio">
+        ← Portfolios
+      </Link>
+      <div className="title-row">
+        <div>
+          <h1>{portfolio.name}</h1>
+          <p className="finding">{finding}</p>
+          <p className="meta">
+            Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} ·
+            Mindestrendite {percent(profile.minReturn)} · Tauschschwelle {profile.swapThreshold * 100} Punkte
+          </p>
         </div>
-        <div className="figure">
-          <dt>Positionen</dt>
-          <dd>{holdings.size}</dd>
-          <span className="sub">Ziel {targetCount}</span>
+        <div className="title-actions">
+          <a className="button quiet" href="#bestand">
+            Bestand pflegen
+          </a>
         </div>
-        <div className="figure">
-          <dt>Baranteil</dt>
-          <dd>{percent(view.cashWeight)}</dd>
-          <span className="sub">Ziel {percent(view.targetCashWeight)}</span>
-        </div>
-      </dl>
+      </div>
 
       {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
       {query.gespeichert && <div className="notice ok">Bestand gespeichert.</div>}
       {view.unpriced.length > 0 && (
         <div className="notice">Ohne Kurs und deshalb nicht im Wert enthalten: {view.unpriced.map((s) => names.get(s)).join(", ")}.</div>
       )}
-      {targetCount === 0 && (
-        <div className="notice">
-          Das Zielportfolio ist leer. Kandidat wird eine Aktie erst, wenn ihre Bewertung vollständig ist, der Risikowert
-          unter 75 % liegt und die innere Rendite auch im vorsichtigen Fall mindestens {percent(profile.minReturn)} beträgt.
-        </div>
-      )}
 
-      <h2>Ist gegen Ziel</h2>
-      {view.rows.length === 0 ? (
-        <p className="meta">Noch keine Positionen und keine Kandidaten.</p>
-      ) : (
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Aktie</th>
-                <th className="num">Wert</th>
-                <th className="num">Ist</th>
-                <th className="num">Ziel</th>
-                <th>Vorschlag</th>
-                <th>Grund</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.rows.map((row) => (
-                <tr key={row.id}>
-                  <td>
-                    <Link className="name" href={`/aktie/${encodeURIComponent(row.id)}`}>
-                      {names.get(row.id)}
-                    </Link>
-                    <small>{row.id}</small>
-                  </td>
-                  <td className="num">{row.shares > 0 ? euro(row.valueEur) : "–"}</td>
-                  <td className="num">{percent(row.heldWeight)}</td>
-                  <td className="num">{percent(row.targetWeight)}</td>
-                  <td>
-                    {row.action === "kaufen" && (
-                      <span className="buy">
-                        kaufen +{percent(row.change)}
-                        {view.totalEur > 0 ? ` (${euro(row.changeEur)})` : ""}
-                      </span>
-                    )}
-                    {row.action === "verkaufen" && (
-                      <span className="sell">
-                        verkaufen {percent(row.change)} ({euro(-row.changeEur)})
-                      </span>
-                    )}
-                    {row.action === "halten" && "halten"}
-                  </td>
-                  <td>{row.reason ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <dl className="card figures">
+        <div className="figure">
+          <dt>Wert</dt>
+          <dd className={view.totalEur === 0 ? "muted-value" : ""}>{euro(view.totalEur)}</dd>
+          <span className="sub">davon bar {euro(portfolio.cashEur)}</span>
         </div>
-      )}
-
-      <div className="columns">
-        <Distribution title="Verteilung nach Branche" shares={view.sectors} />
-        <Distribution title="Verteilung nach Region" shares={view.regions} />
-      </div>
-      <p className="meta legend">
-        <span>Ist</span>
-        <span className="target">Ziel</span>
-      </p>
-
-      <h2>Bestand pflegen</h2>
-      <p className="meta">Stückzahlen je Aktie der Watchlist und Barbestand in Euro. Ein leeres Feld bedeutet 0.</p>
-      <form action={saveHoldings.bind(null, portfolio.id)}>
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Position</th>
-                <th className="num">Stück bzw. Euro</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <label htmlFor="cash">Barbestand in Euro</label>
-                </td>
-                <td className="num">
-                  <input id="cash" name="cash" type="text" inputMode="decimal" autoComplete="off" defaultValue={fieldValue(portfolio.cashEur || undefined, false)} />
-                </td>
-              </tr>
-              {stocks.map((stock) => (
-                <tr key={stock.id}>
-                  <td>
-                    <label htmlFor={`shares:${stock.id}`}>{stock.name}</label>
-                  </td>
-                  <td className="num">
-                    <input
-                      id={`shares:${stock.id}`}
-                      name={`shares:${stock.id}`}
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      defaultValue={fieldValue(holdings.get(stock.id), false)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="figure">
+          <dt>Positionen</dt>
+          <dd className={holdings.size === 0 ? "muted-value" : ""}>{holdings.size}</dd>
+          <span className="sub">im Zielportfolio {targetCount}</span>
         </div>
-        <div className="actions">
-          <button type="submit">Bestand speichern</button>
+        <div className="figure">
+          <dt>Baranteil</dt>
+          <dd>{percent(view.cashWeight)}</dd>
+          <span className="sub">im Zielportfolio {percent(view.targetCashWeight)}</span>
         </div>
-      </form>
+      </dl>
 
-      {history.length > 0 && (
-        <>
-          <h2>Verlauf</h2>
+      <section className="card">
+        <div className="card-head">
+          <h2>Ist gegen Ziel</h2>
+          <span className="meta">
+            Kandidat wird ein Titel mit vollständiger Bewertung, Risikowert unter 75 % und mindestens {percent(profile.minReturn)} im
+            vorsichtigen Fall
+          </span>
+        </div>
+        {view.rows.length === 0 ? (
+          <p className="empty">Keine Positionen und keine Kandidaten. Bewerte Titel in der Rangliste vollständig, damit ein Zielportfolio entsteht.</p>
+        ) : (
           <div className="scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Tag</th>
+                  <th>Aktie</th>
                   <th className="num">Wert</th>
+                  <th className="num">Ist</th>
+                  <th className="num">Ziel</th>
+                  <th>Vorschlag</th>
+                  <th>Grund</th>
                 </tr>
               </thead>
               <tbody>
-                {history.map((h) => (
-                  <tr key={h.date}>
-                    <td>{isoDate(h.date)}</td>
-                    <td className="num">{euro(h.totalEur)}</td>
+                {view.rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <Link className="name" href={`/aktie/${encodeURIComponent(row.id)}`}>
+                        {names.get(row.id)}
+                      </Link>
+                      <small>{row.id}</small>
+                    </td>
+                    <td className="num">{row.shares > 0 ? euro(row.valueEur) : <span className="meta">–</span>}</td>
+                    <td className="num">{percent(row.heldWeight)}</td>
+                    <td className="num">{percent(row.targetWeight)}</td>
+                    <td>
+                      {row.action === "kaufen" && (
+                        <span className="buy">
+                          kaufen +{percent(row.change)}
+                          {view.totalEur > 0 ? `, ${euro(row.changeEur)}` : ""}
+                        </span>
+                      )}
+                      {row.action === "verkaufen" && (
+                        <span className="sell">
+                          verkaufen {percent(row.change)}, {euro(-row.changeEur)}
+                        </span>
+                      )}
+                      {row.action === "halten" && <span className="meta">halten</span>}
+                      {row.action === "bewerten" && (
+                        <Link className="tag warn" href={`/aktie/${encodeURIComponent(row.id)}#urteil`}>
+                          erst bewerten
+                        </Link>
+                      )}
+                    </td>
+                    <td>{row.reason ?? ""}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </>
-      )}
+        )}
+      </section>
 
-      <h2>Portfolio löschen</h2>
-      <form action={deletePortfolio.bind(null, portfolio.id)}>
-        <label className="row meta">
-          <input type="checkbox" name="confirm" required /> Ja, mit allen Positionen löschen
-        </label>
-        <button className="quiet danger" type="submit">
-          Portfolio „{portfolio.name}" endgültig löschen
-        </button>
-      </form>
+      <div className="halves">
+        <Distribution title="Nach Branche" column="Branche" shares={view.sectors} />
+        <Distribution title="Nach Region" column="Region" shares={view.regions} />
+      </div>
+
+      <div className="columns">
+        <form className="card" id="bestand" action={saveHoldings.bind(null, portfolio.id)}>
+          <div className="card-head">
+            <h2>Bestand pflegen</h2>
+            <span className="meta">ein leeres Feld bedeutet 0</span>
+          </div>
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Position</th>
+                  <th className="num">Menge</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <label htmlFor="cash" className="factor">Barbestand</label>
+                  </td>
+                  <td className="num">
+                    <span className="field">
+                      <input id="cash" name="cash" type="number" min={0} step="0.01" inputMode="decimal" autoComplete="off" defaultValue={fieldNumber(portfolio.cashEur)} />
+                      <span className="unit">€</span>
+                    </span>
+                  </td>
+                </tr>
+                {stocks.map((stock) => (
+                  <tr key={stock.id}>
+                    <td>
+                      <label htmlFor={`shares:${stock.id}`} className="factor">{stock.name}</label>
+                    </td>
+                    <td className="num">
+                      <span className="field">
+                        <input id={`shares:${stock.id}`} name={`shares:${stock.id}`} type="number" min={0} step="any" inputMode="decimal" autoComplete="off" defaultValue={fieldNumber(holdings.get(stock.id))} />
+                        <span className="unit">St.</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="savebar">
+            <button type="submit">Bestand speichern</button>
+            <span className="meta">Titel, die hier fehlen, nimmst du im Datenvorrat auf die Watchlist.</span>
+          </div>
+        </form>
+
+        <div className="stack">
+          {history.length > 1 && (
+            <section className="card">
+              <div className="card-head">
+                <h2>Verlauf</h2>
+              </div>
+              <div className="scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tag</th>
+                      <th className="num">Wert</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((h) => (
+                      <tr key={h.date}>
+                        <td>{isoDate(h.date)}</td>
+                        <td className="num">{euro(h.totalEur)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+          <section className="card">
+            <div className="card-head">
+              <h2>Portfolio löschen</h2>
+            </div>
+            <form className="card-body" action={deletePortfolio.bind(null, portfolio.id)}>
+              <label className="row meta" style={{ marginBottom: 12 }}>
+                <input type="checkbox" name="confirm" required /> Ja, „{portfolio.name}" mit allen Positionen löschen
+              </label>
+              <button className="danger" type="submit">
+                Endgültig löschen
+              </button>
+            </form>
+          </section>
+        </div>
+      </div>
     </>
   );
 }

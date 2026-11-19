@@ -28,9 +28,15 @@ export default function Strategy() {
   ];
 
   return (
-    <div className="prose">
-      <h1>Die Strategie {STRATEGY_NAME}</h1>
-      <p className="claim">{STRATEGY_CLAIM}</p>
+    <>
+      <div className="title-row">
+        <div>
+          <h1>Die Strategie {STRATEGY_NAME}</h1>
+          <p className="finding">{STRATEGY_CLAIM}</p>
+        </div>
+      </div>
+      <div className="card card-body" style={{ paddingTop: 24 }}>
+        <div className="prose">
 
       <h2>Grundgedanke</h2>
       <p>
@@ -204,6 +210,8 @@ export default function Strategy() {
         eine Ausfallwahrscheinlichkeit, die Bandbreite und die Tauschschwelle. Diese Seite ist kein Angebot dieses
         Autors und nicht mit ihm abgestimmt.
       </p>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

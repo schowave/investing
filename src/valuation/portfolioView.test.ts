@@ -35,6 +35,11 @@ describe("buildPortfolioView", () => {
     expect(view.sectors).toEqual([{ name: "Chemie", held: 0.5, target: expect.closeTo(0.42) }]);
   });
 
+  it("schlägt für einen gehaltenen, unvollständig bewerteten Titel keinen Verkauf vor", () => {
+    const view = buildPortfolioView(PROFILE_FOCUSED, 1000, [item("OFFEN", { shares: 100, complete: false })]);
+    expect(view.rows[0]).toMatchObject({ action: "bewerten", change: 0, changeEur: 0, reason: "Bewertung unvollständig" });
+  });
+
   it("nennt gehaltene Titel ohne Kurs und rechnet sie nicht in die Summe", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 1000, [item("OHNE", { shares: 10, priceEur: null })]);
     expect(view.totalEur).toBe(1000);

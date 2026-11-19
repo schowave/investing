@@ -1,25 +1,41 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EXCLUSION_SCORE, innerReturn, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL, RISK_FACTORS } from "../../../calc/index.ts";
+import {
+  EXCLUSION_SCORE, innerReturn, comparableReturn, MANUAL_FOR_FINANCIALS, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL,
+  RISK_FACTORS, RISK_FACTOR_IDS, withHurdle,
+} from "../../../calc/index.ts";
 import type { RiskFactorId } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
+import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
-import { INPUT_KEYS } from "../../../valuation/valuation.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
 import { saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
-import { amount, fieldValue, isoDate, percent } from "../../format.ts";
+import { amount, isoDate, percent } from "../../format.ts";
+import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { database, today } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
 
 const PRICE_STEPS = [-0.3, -0.2, -0.1, 0, 0.1, 0.2];
 
-function describe(key: InputKey): { label: string; range: string; asPercent: boolean } {
-  if (key === "payoutLevel") return { label: "Rückflussniveau je Aktie", range: "Betrag", asPercent: false };
-  if (key === "growth") return { label: "Wachstum zu Beginn", range: "in %", asPercent: true };
-  const factor = RISK_FACTORS[key.slice(5) as RiskFactorId];
-  const bonus = factor.bonus > 0 ? `−${factor.bonus * 100} bis ` : "0 bis ";
-  return { label: factor.label, range: `${bonus}${factor.maxDeduction * 100} %`, asPercent: true };
-}
+/** Was ein Faktor verlangt; 0 % heißt erfüllt. */
+const REQUIREMENT: Record<RiskFactorId, string> = {
+  earnings: "Gewinn und Umsatz weitgehend konstant, keine starken Einbrüche",
+  financing: "Schulden im Verhältnis zur Ertragskraft tragbar, Zinsen gut gedeckt",
+  size: "Bilanzsumme über 20 Mrd. Euro",
+  age: "besteht seit über 20 Jahren",
+  sector: "nicht subventioniert, nicht schnelllebig, von dir verstanden",
+  country: "Sitz in Europa, Nordamerika oder Japan",
+  moat: "mindestens durchschnittliche Wettbewerbsvorteile; Bonus bei starkem Burggraben",
+  returnOnCapital: "Rendite auf das eingesetzte Kapital über 10 %",
+  ebitMargin: "EBIT-Marge über 10 %",
+  management: "keine Hinweise auf schlechtes oder unredliches Management; Bonus bei hervorragendem",
+  forecast: "Prognosen des Unternehmens weitgehend zuverlässig",
+  cashFlow: "erzielt freien Cashflow und schüttet verlässlich aus",
+  dependencies: "nicht von einem Rohstoff, Lieferanten oder Kunden abhängig",
+  currency: "berichtet in Euro, Dollar, Franken, Pfund oder Yen",
+  situation: "keine Krise im Unternehmen",
+};
 
 type Series = { label: string; value: (year: FundamentalsYear) => number | null; asPercent?: boolean };
 const perShare = (pick: (y: FundamentalsYear) => number | null) => (y: FundamentalsYear) => {
@@ -34,9 +50,17 @@ const SERIES: Series[] = [
   { label: "Umsatz je Aktie", value: perShare((y) => y.revenue) },
   { label: "Eigenkapital je Aktie", value: perShare((y) => y.equity) },
   { label: "EBIT-Marge", value: (y) => (y.ebit === null || !y.revenue ? null : y.ebit / y.revenue), asPercent: true },
-  { label: "Eigenkapitalquote", value: (y) => (y.equity === null || !y.totalAssets ? null : y.equity / y.totalAssets), asPercent: true },
+  { label: "Nettoschulden zum EBITDA", value: (y) => (y.netDebt === null || !y.ebitda || y.ebitda <= 0 ? null : y.netDebt / y.ebitda) },
   { label: "Aktien in Mio.", value: (y) => (y.shares === null ? null : y.shares / 1e6) },
 ];
+
+/** Wert für ein Zahlenfeld: Punkt als Dezimalzeichen, höchstens zwei Nachkommastellen. */
+const fieldNumber = (value: number | undefined, asPercent: boolean) =>
+  value === undefined ? "" : String(Math.round((asPercent ? value * 100 : value) * 100) / 100);
+const allowed = (id: RiskFactorId) => {
+  const factor = RISK_FACTORS[id];
+  return { min: -factor.bonus * 100, max: factor.maxDeduction * 100, text: `${factor.bonus > 0 ? `−${factor.bonus * 100}` : "0"} bis ${factor.maxDeduction * 100} %` };
+};
 
 export default async function StockPage(props: {
   params: Promise<{ id: string }>;
@@ -50,46 +74,120 @@ export default async function StockPage(props: {
 
   const { proposals, valuation: v, priceDate } = computeValuation(db, stock, today());
   const years = db.fundamentals(stock.id).slice(-10);
-  const history = db.valuationHistory(stock.id, 30);
+  const history = db.valuationHistory(stock.id, 12);
   const d = proposals.details;
+  const hurdle = withHurdle(PROFILE_FOCUSED, db.referenceRate(BOND_KEY)).minReturn;
   const excluded = v.riskScore >= EXCLUSION_SCORE;
   const { payoutLevel, growth } = v.inputs;
   const currency = stock.reportingCurrency;
+  const self = `/aktie/${encodeURIComponent(stock.id)}`;
+
+  // Urteil: Faktoren ohne Vorschlag aus Zahlen. Bei Finanzwerten gehören drei weitere dazu.
+  const isJudgement = (factorId: RiskFactorId) => RISK_FACTORS[factorId].manual || (stock.isFinancial && MANUAL_FOR_FINANCIALS.includes(factorId));
+  const judged = RISK_FACTOR_IDS.filter(isJudgement);
+  const computed = RISK_FACTOR_IDS.filter((factorId) => !isJudgement(factorId));
+  const openJudgements = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined).length;
+  const computedSum = computed.reduce((sum, factorId) => sum + (v.inputs[`risk.${factorId}`] ?? 0), 0);
+  const computedNeedsAttention = computed.some((factorId) => v.inputs[`risk.${factorId}`] === undefined || v.manual.includes(`risk.${factorId}`));
+  const cautious = v.returns?.cautious ?? null;
+  const base = v.returns?.base ?? null;
+
+  let finding: string;
+  if (excluded) finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskScore, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
+  else if (base === null) finding = "Die innere Rendite lässt sich noch nicht rechnen. Unten steht, welche Eingabe fehlt.";
+  else if (!v.complete) {
+    finding = `Vorläufig ${percent(base)}. ${v.missing.length === 1 ? "Eine Eingabe fehlt" : `${v.missing.length} Eingaben fehlen`}, bevor der Titel Kandidat fürs Portfolio werden kann.`;
+  } else if (cautious !== null && cautious >= hurdle) finding = `Kandidat: Auch der vorsichtige Fall liegt mit ${percent(cautious)} über der Mindestrendite von ${percent(hurdle)}.`;
+  else if (base >= hurdle) finding = `Ohne Sicherheitsmarge: Der Basisfall erreicht die Mindestrendite von ${percent(hurdle)}, der vorsichtige Fall mit ${percent(cautious)} nicht.`;
+  else finding = `Unter der Mindestrendite von ${percent(hurdle)}.`;
+
+  const numberRow = (key: InputKey, label: string, hint: string, opts: { min: number; max: number; step: number; unit: string; asPercent: boolean; range: string }) => {
+    const show = opts.asPercent ? percent : amount;
+    const isManual = v.manual.includes(key);
+    const isOpen = v.inputs[key] === undefined;
+    return (
+      <tr key={key} className={isOpen ? "open" : isManual ? "manual" : ""}>
+        <td>
+          <label htmlFor={key} className="factor">
+            {label}
+          </label>
+          <span className="hint">{hint}</span>
+        </td>
+        <td className="num wide-only">{opts.range}</td>
+        <td className="num wide-only">{proposals.values[key] === undefined ? <span className="meta">keiner</span> : show(proposals.values[key])}</td>
+        <td className="num">
+          <span className="field">
+            <input
+              id={key}
+              name={key}
+              type="number"
+              inputMode="decimal"
+              min={opts.min}
+              max={opts.max}
+              step={opts.step}
+              autoComplete="off"
+              defaultValue={isManual ? fieldNumber(v.inputs[key], opts.asPercent) : ""}
+              placeholder={isOpen ? "offen" : "Vorschlag"}
+            />
+            <span className="unit">{opts.unit}</span>
+          </span>
+        </td>
+        <td className="num">{isOpen ? <span className="tag warn">offen</span> : <strong>{show(v.inputs[key])}</strong>}</td>
+      </tr>
+    );
+  };
+  const riskRow = (factorId: RiskFactorId) => {
+    const range = allowed(factorId);
+    return numberRow(`risk.${factorId}`, RISK_FACTORS[factorId].label, REQUIREMENT[factorId], { min: range.min, max: range.max, step: 0.5, unit: "%", asPercent: true, range: range.text });
+  };
+  const head = (
+    <thead>
+      <tr>
+        <th>Eingabe</th>
+        <th className="num wide-only">Erlaubt</th>
+        <th className="num wide-only">Vorschlag</th>
+        <th className="num">Dein Wert</th>
+        <th className="num">Es gilt</th>
+      </tr>
+    </thead>
+  );
 
   return (
     <>
-      <h1>{stock.name}</h1>
-      <p className="meta">
-        {stock.id} · {stock.sector} · {stock.region} · berichtet in {currency}
-        {stock.isFinancial ? " · Finanzwert" : ""}
-        {stock.watched ? "" : " · Datenvorrat, nicht auf der Watchlist"}
-      </p>
-
-      <div className="row">
-        <form action={setWatched.bind(null, stock.id, !stock.watched, `/aktie/${encodeURIComponent(stock.id)}`)}>
-          <button className="quiet" type="submit">
+      <Link className="crumb" href="/">
+        ← Rangliste
+      </Link>
+      <div className="title-row">
+        <div>
+          <h1>{stock.name}</h1>
+          <p className="finding">{finding}</p>
+          <p className="meta">
+            {stock.id} · {stock.sector} · {stock.region} · berichtet in {currency}
+            {stock.isFinancial ? " · Finanzwert" : ""}
+            {stock.watched ? "" : " · im Datenvorrat, nicht auf der Watchlist"}
+          </p>
+        </div>
+        <form className="title-actions" action={setWatched.bind(null, stock.id, !stock.watched, self)}>
+          <button className={stock.watched ? "quiet" : ""} type="submit">
             {stock.watched ? "Von der Watchlist nehmen" : "Auf die Watchlist"}
-          </button>
-        </form>
-        <form className="row" action={saveManualPrice.bind(null, stock.id)}>
-          <label htmlFor="price" className="meta">
-            Kurs von Hand in {stock.priceCurrency}
-          </label>
-          <input id="price" name="price" type="text" inputMode="decimal" autoComplete="off" />
-          <button className="quiet" type="submit">
-            Kurs eintragen
           </button>
         </form>
       </div>
 
-      <dl className="figures">
+      {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
+      {query.gespeichert && <div className="notice ok">Gespeichert.</div>}
+
+      <dl className="card figures">
         <div className="figure">
-          <dt>Innere Rendite{v.complete ? "" : " (vorläufig)"}</dt>
-          <dd className="accent">{percent(v.returns?.base)}</dd>
+          <dt>Innere Rendite{v.complete ? "" : ", vorläufig"}</dt>
+          <dd className={base !== null && cautious !== null && cautious >= hurdle ? "lead" : ""}>{percent(base)}</dd>
           <span className="sub">
-            {v.returns ? `${percent(v.returns.cautious)} bis ${percent(v.returns.optimistic)}` : "nicht berechenbar"}
+            {v.returns ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Mindestrendite ${percent(hurdle)}` : "nicht berechenbar"}
           </span>
-          {v.inflationGap !== 0 && v.localReturn !== null && (
+          {v.returns && (
+            <ReturnRange cautious={cautious} base={base} optimistic={v.returns.optimistic} hurdle={hurdle} scaleMax={scaleFor([v.returns.optimistic], hurdle)} />
+          )}
+          {Math.abs(v.inflationGap) >= 0.005 && v.localReturn !== null && (
             <span className="sub">
               in {currency} {percent(v.localReturn)}, Inflationsabstand zum Euro {percent(v.inflationGap)}
             </span>
@@ -97,13 +195,11 @@ export default async function StockPage(props: {
         </div>
         <div className="figure">
           <dt>Kurs</dt>
-          <dd>{amount(v.price)}</dd>
-          <span className="sub">
-            {currency}, {isoDate(priceDate)}
-          </span>
+          <dd className={v.price === null ? "muted-value" : ""}>{amount(v.price)}</dd>
+          <span className="sub">{v.price === null ? "kein Kurs oder kein Wechselkurs" : `${currency}, ${isoDate(priceDate)}`}</span>
         </div>
         <div className="figure">
-          <dt>Risikowert{v.missing.some((k) => k.startsWith("risk.")) ? " (Untergrenze)" : ""}</dt>
+          <dt>Risikowert{openJudgements > 0 ? ", Untergrenze" : ""}</dt>
           <dd>{percent(v.riskScore, 0)}</dd>
           <span className="sub">
             {v.riskClass}, Ausfall {percent(v.defaultProbability)} pro Jahr
@@ -111,138 +207,196 @@ export default async function StockPage(props: {
         </div>
         <div className="figure">
           <dt>Positionslimit</dt>
-          <dd>{excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}</dd>
+          <dd className={excluded ? "muted-value" : ""}>{excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}</dd>
           <span className="sub">
-            {excluded ? "ab 75 % ausgeschlossen" : `fokussiert; global ${percent(positionLimit(PROFILE_GLOBAL.baseLimit, v.riskScore))}`}
+            {excluded ? "ausgeschlossen" : `fokussiert; global ${percent(positionLimit(PROFILE_GLOBAL.baseLimit, v.riskScore))}`}
           </span>
         </div>
       </dl>
 
-      {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
-      {query.gespeichert && <div className="notice ok">Eingaben gespeichert.</div>}
-      {proposals.notes.length > 0 && (
-        <div className="notice">
-          <ul>
-            {proposals.notes.map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="columns">
+        <form className="card" id="urteil" action={saveInputs.bind(null, stock.id)}>
+          <div className="card-head">
+            <h2>Bewertung</h2>
+            <span className="meta">{v.missing.length === 0 ? "alle Eingaben gesetzt" : `${v.missing.length} offen`}</span>
+          </div>
 
-      <h2>Eingaben</h2>
-      <p className="meta">
-        Ein leeres Feld übernimmt den Vorschlag. Risikofaktoren ohne Vorschlag müssen gesetzt werden, sonst bleibt die
-        Bewertung unvollständig. Abzüge sind positiv, ein Bonus ist negativ.
-      </p>
-      <form action={saveInputs.bind(null, stock.id)}>
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Eingabe</th>
-                <th className="num">Erlaubt</th>
-                <th className="num">Vorschlag</th>
-                <th className="num">Von Hand</th>
-                <th className="num">Es gilt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {INPUT_KEYS.map((key) => {
-                const { label, range, asPercent } = describe(key);
-                const show = asPercent ? percent : amount;
-                const isManual = v.manual.includes(key);
-                const isOpen = v.inputs[key] === undefined;
-                return (
-                  <tr key={key} className={isOpen ? "open" : isManual ? "manual" : ""}>
-                    <td>
-                      <label htmlFor={key}>{label}</label>
-                    </td>
-                    <td className="num">{range}</td>
-                    <td className="num">{proposals.values[key] === undefined ? "kein Vorschlag" : show(proposals.values[key])}</td>
-                    <td className="num">
-                      <input
-                        id={key}
-                        name={key}
-                        type="text"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        defaultValue={isManual ? fieldValue(v.inputs[key], asPercent) : ""}
-                        placeholder={isOpen ? "offen" : ""}
-                      />
-                    </td>
-                    <td className="num">{isOpen ? <span className="tag warn">offen</span> : show(v.inputs[key])}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="actions">
-          <button type="submit">Eingaben speichern</button>
-          <span className="meta">
-            {v.missing.length === 0 ? "Alle Eingaben gesetzt." : `${v.missing.length} Eingaben offen.`}
+          <p className="section-label">Dein Urteil</p>
+          <span className="hint">
+            Diese Faktoren lassen sich nicht aus Zahlen ablesen. 0 heißt: Anforderung erfüllt. Je schlechter, desto
+            höher der Abzug; ein Bonus ist negativ.
           </span>
-        </div>
-      </form>
+          <div className="scroll">
+            <table>
+              {head}
+              <tbody>{judged.map(riskRow)}</tbody>
+            </table>
+          </div>
 
-      <h2>Herleitung der Vorschläge</h2>
-      <div className="scroll">
-        <table>
-          <tbody>
-            <tr><td>Gewinnniveau je Aktie</td><td className="num">{amount(d.earningsLevel)}</td></tr>
-            <tr><td>Dividendenniveau je Aktie ({d.dividendsFromHistory ? "aus der Dividendenhistorie" : "aus gezahlter Summe und Aktienzahl"})</td><td className="num">{amount(d.dividendLevel)}</td></tr>
-            <tr><td>Netto-Rückkäufe je Aktie (fünf Jahre)</td><td className="num">{amount(d.netBuybacksPerShare)}</td></tr>
-            <tr><td>Tragbarer Rückfluss je Aktie</td><td className="num">{amount(d.sustainablePayout)}</td></tr>
-            <tr><td>Tilgung überhöhter Schulden je Aktie (schon abgezogen)</td><td className="num">{amount(d.debtRepaymentPerShare)}</td></tr>
-            <tr><td>Wachstum Gewinn je Aktie</td><td className="num">{percent(d.earningsGrowthPerShare)}</td></tr>
-            <tr><td>Wachstum Gewinn des Unternehmens</td><td className="num">{percent(d.earningsGrowthTotal)}</td></tr>
-            <tr><td>Wachstum Gewinn, angesetzt (das niedrigere)</td><td className="num">{percent(d.historicalGrowth)}</td></tr>
-            <tr><td>Wachstum Umsatz, angesetzt (das niedrigere aus je Aktie und gesamt)</td><td className="num">{percent(d.revenueGrowth)}</td></tr>
-            <tr><td>Wachstumsgrenze aus Einbehaltung</td><td className="num">{percent(d.retentionCap)}</td></tr>
-          </tbody>
-        </table>
+          <p className="section-label">Rückfluss und Wachstum</p>
+          <span className="hint">Ein leeres Feld übernimmt den Vorschlag aus den Zahlen der letzten zehn Jahre.</span>
+          <div className="scroll">
+            <table>
+              {head}
+              <tbody>
+                {numberRow("payoutLevel", "Rückfluss je Aktie", "Dividende plus Netto-Rückkäufe, wie du sie fürs kommende Jahr erwartest", { min: 0, max: 1e9, step: 0.01, unit: "", asPercent: false, range: currency })}
+                {numberRow("growth", "Wachstum zu Beginn", "schmilzt über 15 Jahre auf höchstens 3 % ab", { min: -20, max: 30, step: 0.1, unit: "%", asPercent: true, range: "−20 bis 30 %" })}
+              </tbody>
+            </table>
+          </div>
+
+          <details className="more" open={computedNeedsAttention}>
+            <summary>
+              Risikofaktoren aus Zahlen: zusammen {percent(computedSum, 0)}
+              {computed.some((factorId) => v.inputs[`risk.${factorId}`] === undefined) ? ", einer ohne Vorschlag" : ""}
+            </summary>
+            <div className="scroll">
+              <table>
+                {head}
+                <tbody>{computed.map(riskRow)}</tbody>
+              </table>
+            </div>
+          </details>
+
+          <div className="savebar">
+            <button type="submit">Bewertung speichern</button>
+            <span className="meta">
+              {openJudgements > 0 ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.` : "Leere Felder übernehmen den Vorschlag."}
+            </span>
+          </div>
+        </form>
+
+        <div className="stack">
+          {proposals.notes.length > 0 && (
+            <section className="card">
+              <div className="card-head">
+                <h2>Hinweise</h2>
+              </div>
+              <div className="card-body">
+                <ul className="notes">
+                  {proposals.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          )}
+
+          {v.price !== null && payoutLevel !== undefined && growth !== undefined && (
+            <section className="card">
+              <div className="card-head">
+                <h2>Rendite bei anderen Kursen</h2>
+              </div>
+              <div className="scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th className="num">Kurs in {currency}</th>
+                      <th className="num">Abstand</th>
+                      <th className="num">Innere Rendite</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PRICE_STEPS.map((step) => {
+                      const value = comparableReturn(innerReturn(v.price! * (1 + step), { payoutLevel, growth, defaultProbability: v.defaultProbability }), v.inflationGap);
+                      return (
+                        <tr key={step}>
+                          <td className="num">{amount(v.price! * (1 + step))}</td>
+                          <td className="num">{step === 0 ? "heute" : `${step > 0 ? "+" : ""}${percent(step, 0)}`}</td>
+                          <td className="num">
+                            <strong>{percent(value)}</strong>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          <section className="card">
+            <div className="card-head">
+              <h2>Herleitung der Vorschläge</h2>
+            </div>
+            <div className="scroll">
+              <table className="plain">
+                <tbody>
+                  <tr><td>Gewinnniveau je Aktie</td><td className="num">{amount(d.earningsLevel)}</td></tr>
+                  <tr><td>Dividendenniveau, {d.dividendsFromHistory ? "aus der Dividendenhistorie" : "aus gezahlter Summe und Aktienzahl"}</td><td className="num">{amount(d.dividendLevel)}</td></tr>
+                  <tr><td>Netto-Rückkäufe je Aktie, fünf Jahre</td><td className="num">{amount(d.netBuybacksPerShare)}</td></tr>
+                  <tr><td>Tilgung überhöhter Schulden je Aktie</td><td className="num">{amount(d.debtRepaymentPerShare)}</td></tr>
+                  <tr><td>Tragbarer Rückfluss je Aktie</td><td className="num">{amount(d.sustainablePayout)}</td></tr>
+                  <tr><td>Wachstum Gewinn je Aktie</td><td className="num">{percent(d.earningsGrowthPerShare)}</td></tr>
+                  <tr><td>Wachstum Gewinn des Unternehmens</td><td className="num">{percent(d.earningsGrowthTotal)}</td></tr>
+                  <tr><td>Wachstum Umsatz, das niedrigere aus beiden</td><td className="num">{percent(d.revenueGrowth)}</td></tr>
+                  <tr><td>Wachstumsgrenze aus Einbehaltung</td><td className="num">{percent(d.retentionCap)}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card-head">
+              <h2>Kurs von Hand</h2>
+            </div>
+            <form className="card-body row" action={saveManualPrice.bind(null, stock.id)}>
+              <label htmlFor="price" className="meta">
+                Schlusskurs in {stock.priceCurrency}
+              </label>
+              <input id="price" name="price" className="amount" type="text" inputMode="decimal" autoComplete="off" />
+              <button className="quiet" type="submit">
+                Eintragen
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
 
-      {v.price !== null && payoutLevel !== undefined && growth !== undefined && (
-        <>
-          <h2>Innere Rendite bei anderen Kursen</h2>
+      <section className="card" style={{ marginTop: 12 }}>
+        <div className="card-head">
+          <h2>Zehn Geschäftsjahre</h2>
+          <span className="meta">Beträge in {currency}</span>
+        </div>
+        {years.length === 0 ? (
+          <p className="empty">Keine Abschlüsse gespeichert.</p>
+        ) : (
           <div className="scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Kurs in {currency}</th>
-                  {PRICE_STEPS.map((step) => (
-                    <th className="num" key={step}>{amount(v.price! * (1 + step))}</th>
+                  <th>Kennzahl</th>
+                  {years.map((y) => (
+                    <th className="num" key={y.fiscalYear}>{y.fiscalYear}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>Abstand zum heutigen Kurs</td>
-                  {PRICE_STEPS.map((step) => (
-                    <td className="num" key={step}>{step === 0 ? "heute" : `${step > 0 ? "+" : ""}${percent(step, 0)}`}</td>
-                  ))}
-                </tr>
-                <tr>
-                  <td>Innere Rendite</td>
-                  {PRICE_STEPS.map((step) => (
-                    <td className="num" key={step}>
-                      <strong>
-                        {percent(innerReturn(v.price! * (1 + step), { payoutLevel, growth, defaultProbability: v.defaultProbability }))}
-                      </strong>
-                    </td>
-                  ))}
-                </tr>
+                {SERIES.map((series) => (
+                  <tr key={series.label}>
+                    <td>{series.label}</td>
+                    {years.map((y) => {
+                      const value = series.value(y);
+                      return (
+                        <td key={y.fiscalYear} className={`num${value !== null && value < 0 ? " negative" : ""}`}>
+                          {series.asPercent ? percent(value) : amount(value)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </>
-      )}
+        )}
+      </section>
 
-      {history.length > 0 && (
-        <>
-          <h2>Verlauf der Bewertung</h2>
+      {history.length > 1 && (
+        <section className="card">
+          <div className="card-head">
+            <h2>Verlauf der Bewertung</h2>
+            <span className="meta">die letzten {history.length} Tagesstände</span>
+          </div>
           <div className="scroll">
             <table>
               <thead>
@@ -267,37 +421,8 @@ export default async function StockPage(props: {
               </tbody>
             </table>
           </div>
-        </>
+        </section>
       )}
-
-      <h2>Zehn Geschäftsjahre</h2>
-      <div className="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>in {currency}</th>
-              {years.map((y) => (
-                <th className="num" key={y.fiscalYear}>{y.fiscalYear}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {SERIES.map((series) => (
-              <tr key={series.label}>
-                <td>{series.label}</td>
-                {years.map((y) => {
-                  const value = series.value(y);
-                  return (
-                    <td key={y.fiscalYear} className={`num${value !== null && value < 0 ? " negative" : ""}`}>
-                      {series.asPercent ? percent(value) : amount(value)}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }

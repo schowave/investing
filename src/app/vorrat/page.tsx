@@ -34,14 +34,16 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
 
   return (
     <>
-      <h1>Datenvorrat</h1>
-      <p className="lede">
-        Alle gespeicherten Titel nach vorläufiger innerer Rendite. Sie beruht allein auf den automatischen Vorschlägen;
-        die sechs Risikofaktoren von Hand fehlen, der Risikowert ist deshalb eine Untergrenze. Ausgeblendet sind Titel,
-        deren Rückfluss über 20 % des Kurses liegt oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt; das sind
-        meist Hinterlegungsscheine, deren Zahlen nicht zum Kurs passen.
-      </p>
-      <form className="row" action="/vorrat">
+      <div className="title-row">
+        <div>
+          <h1>Datenvorrat</h1>
+          <p className="finding">
+            Alle gespeicherten Titel nach vorläufiger innerer Rendite, gerechnet allein aus den Vorschlägen. Dein Urteil
+            fehlt noch, der Risikowert ist deshalb eine Untergrenze.
+          </p>
+        </div>
+      </div>
+      <form className="card card-body row" action="/vorrat" style={{ paddingTop: 16 }}>
         <input type="search" name="q" defaultValue={query} placeholder="Name oder Symbol" aria-label="Suche" />
         <select name="region" defaultValue={region} aria-label="Region">
           <option value="">alle Regionen</option>
@@ -60,19 +62,25 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
           ))}
         </select>
         <label className="meta">
-          <input type="checkbox" name="alle" value="1" defaultChecked={includeImplausible} /> auch unplausible Titel
+          <input type="checkbox" name="alle" value="1" defaultChecked={includeImplausible} /> auch Titel mit unplausiblen Zahlen
         </label>
         <button type="submit">Anzeigen</button>
       </form>
 
-      <p className="meta">
+      <section className="card">
+        <div className="card-head">
+          <h2>{query ? `Treffer für „${query}"` : "Höchste vorläufige Rendite"}</h2>
+          <span className="meta">
         {ranked.length === 0
           ? "Keine Titel mit berechenbarer Rendite. Der Datenvorrat wird beim täglichen Abgleich bewertet."
           : ranked.length === LIMIT
             ? `Die ${LIMIT} Titel mit der höchsten vorläufigen Rendite.`
             : `${ranked.length} Titel.`}
-      </p>
-      {ranked.length > 0 && (
+          </span>
+        </div>
+      {ranked.length === 0 ? (
+        <p className="empty">Nichts gefunden. Ohne Filter erscheinen die Titel mit der höchsten vorläufigen Rendite.</p>
+      ) : (
         <div className="scroll">
           <table>
             <thead>
@@ -112,7 +120,7 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
                   <td className="num">{percent(row.riskScore, 0)}</td>
                   <td>
                     <form action={setWatched.bind(null, stock.id, !stock.watched, returnTo)}>
-                      <button className="quiet" type="submit">
+                      <button className="quiet small" type="submit">
                         {stock.watched ? "Entfernen" : "Aufnehmen"}
                       </button>
                     </form>
@@ -123,10 +131,17 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
           </table>
         </div>
       )}
+      </section>
+      <p className="meta" style={{ marginTop: 10 }}>
+        Ausgeblendet sind Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des
+        Gewinnniveaus liegt, und Titel mit unbereinigtem Aktiensplit. Das sind meist Datenfehler.
+      </p>
 
       {others.length > 0 && (
-        <>
-          <h2>Weitere Treffer ohne berechenbare Rendite</h2>
+        <section className="card">
+          <div className="card-head">
+            <h2>Weitere Treffer ohne berechenbare Rendite</h2>
+          </div>
           <div className="scroll">
             <table>
               <thead>
@@ -152,7 +167,7 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
                     <td className="num">{fiscalYears < 10 ? <span className="tag warn">{fiscalYears}</span> : fiscalYears}</td>
                     <td>
                       <form action={setWatched.bind(null, stock.id, !stock.watched, returnTo)}>
-                        <button className="quiet" type="submit">
+                        <button className="quiet small" type="submit">
                           {stock.watched ? "Entfernen" : "Aufnehmen"}
                         </button>
                       </form>
@@ -162,7 +177,7 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
               </tbody>
             </table>
           </div>
-        </>
+        </section>
       )}
     </>
   );
