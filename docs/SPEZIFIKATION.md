@@ -223,6 +223,10 @@ Regeln:
 - Ob der Nutzer die Branche versteht (Faktor 5), beurteilt Jev nicht.
 - Je Aktie gilt die jüngste Einstufung; Recherche und Quellen bleiben gespeichert.
 - Für die Faktoren 2, 8 und 9 bei Finanzwerten gibt es keinen Jev-Vorschlag.
+- Die Aktienseite rät, die Lage selbst zu prüfen, wenn der Kurs mindestens 40 % unter dem
+  52-Wochen-Hoch liegt, zwei der letzten vier Quartale mehr als 15 % unter der Gewinnschätzung
+  lagen oder der Umsatz des letzten Quartals mindestens 15 % unter dem Vorjahresquartal liegt
+  (nicht bei Finanzwerten). Das ist nur ein Hinweis, kein Abzug (`src/judgement/situation.ts`).
 
 ## 7. Zielportfolio
 

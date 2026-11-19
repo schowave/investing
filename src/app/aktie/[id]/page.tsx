@@ -15,6 +15,7 @@ import {
 } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
 import { researchAvailable } from "../../../judgement/research.ts";
+import { situationSignals } from "../../../judgement/situation.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
@@ -100,6 +101,13 @@ export default async function StockPage(props: {
   const canResearch = researchAvailable();
   const secFilings = judgement?.sources.filter((source) => source.kind === "sec") ?? [];
   const webSources = judgement?.sources.filter((source) => source.kind !== "sec") ?? [];
+  // Das 52-Wochen-Hoch von EODHD steht in der Börseneinheit (z. B. Pence), der gespeicherte Kurs ist schon umgerechnet.
+  const latestClose = db.latestPrice(stock.id)?.close ?? null;
+  const signals = situationSignals({
+    fundamentalsJson: db.rawDocument(stock.id, "eodhd-fundamentals")?.body ?? null,
+    price: latestClose === null ? null : latestClose * stock.priceDivisor,
+    isFinancial: stock.isFinancial,
+  });
 
   // Urteil: Faktoren ohne Vorschlag aus Zahlen. Bei Finanzwerten gehören drei weitere dazu.
   const isJudgement = (factorId: RiskFactorId) =>
@@ -303,6 +311,12 @@ export default async function StockPage(props: {
             {openWithJev > 0 &&
               " Felder mit Jev-Vorschlag sind vorausgefüllt und gelten erst, wenn du speicherst. Ob du die Branche verstehst, kann Jev nicht beurteilen."}
           </span>
+          {signals.length > 0 && (
+            <div className="notice" style={{ marginTop: 12 }}>
+              <strong>Lage selbst prüfen.</strong> {signals.map((signal) => signal.text).join(" ")} Lies die jüngsten Meldungen, bevor du
+              die aktuelle Situation einschätzt{judgement ? "; Jev sieht Nachrichten nur, soweit sie in den Unterlagen stehen" : ""}.
+            </div>
+          )}
           <div className="scroll">
             <table>
               {head}
