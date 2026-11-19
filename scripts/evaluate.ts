@@ -32,7 +32,7 @@ for (const { stock, priceDate, proposals, valuation: v } of results.filter((r) =
   const d = proposals.details;
   console.log(`\n${stock.id}  ${stock.name}  (${stock.reportingCurrency}, Geschäftsjahre ${d.fiscalYears[0]} bis ${d.fiscalYears.at(-1)}, Kurs vom ${priceDate ?? "–"})`);
   console.log(`  Gewinnniveau ${amount(d.earningsLevel)}, Dividendenniveau ${amount(d.dividendLevel)}, Netto-Rückkäufe ${amount(d.netBuybacksPerShare)}, tragbarer Rückfluss ${amount(d.sustainablePayout)}`);
-  console.log(`  Wachstum historisch ${percent(d.historicalGrowth)}, Grenze aus Einbehaltung ${percent(d.retentionCap)}`);
+  console.log(`  Wachstum historisch ${percent(d.historicalGrowth)}, Umsatz je Aktie ${percent(d.revenueGrowth)}, Grenze aus Einbehaltung ${percent(d.retentionCap)}`);
   console.log(`  Risikoklasse ${v.riskClass}, Ausfallwahrscheinlichkeit ${percent(v.defaultProbability)} pro Jahr`);
   for (const key of INPUT_KEYS) {
     const label = key.startsWith("risk.") ? RISK_FACTORS[key.slice(5) as RiskFactorId].label : key === "growth" ? "Wachstum" : "Rückflussniveau";

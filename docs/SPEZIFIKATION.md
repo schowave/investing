@@ -101,6 +101,7 @@ Grundlage sind zehn Geschäftsjahre je Aktie (Buch Kap. 5.2).
 **Gewinnniveau:**
 - Gewinn je Aktie in allen zehn Jahren gestiegen: letzter Gewinn je Aktie.
 - sonst: `Zehnjahresdurchschnitt · (1 + g · 5)`, zur Kontrolle `Fünfjahresdurchschnitt · (1 + g · 2)`; es gilt der niedrigere Wert.
+- In beiden Fällen höchstens der höchste Gewinn je Aktie der letzten drei Jahre.
 - Verwässerter Gewinn je Aktie, sofern verfügbar.
 
 **Dividendenniveau:** letzte Dividende, wenn sie in den letzten zehn Jahren nie gesenkt
@@ -118,8 +119,9 @@ fünf Jahre. Bei Banken und Versicherern stattdessen das Gewinnniveau.
 tragbare Rückfluss. Rückkäufe, die nicht aus freiem Cashflow gedeckt sind, zählen damit
 nicht. Greift die Deckelung, zeigt die Oberfläche das an.
 
-**Wachstum `g0`:** der kleinste dieser drei Werte, mindestens 0 %:
+**Wachstum `g0`:** der kleinste dieser vier Werte, mindestens 0 %:
 - Wachstum des Gewinns je Aktie nach obiger Formel,
+- Wachstum des Umsatzes je Aktie nach derselben Formel (entfällt, wenn nicht bestimmbar),
 - 8,5 %,
 - `Einbehaltungsquote · Eigenkapitalrendite + 2 %`, mit
   `Einbehaltungsquote = max(0, 1 − R0 / Gewinnniveau)` und
@@ -326,8 +328,6 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 
 - **Lizenz für mehrere Nutzer:** Die Privattarife der Datenanbieter erlauben keine Anzeige für andere Nutzer. Vor dem Freischalten weiterer Nutzer mit EODHD klären.
 - **Halyk Savings Bank:** Die Fundamentaldaten stehen in Tenge, dafür fehlt ein Wechselkurs. Das Verhältnis von Hinterlegungsschein zu Aktie ist ungeprüft.
-- **Wachstumsvorschlag zu hoch:** Bei fünf der sechs Starttitel liegt das historische Gewinnwachstum über 8,5 %, und die Grenze aus Einbehaltung greift bei niedrigem Eigenkapital nicht. Der Vorschlag steht damit fast immer am Deckel von 8,5 %. Zu klären: zusätzliche Grenze aus dem Umsatzwachstum je Aktie.
-- **Gewinnniveau über dem letzten Gewinn:** Die Hochrechnung des Durchschnitts mit dem Wachstum ergibt nach einem schwachen ersten Jahrfünft ein Niveau über jedem erzielten Gewinn (Imperial Brands 3,30 bei zuletzt 2,49). Zu klären: Deckel auf den höchsten Gewinn der letzten Jahre.
 - **Gezahlte Dividenden bei Sonderfällen:** Das Feld des Anbieters enthält bei einzelnen Titeln Ausschüttungen an Minderheiten (Charter 2016 und 2020).
 - **Kalibrierung der Ausfallwahrscheinlichkeit** an historischen Ausfallraten nach Bonitätsklasse.
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.

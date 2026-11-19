@@ -28,6 +28,7 @@ export interface Proposals {
     netBuybacksPerShare: number | null;
     sustainablePayout: number | null;
     historicalGrowth: number | null;
+    revenueGrowth: number | null;
     retentionCap: number | null;
   };
   /** Hinweise für die Oberfläche, z. B. gegriffene Deckelung oder fehlende Daten. */
@@ -60,7 +61,7 @@ export function proposeInputs(
   const notes: string[] = [];
   const details: Proposals["details"] = {
     fiscalYears: [], earningsLevel: null, dividendLevel: null, netBuybacksPerShare: null,
-    sustainablePayout: null, historicalGrowth: null, retentionCap: null,
+    sustainablePayout: null, historicalGrowth: null, revenueGrowth: null, retentionCap: null,
   };
 
   values["risk.currency"] = proposeCurrency(stock.reportingCurrency);
@@ -122,7 +123,10 @@ export function proposeInputs(
   details.historicalGrowth = growthHistory;
   const equityPerShare = last.equity === null ? null : last.equity / last.shares!;
   if (payout !== null && equityPerShare !== null) {
-    const growth = growthProposal({ historicalGrowth: growthHistory, payoutLevel: payout, earningsLevel: level, equityPerShare });
+    const revenuePerShare = ten.map((y, i) => (y.revenue === null ? null : y.revenue / shares[i]!));
+    const revenueGrowth = allNumbers(revenuePerShare) ? historicalGrowth(revenuePerShare) : null;
+    details.revenueGrowth = revenueGrowth;
+    const growth = growthProposal({ historicalGrowth: growthHistory, revenueGrowth, payoutLevel: payout, earningsLevel: level, equityPerShare });
     details.retentionCap = growth.retentionCap;
     if (growth.value !== null) values.growth = growth.value;
     else notes.push("Historisches Wachstum negativ oder nicht bestimmbar, Wachstum muss von Hand gesetzt werden.");

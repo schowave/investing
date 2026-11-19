@@ -52,7 +52,8 @@ export function earningsLevel(earningsPerShare: readonly number[]): number | nul
   const fromTen = levelFromAverage(earningsPerShare, 10);
   const fromFive = levelFromAverage(earningsPerShare, 5);
   if (fromTen === null || fromFive === null) return null;
-  return Math.min(fromTen, fromFive);
+  // Nach einem schwachen ersten Jahrfünft läge die Hochrechnung über jedem erzielten Gewinn.
+  return Math.min(fromTen, fromFive, Math.max(...earningsPerShare.slice(-3)));
 }
 
 /** Dividendenniveau je Aktie (ohne Sonderdividenden). */
@@ -117,6 +118,8 @@ export interface GrowthProposal {
 export function growthProposal(
   args: {
     historicalGrowth: number | null;
+    /** Wachstum des Umsatzes je Aktie; `null`, wenn nicht bestimmbar (dann ohne diese Grenze). */
+    revenueGrowth?: number | null;
     payoutLevel: number;
     earningsLevel: number | null;
     equityPerShare: number;
@@ -129,6 +132,8 @@ export function growthProposal(
     retentionCap = retention * (args.earningsLevel / args.equityPerShare) + params.inflationAllowance;
   }
   if (args.historicalGrowth === null || args.historicalGrowth < 0) return { value: null, retentionCap };
-  const value = Math.min(args.historicalGrowth, params.maxGrowth, retentionCap ?? Infinity);
+  // Gewinn kann auf Dauer nicht schneller wachsen als der Umsatz; schrumpft dieser, bleibt es bei 0.
+  const revenueCap = args.revenueGrowth == null ? Infinity : Math.max(0, args.revenueGrowth);
+  const value = Math.min(args.historicalGrowth, params.maxGrowth, retentionCap ?? Infinity, revenueCap);
   return { value, retentionCap };
 }

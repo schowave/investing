@@ -17,7 +17,7 @@ function steadyYears(change: (year: FundamentalsYear, index: number) => void = (
   return Array.from({ length: 10 }, (_, i) => {
     const year: FundamentalsYear = {
       fiscalYear: 2016 + i, epsDiluted: 5 + i * 0.1, dividendPerShare: 2, shares: 100, repurchases: 100, issuance: 0,
-      stockBasedCompensation: null, revenue: 5000, ebit: 750, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
+      stockBasedCompensation: null, revenue: 5000 * 1.03 ** i, ebit: 750 * 1.03 ** i, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
       currentLiabilities: 1000, longTermDebt: null, cash: 0, operatingCashFlow: 600, freeCashFlow: 400,
     };
     change(year, i);
@@ -71,6 +71,19 @@ describe("proposeInputs", () => {
     const { values, notes } = proposeInputs(stock, steadyYears((y, i) => (y.epsDiluted = 5 - i * 0.3)), 1, 2026);
     expect(values.growth).toBeUndefined();
     expect(notes.some((n) => n.includes("von Hand"))).toBe(true);
+  });
+
+  it("begrenzt das Wachstum auf das Umsatzwachstum je Aktie", () => {
+    const flat = proposeInputs(stock, steadyYears((y) => (y.revenue = 5000)), 1, 2026);
+    expect(flat.values.growth).toBe(0);
+    const slow = proposeInputs(stock, steadyYears((y, i) => (y.revenue = 5000 * 1.01 ** i)), 1, 2026);
+    expect(slow.values.growth).toBeCloseTo(0.01);
+  });
+
+  it("deckelt das Gewinnniveau auf den höchsten Gewinn der letzten drei Jahre", () => {
+    const eps = [0.7, 1.5, 1.4, 1.1, 1.6, 3.0, 1.7, 2.5, 3.0, 2.5];
+    const { details } = proposeInputs(stock, steadyYears((y, i) => (y.epsDiluted = eps[i]!)), 1, 2026);
+    expect(details.earningsLevel).toBe(3.0);
   });
 
   it("bewertet die Größe nicht ohne Wechselkurs und das Alter ohne Gründungsjahr nur bei langer Historie", () => {
