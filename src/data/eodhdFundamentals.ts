@@ -11,6 +11,8 @@ export interface EodhdFundamentals {
   sector: string | null;
   country: string | null;
   name: string | null;
+  /** Land des Firmensitzes als englischer Name aus der Adresse, z. B. "Kazakhstan". */
+  seatCountry: string | null;
   /** Art des Wertpapiers, z. B. "Common Stock". */
   securityType: string | null;
   /** Aus dem Beschreibungstext gelesen ("founded in 1901"); `null`, wenn dort nichts steht. */
@@ -82,6 +84,7 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     sector: text(root.General?.Sector),
     country: text(root.General?.CountryISO),
     name: text(root.General?.Name),
+    seatCountry: text((root.General?.AddressData as Row | undefined)?.Country),
     securityType: text(root.General?.Type),
     foundedYear: foundedYearFrom(text(root.General?.Description)),
     quoteCurrency: text(root.General?.CurrencyCode),
@@ -112,19 +115,36 @@ const REGION_BY_COUNTRY: Record<string, string> = {
 const EUROPE = "AT BE CH CY CZ DE DK ES FI FR GB GG GR HU IE IM IS IT JE LU MT NL NO PL PT SE".split(" ");
 for (const country of EUROPE) REGION_BY_COUNTRY[country] = "Europa";
 
+/** Firmensitz nach englischem Ländernamen: ISO-Code und Region. Hinterlegungsscheine notieren oft anderswo. */
+const SEATS: Record<string, [string, string]> = {};
+const seats = (region: string, list: string) => {
+  for (const entry of list.split(";")) {
+    const [name, iso] = entry.split("=");
+    SEATS[name!.trim()] = [iso!.trim(), region];
+  }
+};
+seats("Europa", "United Kingdom=GB;Germany=DE;France=FR;Italy=IT;Spain=ES;Netherlands=NL;Belgium=BE;Luxembourg=LU;Switzerland=CH;Austria=AT;Ireland=IE;Sweden=SE;Norway=NO;Denmark=DK;Finland=FI;Iceland=IS;Portugal=PT;Greece=GR;Poland=PL;Czech Republic=CZ;Hungary=HU;Slovakia=SK;Slovenia=SI;Estonia=EE;Lithuania=LT;Latvia=LV;Bulgaria=BG;Romania=RO;Cyprus=CY;Malta=MT;Monaco=MC;Jersey=JE;Guernsey=GG;Isle of Man=IM;Gibraltar=GI;Ukraine=UA;Greenland=GL");
+seats("Nordamerika", "United States=US;Canada=CA;Bermuda=BM;Cayman Islands=KY;Bahamas=BS;Panama=PA");
+seats("Südamerika", "Brazil=BR;Mexico=MX;Argentina=AR;Chile=CL;Colombia=CO;Peru=PE;Uruguay=UY");
+seats("Japan", "Japan=JP");
+seats("Asien", "China=CN;Hong Kong=HK;Taiwan=TW;South Korea=KR;India=IN;Singapore=SG;Indonesia=ID;Philippines=PH;Vietnam=VN;Thailand=TH;Malaysia=MY;Israel=IL;Turkey=TR;United Arab Emirates=AE;Saudi Arabia=SA;Kazakhstan=KZ;Georgia=GE;Uzbekistan=UZ;Russia=RU;Pakistan=PK;Bangladesh=BD;Qatar=QA;Kuwait=KW;Jordan=JO;Lebanon=LB;Oman=OM;Bahrain=BH");
+seats("Afrika", "South Africa=ZA;Egypt=EG;Nigeria=NG;Kenya=KE;Morocco=MA;Mauritius=MU;Ghana=GH");
+seats("Ozeanien", "Australia=AU;New Zealand=NZ;Papua New Guinea=PG");
+
 /**
  * Stammdaten für den Datenvorrat aus der Antwort des Anbieters. Es sind Vorschläge: Branche und Land
- * kommen ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse), das Gründungsjahr fehlt.
+ * kommen ungeprüft vom Anbieter. Das Land ist der Firmensitz laut Adresse, ersatzweise das der Börse.
  */
 export function stockFromEodhd(symbol: string, parsed: EodhdFundamentals): Stock {
   const quote = (parsed.quoteCurrency ?? parsed.reportingCurrency ?? "").toUpperCase();
   const minor = MINOR_UNITS[quote];
-  const country = parsed.country ?? "";
+  const seat = parsed.seatCountry === null ? undefined : SEATS[parsed.seatCountry];
+  const country = seat?.[0] ?? parsed.country ?? "";
   return {
     id: symbol,
     name: parsed.name ?? symbol,
     sector: parsed.sector ?? "Unbekannt",
-    region: REGION_BY_COUNTRY[country] ?? "Unbekannt",
+    region: seat?.[1] ?? REGION_BY_COUNTRY[country] ?? "Unbekannt",
     country,
     reportingCurrency: parsed.reportingCurrency ?? minor?.currency ?? quote,
     priceCurrency: minor?.currency ?? quote,

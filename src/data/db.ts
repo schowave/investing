@@ -621,6 +621,11 @@ export class Database {
     return pending.length;
   }
 
+  /** Setzt Land und Region für Titel im Datenvorrat; Stammdaten der Watchlist bleiben unberührt. */
+  setSeatInStockpile(id: string, country: string, region: string): void {
+    this.#db.prepare("UPDATE stocks SET country = ?, region = ? WHERE id = ? AND watched = 0").run(country, region, id);
+  }
+
   /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
   setSecurityType(id: string, type: string): void {
     this.#db.prepare("UPDATE stocks SET security_type = ? WHERE id = ?").run(type, id);
