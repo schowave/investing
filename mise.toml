@@ -210,6 +210,34 @@ scp "${opts[@]}" deploy/proxmox/copy-db.sh "$PVE_HOST:/tmp/investing-copy-db.sh"
 ssh "${opts[@]}" "$PVE_HOST" "CTID=$INVESTING_CTID bash /tmp/investing-copy-db.sh /tmp/investing-import.sqlite; s=\$?; rm -f /tmp/investing-import.sqlite /tmp/investing-copy-db.sh; exit \$s"
 '''
 
+[tasks."db:pull"]
+description = "Datenbank aus dem LXC konsistent nach lokal holen (die lokale bleibt als .vor-pull)"
+run = '''
+set -e
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+opts=(-i "$PVE_SSH_KEY" -o IdentitiesOnly=yes)
+# Im LXC gibt es kein sqlite3; der Container kopiert mit VACUUM INTO, das ist auch bei laufendem Abgleich konsistent.
+ssh "${opts[@]}" "$PVE_HOST" \
+  "pct exec $INVESTING_CTID -- bash -c 'rm -f /opt/investing/data/pull.sqlite && cd /opt/investing && docker compose exec -T investing node -'" <<'JS'
+const { DatabaseSync } = require("node:sqlite");
+new DatabaseSync("/data/investing.sqlite", { readOnly: true }).exec("VACUUM INTO '/data/pull.sqlite'");
+JS
+ssh "${opts[@]}" "$PVE_HOST" "set -e
+  pct pull $INVESTING_CTID /opt/investing/data/pull.sqlite /tmp/investing-pull.sqlite
+  pct exec $INVESTING_CTID -- rm -f /opt/investing/data/pull.sqlite"
+scp "${opts[@]}" "$PVE_HOST:/tmp/investing-pull.sqlite" "$tmp/investing.sqlite"
+ssh "${opts[@]}" "$PVE_HOST" "rm -f /tmp/investing-pull.sqlite"
+test "$(sqlite3 "$tmp/investing.sqlite" 'PRAGMA integrity_check')" = ok
+if [ -f "$INVESTING_DB" ]; then
+  rm -f "$INVESTING_DB.vor-pull"
+  sqlite3 "$INVESTING_DB" ".backup $INVESTING_DB.vor-pull"
+fi
+# .restore über die Backup-API: ersetzt den Inhalt samt WAL, auch wenn die Oberfläche die Datei offen hat.
+sqlite3 "$INVESTING_DB" ".restore $tmp/investing.sqlite"
+echo "Geholt: $(du -h "$INVESTING_DB" | cut -f1), vorherige lokale Datenbank: $INVESTING_DB.vor-pull"
+'''
+
 [tasks."deploy:status"]
 description = "Stand im LXC: /healthz, Container, Timer, letzte Updates"
 run = '''
