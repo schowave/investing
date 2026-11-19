@@ -2,7 +2,7 @@
 // Die Werte sind um Aktiensplits bereinigt; Beträge kommen als Zeichenketten.
 
 import { EodhdError } from "./eodhd.ts";
-import type { FundamentalsYear } from "./db.ts";
+import type { FundamentalsYear, Stock } from "./db.ts";
 
 export interface EodhdFundamentals {
   /** Geschäftsjahre, ältestes zuerst. */
@@ -10,6 +10,9 @@ export interface EodhdFundamentals {
   reportingCurrency: string | null;
   sector: string | null;
   country: string | null;
+  name: string | null;
+  /** Währung der Kursnotiz, wie der Anbieter sie nennt (z. B. GBX für Pence). */
+  quoteCurrency: string | null;
 }
 
 type Row = Record<string, unknown>;
@@ -74,6 +77,46 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     reportingCurrency: text(currency) ?? text(root.General?.CurrencyCode),
     sector: text(root.General?.Sector),
     country: text(root.General?.CountryISO),
+    name: text(root.General?.Name),
+    quoteCurrency: text(root.General?.CurrencyCode),
+  };
+}
+
+/** Notiz in einer Unterwährung: Hauptwährung und Teiler. */
+const MINOR_UNITS: Record<string, { currency: string; divisor: number }> = {
+  GBX: { currency: "GBP", divisor: 100 },
+  ILA: { currency: "ILS", divisor: 100 },
+  ZAC: { currency: "ZAR", divisor: 100 },
+};
+
+const REGION_BY_COUNTRY: Record<string, string> = {
+  US: "Nordamerika", CA: "Nordamerika", BM: "Nordamerika", MX: "Südamerika", BR: "Südamerika",
+  CL: "Südamerika", JP: "Japan", CN: "Asien", HK: "Asien", SG: "Asien", IN: "Asien", KR: "Asien",
+  TW: "Asien", IL: "Asien", KZ: "Asien", AU: "Ozeanien", NZ: "Ozeanien", ZA: "Afrika",
+};
+const EUROPE = "AT BE CH CY CZ DE DK ES FI FR GB GG GR HU IE IM IS IT JE LU MT NL NO PL PT SE".split(" ");
+for (const country of EUROPE) REGION_BY_COUNTRY[country] = "Europa";
+
+/**
+ * Stammdaten für den Datenvorrat aus der Antwort des Anbieters. Es sind Vorschläge: Branche und Land
+ * kommen ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse), das Gründungsjahr fehlt.
+ */
+export function stockFromEodhd(symbol: string, parsed: EodhdFundamentals): Stock {
+  const quote = (parsed.quoteCurrency ?? parsed.reportingCurrency ?? "").toUpperCase();
+  const minor = MINOR_UNITS[quote];
+  const country = parsed.country ?? "";
+  return {
+    id: symbol,
+    name: parsed.name ?? symbol,
+    sector: parsed.sector ?? "Unbekannt",
+    region: REGION_BY_COUNTRY[country] ?? "Unbekannt",
+    country,
+    reportingCurrency: parsed.reportingCurrency ?? minor?.currency ?? quote,
+    priceCurrency: minor?.currency ?? quote,
+    priceDivisor: minor?.divisor ?? 1,
+    foundedYear: null,
+    isFinancial: parsed.sector === "Financial Services",
+    watched: false,
   };
 }
 

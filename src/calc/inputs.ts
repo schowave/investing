@@ -11,11 +11,22 @@ function requireTenYears(series: readonly number[]): void {
   if (series.length !== YEARS) throw new Error(`Erwartet ${YEARS} Geschäftsjahre, erhalten ${series.length}`);
 }
 
+/**
+ * Dividenden je Aktie werden aus gezahlter Summe und Aktienzahl gerechnet und schwanken dadurch leicht.
+ * Ein Rückgang bis zu diesem Anteil gilt nicht als Kürzung.
+ */
+export const DIVIDEND_NOISE = 0.03;
+
 function neverFalls(series: readonly number[], strictly: boolean): boolean {
   return series.every((v, i) => {
     const previous = series[i - 1];
-    return previous === undefined || (strictly ? v > previous : v >= previous);
+    return previous === undefined || (strictly ? v > previous : v >= previous * (1 - DIVIDEND_NOISE));
   });
+}
+
+/** Die Dividende wurde in der Reihe mindestens einmal gesenkt (kleine Schwankungen zählen nicht). */
+export function dividendWasCut(dividendsPerShare: readonly number[]): boolean {
+  return !neverFalls(dividendsPerShare, false);
 }
 
 /** Wachstum aus dem Vergleich der ersten und letzten fünf Jahre; `null`, wenn nicht bestimmbar. */
@@ -50,7 +61,8 @@ export function dividendLevel(dividendsPerShare: readonly number[]): number {
   const last = dividendsPerShare[YEARS - 1]!;
   if (neverFalls(dividendsPerShare, false)) return last;
   const fromTen = levelFromAverage(dividendsPerShare, 10) ?? mean(dividendsPerShare);
-  return Math.min(fromTen, last);
+  // Bei stark fallender Reihe wird die Hochrechnung negativ; eine Dividende ist nie kleiner als 0.
+  return Math.max(0, Math.min(fromTen, last));
 }
 
 export interface BuybackYear {

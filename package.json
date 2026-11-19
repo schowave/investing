@@ -8,7 +8,10 @@
     "check:eodhd": "node --env-file-if-exists=.env.local scripts/check-eodhd.ts",
     "sync": "node --env-file-if-exists=.env.local scripts/sync.ts",
     "import:fundamentals": "node scripts/import-fundamentals.ts",
-    "import:eodhd": "node --env-file-if-exists=.env.local scripts/import-eodhd.ts"
+    "import:eodhd": "node --env-file-if-exists=.env.local scripts/import-eodhd.ts",
+    "import:index": "node --env-file-if-exists=.env.local scripts/import-index.ts",
+    "evaluate": "node scripts/evaluate.ts",
+    "set": "node scripts/set-input.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

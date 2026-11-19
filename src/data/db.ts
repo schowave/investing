@@ -40,12 +40,33 @@ export interface Stock {
   foundedYear: number | null;
   /** Bank oder Versicherer: Risikofaktoren 2, 8 und 9 ohne Vorschlag. */
   isFinancial: boolean;
+  /** `true`: auf der Watchlist. `false`: nur Datenvorrat für späteres Screening, ohne Kursabgleich. */
+  watched: boolean;
 }
 
 export interface Price {
   date: string;
   /** Schlusskurs in der Hauptwährung (bereits durch den Divisor geteilt). */
   close: number;
+}
+
+export interface ManualInput {
+  key: string;
+  value: number;
+  note: string;
+  updatedAt: string;
+}
+
+export interface StoredValuation {
+  complete: boolean;
+  /** Kurs je Aktie in Berichtswährung. */
+  price: number | null;
+  riskScore: number;
+  innerReturn: number | null;
+  innerReturnCautious: number | null;
+  innerReturnOptimistic: number | null;
+  /** Geltende Eingaben, Vorschläge und Hinweise zum Nachvollziehen. */
+  details: unknown;
 }
 
 export const toColumn = (field: string) => field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
@@ -61,7 +82,8 @@ CREATE TABLE IF NOT EXISTS stocks (
   price_currency TEXT NOT NULL,
   price_divisor REAL NOT NULL DEFAULT 1,
   founded_year INTEGER,
-  is_financial INTEGER NOT NULL DEFAULT 0
+  is_financial INTEGER NOT NULL DEFAULT 0,
+  watched INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS prices (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
@@ -83,6 +105,26 @@ CREATE TABLE IF NOT EXISTS fundamentals (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (stock_id, fiscal_year)
 );
+CREATE TABLE IF NOT EXISTS manual_inputs (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  key TEXT NOT NULL,
+  value REAL NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (stock_id, key)
+);
+CREATE TABLE IF NOT EXISTS valuations (
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  date TEXT NOT NULL,
+  complete INTEGER NOT NULL,
+  price REAL,
+  risk_score REAL NOT NULL,
+  inner_return REAL,
+  inner_return_cautious REAL,
+  inner_return_optimistic REAL,
+  details TEXT NOT NULL,
+  PRIMARY KEY (stock_id, date)
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -100,6 +142,11 @@ export class Database {
     this.#db = new DatabaseSync(path);
     this.#db.exec("PRAGMA foreign_keys = ON");
     this.#db.exec(SCHEMA);
+    // Datenbanken aus der Zeit vor dem Datenvorrat haben die Spalte noch nicht.
+    const columns = this.#db.prepare("PRAGMA table_info(stocks)").all() as { name: string }[];
+    if (!columns.some((c) => c.name === "watched")) {
+      this.#db.exec("ALTER TABLE stocks ADD COLUMN watched INTEGER NOT NULL DEFAULT 1");
+    }
   }
 
   close(): void {
@@ -122,17 +169,20 @@ export class Database {
     this.#db
       .prepare(
         `INSERT INTO stocks (id, name, sector, region, country, reporting_currency, price_currency,
-           price_divisor, founded_year, is_financial)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
+           price_divisor, founded_year, is_financial, watched)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`,
       )
       .run(
         stock.id, stock.name, stock.sector, stock.region, stock.country, stock.reportingCurrency,
         stock.priceCurrency, stock.priceDivisor, stock.foundedYear, stock.isFinancial ? 1 : 0,
+        stock.watched ? 1 : 0,
       );
   }
 
-  stocks(): Stock[] {
-    const rows = this.#db.prepare("SELECT * FROM stocks ORDER BY id").all() as Record<string, unknown>[];
+  /** Ohne Angabe nur die Watchlist; mit `includeStockpile` auch der Datenvorrat. */
+  stocks(options: { includeStockpile?: boolean } = {}): Stock[] {
+    const filter = options.includeStockpile ? "" : "WHERE watched = 1";
+    const rows = this.#db.prepare(`SELECT * FROM stocks ${filter} ORDER BY id`).all() as Record<string, unknown>[];
     return rows.map((r) => ({
       id: String(r.id),
       name: String(r.name),
@@ -144,6 +194,7 @@ export class Database {
       priceDivisor: Number(r.price_divisor),
       foundedYear: r.founded_year === null ? null : Number(r.founded_year),
       isFinancial: r.is_financial === 1,
+      watched: r.watched === 1,
     }));
   }
 
@@ -195,6 +246,64 @@ export class Database {
     );
   }
 
+  /** Setzt einen manuellen Wert für eine Eingabe (Rückfluss, Wachstum oder Risikofaktor). */
+  setManualInput(stockId: string, key: string, value: number, note = ""): void {
+    this.#db
+      .prepare(
+        `INSERT INTO manual_inputs (stock_id, key, value, note, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (stock_id, key) DO UPDATE SET value = excluded.value, note = excluded.note, updated_at = excluded.updated_at`,
+      )
+      .run(stockId, key, value, note, new Date().toISOString());
+  }
+
+  /** Entfernt den manuellen Wert; danach gilt wieder der Vorschlag. */
+  clearManualInput(stockId: string, key: string): void {
+    this.#db.prepare("DELETE FROM manual_inputs WHERE stock_id = ? AND key = ?").run(stockId, key);
+  }
+
+  manualInputs(stockId: string): ManualInput[] {
+    const rows = this.#db
+      .prepare("SELECT key, value, note, updated_at FROM manual_inputs WHERE stock_id = ? ORDER BY key")
+      .all(stockId) as { key: string; value: number; note: string; updated_at: string }[];
+    return rows.map((r) => ({ key: r.key, value: r.value, note: r.note, updatedAt: r.updated_at }));
+  }
+
+  /** Speichert den Tagesstand einer Bewertung; je Aktie und Tag gilt der letzte. */
+  saveValuation(stockId: string, date: string, valuation: StoredValuation): void {
+    this.#db
+      .prepare(
+        `INSERT INTO valuations (stock_id, date, complete, price, risk_score, inner_return, inner_return_cautious,
+           inner_return_optimistic, details)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (stock_id, date) DO UPDATE SET complete = excluded.complete, price = excluded.price,
+           risk_score = excluded.risk_score, inner_return = excluded.inner_return,
+           inner_return_cautious = excluded.inner_return_cautious,
+           inner_return_optimistic = excluded.inner_return_optimistic, details = excluded.details`,
+      )
+      .run(
+        stockId, date, valuation.complete ? 1 : 0, valuation.price, valuation.riskScore, valuation.innerReturn,
+        valuation.innerReturnCautious, valuation.innerReturnOptimistic, JSON.stringify(valuation.details),
+      );
+  }
+
+  latestValuation(stockId: string): (StoredValuation & { date: string }) | null {
+    const row = this.#db
+      .prepare("SELECT * FROM valuations WHERE stock_id = ? ORDER BY date DESC LIMIT 1")
+      .get(stockId) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    const optional = (value: unknown) => (value === null ? null : Number(value));
+    return {
+      date: String(row.date),
+      complete: row.complete === 1,
+      price: optional(row.price),
+      riskScore: Number(row.risk_score),
+      innerReturn: optional(row.inner_return),
+      innerReturnCautious: optional(row.inner_return_cautious),
+      innerReturnOptimistic: optional(row.inner_return_optimistic),
+      details: JSON.parse(String(row.details)),
+    };
+  }
+
   /** Bewahrt die unveränderte Antwort eines Anbieters auf; je Aktie und Art gilt die jüngste. */
   saveRawDocument(stockId: string, kind: string, body: string): void {
     this.#db
@@ -203,6 +312,12 @@ export class Database {
          ON CONFLICT (stock_id, kind) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body`,
       )
       .run(stockId, kind, new Date().toISOString(), body);
+  }
+
+  /** Kennungen aller Aktien, zu denen eine Rohantwort dieser Art vorliegt. */
+  stockIdsWithRawDocument(kind: string): Set<string> {
+    const rows = this.#db.prepare("SELECT stock_id FROM raw_documents WHERE kind = ?").all(kind) as { stock_id: string }[];
+    return new Set(rows.map((r) => r.stock_id));
   }
 
   rawDocument(stockId: string, kind: string): { fetchedAt: string; body: string } | null {

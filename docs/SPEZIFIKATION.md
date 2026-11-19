@@ -244,15 +244,20 @@ Backtest gibt es nicht.
 
 ## 9. Daten
 
-- Kurse: Tagesschlusskurse von EODHD (Tarif nur für Kurse, rund 20 € im Monat).
-- Fundamentaldaten für US-Unternehmen: kostenlos aus den Meldungen bei der SEC (EDGAR).
-- Fundamentaldaten für alle anderen Unternehmen: von Hand oder per CSV aus den Geschäftsberichten.
+- Fundamentaldaten: EODHD, Tarif „Fundamentals", für einen Monat gebucht. Geladen werden alle verfügbaren Geschäftsjahre; die vollständige Antwort des Anbieters wird je Aktie unverändert aufbewahrt, damit sich weitere Kennzahlen später ohne neuen Abruf gewinnen lassen. Von Hand gepflegt wird nichts.
+- Datenvorrat: Neben der Watchlist liegen die Fundamentaldaten der Bestandteile von S&P 500, STOXX Europe 600 und FTSE 100 in der Datenbank (rund 1.000 Titel, ohne Kursabgleich). Titel der Mailänder Börse liefert der Anbieter nicht.
+- Nach Ablauf des Monats gibt es keine neuen Fundamentaldaten. Die Datenbankdatei ist dann die einzige Kopie. Für neue Geschäftsjahre wird der Tarif erneut für einen Monat gebucht oder die Zahlen kommen per CSV.
+- Kurse: Tagesschlusskurse von EODHD. Der kostenlose Tarif reicht für die Watchlist (20 Abrufe am Tag); der Tarif „Fundamentals" enthält keine Kurse.
+- Gewinn je Aktie wird aus Jahresüberschuss und Aktienzahl gerechnet, die Dividende je Aktie aus gezahlter Dividendensumme und Aktienzahl. Die fertigen Felder des Anbieters mischen außerhalb der USA Einheiten. Die so gerechnete Dividende schwankt leicht; ein Rückgang bis 3 % gilt nicht als Kürzung.
+- Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und aktienbasierte Vergütung zählen als 0. Fehlen Gewinn oder Aktienzahl in einem der zehn Jahre, gibt es keinen Vorschlag.
 - Titel mit weniger als zehn Geschäftsjahren werden markiert und nicht stillschweigend bewertet.
-- Wechselkurse: EZB-Referenzkurse. Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose.
-- Fundamentaldaten je Aktie und Geschäftsjahr, zehn Jahre: Gewinn je Aktie (verwässert), Dividende je Aktie, Aktienzahl, Rückkäufe und Ausgabe von Aktien, aktienbasierte Vergütung, Umsatz, EBIT, Bilanzsumme, Eigenkapital, Umlaufvermögen, kurzfristige Verbindlichkeiten, langfristiges Fremdkapital, Zahlungsmittel, operativer Cashflow, freier Cashflow.
-- Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr.
-- Jede Kennzahl kann von Hand oder per CSV eingetragen und korrigiert werden (bereinigte Gewinne, Titel ohne Anbieterdaten).
+- Wechselkurse: EZB-Referenzkurse. Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose. Für Währungen ohne EZB-Kurs (Tenge bei Halyk) bleibt die Bewertung unvollständig.
+- Fundamentaldaten je Aktie und Geschäftsjahr: Gewinn je Aktie, Dividende je Aktie, Aktienzahl, Rückkäufe und Ausgabe von Aktien, aktienbasierte Vergütung, Umsatz, EBIT, Bilanzsumme, Eigenkapital, Umlaufvermögen, kurzfristige Verbindlichkeiten, langfristiges Fremdkapital, Zahlungsmittel, operativer Cashflow, freier Cashflow.
+- Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr. Im Datenvorrat kommen sie ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse) und das Gründungsjahr fehlt; reichen die Abschlüsse 20 Jahre zurück, gilt die Existenzdauer als erfüllt.
+- Kapitalrendite und EBIT-Marge (Faktoren 8 und 9) werden als Durchschnitt der letzten fünf Jahre bewertet.
+- Jede Kennzahl kann per CSV eingetragen und korrigiert werden (bereinigte Gewinne, Titel ohne Anbieterdaten).
 - Ist-Positionen: manuell oder per CSV, keine Broker-Anbindung.
+- Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
 
 ## 10. Anwendung
 
@@ -320,7 +325,10 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 ## 13. Offen
 
 - **Lizenz für mehrere Nutzer:** Die Privattarife der Datenanbieter erlauben keine Anzeige für andere Nutzer. Vor dem Freischalten weiterer Nutzer mit EODHD klären.
-- **Abdeckung prüfen:** Ob EODHD Kurse für alle Titel der Start-Watchlist liefert (insbesondere Halyk Savings Bank), ist ungeprüft.
+- **Halyk Savings Bank:** Die Fundamentaldaten stehen in Tenge, dafür fehlt ein Wechselkurs. Das Verhältnis von Hinterlegungsschein zu Aktie ist ungeprüft.
+- **Wachstumsvorschlag zu hoch:** Bei fünf der sechs Starttitel liegt das historische Gewinnwachstum über 8,5 %, und die Grenze aus Einbehaltung greift bei niedrigem Eigenkapital nicht. Der Vorschlag steht damit fast immer am Deckel von 8,5 %. Zu klären: zusätzliche Grenze aus dem Umsatzwachstum je Aktie.
+- **Gewinnniveau über dem letzten Gewinn:** Die Hochrechnung des Durchschnitts mit dem Wachstum ergibt nach einem schwachen ersten Jahrfünft ein Niveau über jedem erzielten Gewinn (Imperial Brands 3,30 bei zuletzt 2,49). Zu klären: Deckel auf den höchsten Gewinn der letzten Jahre.
+- **Gezahlte Dividenden bei Sonderfällen:** Das Feld des Anbieters enthält bei einzelnen Titeln Ausschüttungen an Minderheiten (Charter 2016 und 2020).
 - **Kalibrierung der Ausfallwahrscheinlichkeit** an historischen Ausfallraten nach Bonitätsklasse.
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.
 - **Vergleichsmaßstab:** Abstand der inneren Rendite zur Anleiherendite und zu einem Weltindex anzeigen.
