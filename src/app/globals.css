@@ -614,11 +614,39 @@ button.danger {
 button.danger:hover {
   background: #ffdcd6;
 }
+button:disabled,
+button:disabled:hover {
+  color: var(--muted);
+  background: var(--raised);
+  cursor: progress;
+  transform: none;
+}
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+}
+td small.unsure {
+  color: var(--pill-warning-ink);
+}
+.research-details {
+  margin-top: 16px;
+}
+.research-details > summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.research {
+  margin: 10px 0 14px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.research-details .notes {
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .savebar {
   position: sticky;

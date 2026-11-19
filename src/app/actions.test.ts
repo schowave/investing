@@ -11,8 +11,13 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 let db: Database;
 vi.mock("./server.ts", () => ({ database: () => db, today: () => "2026-11-19" }));
+// Jev und die Recherche laufen nicht wirklich; der Test entscheidet, ob die Einstufung gelingt.
+const judgeStock = vi.fn();
+vi.mock("../judgement/judge.ts", () => ({ judgeStock: (...args: unknown[]) => judgeStock(...args) }));
 
-const { createPortfolio, deletePortfolio, saveHoldings, saveInputs, saveManualPrice, setWatched } = await import("./actions.ts");
+const { createPortfolio, deletePortfolio, requestJudgement, saveHoldings, saveInputs, saveManualPrice, setWatched } = await import(
+  "./actions.ts"
+);
 
 const form = (fields: Record<string, string>) => {
   const data = new FormData();
@@ -81,5 +86,33 @@ describe("Server Actions", () => {
     await expect(saveInputs("IMB.LSE", form({ growth: "viel" }))).rejects.toThrow(/fehler=/);
     await expect(saveInputs("IMB.LSE", form({}))).rejects.toThrow(/gespeichert=1/);
     expect(db.manualInputs("IMB.LSE")).toEqual([]);
+  });
+
+  it("holt Jev-Vorschläge und meldet Fehler auf der Aktienseite", async () => {
+    await expect(requestJudgement("UNBEKANNT", form({}))).rejects.toThrow(/^redirect:\/$/);
+    judgeStock.mockResolvedValueOnce({});
+    await expect(requestJudgement("IMB.LSE", form({ research: "off" }))).rejects.toThrow("redirect:/aktie/IMB.LSE#urteil");
+    expect(judgeStock.mock.calls.at(-1)?.[3]).toEqual({ research: false });
+    judgeStock.mockRejectedValueOnce(new Error("Jev antwortet mit 503"));
+    await expect(requestJudgement("IMB.LSE", form({ research: "on" }))).rejects.toThrow(/fehler=Jev%20antwortet%20mit%20503/);
+  });
+
+  it("vermerkt einen unverändert übernommenen Jev-Vorschlag in der Notiz", async () => {
+    db.saveJudgement("IMB.LSE", {
+      createdAt: "2026-11-18T10:00:00.000Z",
+      jevModel: "jev-test",
+      researchModel: null,
+      research: null,
+      sources: [],
+      proposals: {
+        moat: { value: -0.1, confidence: 0.7, probabilities: { "1": 1 } },
+        management: { value: 0, confidence: 0.6, probabilities: {} },
+      },
+    });
+    await expect(saveInputs("IMB.LSE", form({ "risk.moat": "-10", "risk.management": "5" }))).rejects.toThrow(/gespeichert=1/);
+    expect(db.manualInputs("IMB.LSE").map((i) => [i.key, i.note])).toEqual([
+      ["risk.management", ""],
+      ["risk.moat", "Jev-Vorschlag vom 2026-11-18 übernommen"],
+    ]);
   });
 });

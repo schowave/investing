@@ -227,3 +227,18 @@ export const rawDocuments = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.stockId, t.kind] }), index("raw_documents_kind").on(t.kind)],
 );
+
+/** Jüngste Vorschläge von Jev für die Urteilsfaktoren einer Aktie, mit Recherche und Quellen. */
+export const judgements = sqliteTable("judgements", {
+  stockId: text("stock_id")
+    .primaryKey()
+    .references(() => stocks.id),
+  createdAt: text("created_at").notNull(),
+  jevModel: text("jev_model").notNull(),
+  researchModel: text("research_model"),
+  research: text("research"),
+  sources: text("sources", { mode: "json" }).notNull().$type<{ url: string; title: string; pageAge: string | null }[]>(),
+  proposals: text("proposals", { mode: "json" })
+    .notNull()
+    .$type<Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>>(),
+});

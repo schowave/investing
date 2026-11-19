@@ -111,6 +111,18 @@ export interface StoredValuation {
   details: unknown;
 }
 
+/** Vorschläge von Jev für die Urteilsfaktoren einer Aktie, mit den Belegen dazu. */
+export interface StoredJudgement {
+  createdAt: string;
+  jevModel: string;
+  /** `null`, wenn ohne Recherche im Netz eingestuft wurde. */
+  researchModel: string | null;
+  research: string | null;
+  sources: { url: string; title: string; pageAge: string | null }[];
+  /** Je Faktor (z. B. "moat"): Abzug, Sicherheit und Wahrscheinlichkeit je Stufe. */
+  proposals: Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>;
+}
+
 export const toColumn = (field: string) => field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 
 /** Wert der neuen Zeile in `ON CONFLICT … DO UPDATE SET`. */
@@ -643,6 +655,22 @@ export class Database {
       .values({ stockId, kind, ...values })
       .onConflictDoUpdate({ target: [t.rawDocuments.stockId, t.rawDocuments.kind], set: values })
       .run();
+  }
+
+  /** Speichert die jüngsten Jev-Vorschläge einer Aktie; ältere werden ersetzt. */
+  saveJudgement(stockId: string, judgement: StoredJudgement): void {
+    this.#db
+      .insert(t.judgements)
+      .values({ stockId, ...judgement })
+      .onConflictDoUpdate({ target: t.judgements.stockId, set: judgement })
+      .run();
+  }
+
+  judgement(stockId: string): StoredJudgement | null {
+    const row = this.#db.select().from(t.judgements).where(eq(t.judgements.stockId, stockId)).get();
+    if (!row) return null;
+    const { stockId: _, ...judgement } = row;
+    return judgement;
   }
 
   /** Kennungen aller Aktien, zu denen eine Rohantwort dieser Art vorliegt. */

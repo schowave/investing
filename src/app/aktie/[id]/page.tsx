@@ -14,12 +14,14 @@ import {
   withHurdle,
 } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
+import { researchAvailable } from "../../../judgement/research.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
+import { requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
+import { PendingButton } from "../../pendingButton.tsx";
 import { database, today } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +95,9 @@ export default async function StockPage(props: {
   const { payoutLevel, growth } = v.inputs;
   const currency = stock.reportingCurrency;
   const self = `/aktie/${encodeURIComponent(stock.id)}`;
+  const judgement = db.judgement(stock.id);
+  const jevFor = (key: InputKey) => judgement?.proposals[key.replace(/^risk\./, "")];
+  const canResearch = researchAvailable();
 
   // Urteil: Faktoren ohne Vorschlag aus Zahlen. Bei Finanzwerten gehören drei weitere dazu.
   const isJudgement = (factorId: RiskFactorId) =>
@@ -100,6 +105,7 @@ export default async function StockPage(props: {
   const judged = RISK_FACTOR_IDS.filter(isJudgement);
   const computed = RISK_FACTOR_IDS.filter((factorId) => !isJudgement(factorId));
   const openJudgements = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined).length;
+  const openWithJev = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined && jevFor(`risk.${factorId}`)).length;
   const computedSum = computed.reduce((sum, factorId) => sum + (v.inputs[`risk.${factorId}`] ?? 0), 0);
   const computedNeedsAttention = computed.some(
     (factorId) => v.inputs[`risk.${factorId}`] === undefined || v.manual.includes(`risk.${factorId}`),
@@ -128,6 +134,9 @@ export default async function StockPage(props: {
     const show = opts.asPercent ? percent : amount;
     const isManual = v.manual.includes(key);
     const isOpen = v.inputs[key] === undefined;
+    // Jev-Vorschläge gibt es nur für Urteilsfaktoren; sie füllen das leere Feld vor, gelten aber erst nach dem Speichern.
+    const jev = isOpen ? jevFor(key) : undefined;
+    const prefill = isManual ? fieldNumber(v.inputs[key], opts.asPercent) : jev ? fieldNumber(jev.value, true) : "";
     return (
       <tr key={key} className={isOpen ? "open" : isManual ? "manual" : ""}>
         <td>
@@ -138,7 +147,18 @@ export default async function StockPage(props: {
         </td>
         <td className="num wide-only">{opts.range}</td>
         <td className="num wide-only">
-          {proposals.values[key] === undefined ? <span className="meta">keiner</span> : show(proposals.values[key])}
+          {jev ? (
+            <>
+              {show(jev.value)}
+              <small className={jev.confidence < 0.5 ? "unsure" : ""} title="Vorschlag von Jev und wie sicher Jev sich ist">
+                Jev · {percent(jev.confidence, 0)}
+              </small>
+            </>
+          ) : proposals.values[key] === undefined ? (
+            <span className="meta">keiner</span>
+          ) : (
+            show(proposals.values[key])
+          )}
         </td>
         <td className="num">
           <span className="field">
@@ -151,7 +171,7 @@ export default async function StockPage(props: {
               max={opts.max}
               step={opts.step}
               autoComplete="off"
-              defaultValue={isManual ? fieldNumber(v.inputs[key], opts.asPercent) : ""}
+              defaultValue={prefill}
               placeholder={isOpen ? "offen" : "Vorschlag"}
             />
             <span className="unit">{opts.unit}</span>
@@ -267,6 +287,8 @@ export default async function StockPage(props: {
           <span className="hint">
             Diese Faktoren lassen sich nicht aus Zahlen ablesen. 0 heißt: Anforderung erfüllt. Je schlechter, desto höher der Abzug; ein
             Bonus ist negativ.
+            {openWithJev > 0 &&
+              " Felder mit Jev-Vorschlag sind vorausgefüllt und gelten erst, wenn du speicherst. Ob du die Branche verstehst, kann Jev nicht beurteilen."}
           </span>
           <div className="scroll">
             <table>
@@ -317,14 +339,59 @@ export default async function StockPage(props: {
           <div className="savebar">
             <button type="submit">Bewertung speichern</button>
             <span className="meta">
-              {openJudgements > 0
-                ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.`
-                : "Leere Felder übernehmen den Vorschlag."}
+              {openWithJev > 0
+                ? `Speichern übernimmt ${openWithJev === 1 ? "den vorausgefüllten Jev-Vorschlag" : `${openWithJev} vorausgefüllte Jev-Vorschläge`}.`
+                : openJudgements > 0
+                  ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.`
+                  : "Leere Felder übernehmen den Vorschlag."}
             </span>
           </div>
         </form>
 
         <div className="stack">
+          <section className="card">
+            <div className="card-head">
+              <h2>Vorschläge von Jev</h2>
+              {judgement && <span className="meta">{isoDate(judgement.createdAt.slice(0, 10))}</span>}
+            </div>
+            <div className="card-body">
+              <p className="meta">
+                {judgement
+                  ? judgement.research
+                    ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz (${judgement.researchModel}, ${judgement.sources.length} Quellen).`
+                    : `Eingestuft von ${judgement.jevModel} nur aus den gespeicherten Daten, ohne Recherche im Netz.`
+                  : "Jev stuft die sechs Urteilsfaktoren ein. Vorher sucht Claude im Netz nach Belegen zu Management, Prognosen und aktueller Lage."}
+                {!canResearch && " Für die Recherche fehlt ANTHROPIC_API_KEY in .env.local."}
+              </p>
+              <form className="row" action={requestJudgement.bind(null, stock.id)} style={{ marginTop: 12 }}>
+                {canResearch ? <input type="hidden" name="research" value="on" /> : <input type="hidden" name="research" value="off" />}
+                <PendingButton
+                  className={judgement ? "quiet" : ""}
+                  label={judgement ? "Neu einstufen" : "Vorschläge holen"}
+                  pendingLabel={canResearch ? "Recherchiere, bis zu drei Minuten …" : "Stufe ein …"}
+                />
+              </form>
+              {judgement?.research && (
+                <details className="research-details">
+                  <summary>Recherche lesen</summary>
+                  <p className="research">{judgement.research}</p>
+                  {judgement.sources.length > 0 && (
+                    <ul className="notes">
+                      {judgement.sources.map((source) => (
+                        <li key={source.url}>
+                          <a href={source.url} target="_blank" rel="noreferrer">
+                            {source.title || source.url}
+                          </a>
+                          {source.pageAge && <span className="meta"> · {source.pageAge}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
+              )}
+            </div>
+          </section>
+
           {proposals.notes.length > 0 && (
             <section className="card">
               <div className="card-head">

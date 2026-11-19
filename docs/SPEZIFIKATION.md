@@ -195,6 +195,28 @@ Zwischen den Stützpunkten wird linear interpoliert.
 `p = 0,5 % + 5 % · Risikowert` pro Jahr (Risikowert 0 % ergibt 0,5 %, 26 % ergeben 1,8 %,
 50 % ergeben 3,0 %). Die Zuordnung ist linear und einstellbar.
 
+### 6.4 Vorschläge für die Urteilsfaktoren (Jev)
+
+Für die Faktoren 5, 7, 10, 11, 13 und 15 kann auf der Aktienseite oder mit `pnpm run judge` ein
+Vorschlag geholt werden.
+
+1. **Recherche (optional):** Claude (`claude-opus-5-5` mit Websuche) sammelt datierte Belege zu den
+   sechs Faktoren, ohne sie zu bewerten. Ohne `ANTHROPIC_API_KEY` entfällt dieser Schritt.
+2. **Einstufung:** Jev von TypeSafe AI (`jev-latest`, Schlüssel `TYPESAFE_API_KEY`) bekommt
+   Stammdaten und Beschreibung, zehn Geschäftsjahre, die Gewinnüberraschungen der letzten zwölf
+   Quartale, die Insidergeschäfte der letzten drei Jahre und die Recherche. Je Faktor wählt Jev
+   unter festen Stufen (`src/judgement/factors.ts`) und nennt für jede eine Wahrscheinlichkeit.
+3. **Vorschlag:** der mit diesen Wahrscheinlichkeiten gewichtete Abzug, gerundet auf 0,5
+   Prozentpunkte, dazu die Sicherheit laut Jev.
+
+Regeln:
+
+- Ein Jev-Vorschlag ist kein Urteil. Er füllt das Eingabefeld vor, die Bewertung bleibt aber
+  unvollständig, bis gespeichert wird. Ein unverändert übernommener Vorschlag wird in der Notiz vermerkt.
+- Ob der Nutzer die Branche versteht (Faktor 5), beurteilt Jev nicht.
+- Je Aktie gilt die jüngste Einstufung; Recherche und Quellen bleiben gespeichert.
+- Für die Faktoren 2, 8 und 9 bei Finanzwerten gibt es keinen Jev-Vorschlag.
+
 ## 7. Zielportfolio
 
 ### 7.1 Zulässige Kandidaten
@@ -363,6 +385,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 | Tauschschwelle                                                                  | 1 und 2 Prozentpunkte                                                    | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"                                  |
 | Mindestposition                                                                 | 3 % und 2 %                                                              | Buch nennt einen Mindestanteil ohne Zahl                                                  |
 | Überfällige Bewertungen bleiben zulässig                                        | –                                                                        | Buch verlangt die jährliche Prüfung, nennt keine Folge                                    |
+| Stufen der Urteilsfaktoren für Jev                                              | Abschnitt 6.4                                                            | Buch nennt nur Höchstabzug und Anforderung                                                |
 
 ## 13. Offen
 
@@ -371,6 +394,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 - **Gezahlte Dividenden bei Sonderfällen:** Das Feld des Anbieters enthält bei einzelnen Titeln Ausschüttungen an Minderheiten (Charter 2016 und 2020).
 - **Kalibrierung der Ausfallwahrscheinlichkeit** an historischen Ausfallraten nach Bonitätsklasse.
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.
+- **Treffsicherheit von Jev:** Vorschläge an Titeln prüfen, deren späterer Verlauf bekannt ist; die Sicherheit laut Jev ist nicht an echten Ergebnissen geeicht.
 - **Vergleichsmaßstab:** Abstand der inneren Rendite zur Anleiherendite und zu einem Weltindex anzeigen.
 
 ## 14. Nicht in Version 1

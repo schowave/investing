@@ -86,13 +86,13 @@ Die vollständigen Regeln, Formeln und eigenen Annahmen stehen in
 
 ## Was die Anwendung kann
 
-| Seite       | Inhalt                                                                                               |
-| ----------- | ---------------------------------------------------------------------------------------------------- |
-| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse und Status der Bewertung                    |
-| Aktie       | Annahmen mit Vorschlag und Übersteuerung, Risikoraster, Rendite bei anderen Kursen, Zehnjahresreihen |
-| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region                     |
-| Datenvorrat | Screening über rund 8.800 gespeicherte Titel aus etwa 30 Indizes, Aufnahme in die Watchlist          |
-| Strategie   | Die Regeln in eigenen Worten, mit den Zahlen aus dem Rechenmodul                                     |
+| Seite       | Inhalt                                                                                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse und Status der Bewertung                                                                                                                   |
+| Aktie       | Annahmen mit Vorschlag und Übersteuerung, Risikoraster, Rendite bei anderen Kursen, Zehnjahresreihen; auf Wunsch Vorschläge für die Urteilsfaktoren von Jev, gestützt auf eine Recherche von Claude |
+| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region                                                                                                                    |
+| Datenvorrat | Screening über rund 8.800 gespeicherte Titel aus etwa 30 Indizes, Aufnahme in die Watchlist                                                                                                         |
+| Strategie   | Die Regeln in eigenen Worten, mit den Zahlen aus dem Rechenmodul                                                                                                                                    |
 
 Ein nächtlicher Abgleich lädt Kurse, Wechselkurse, Anleiherendite und Inflationsprognosen, rechnet alle
 Bewertungen und Zielportfolios neu und speichert den Tagesstand.
@@ -110,7 +110,8 @@ mise run sync                  # erste Kurse und Bewertungen
 mise run dev                   # http://localhost:3000
 ```
 
-Ohne Token läuft alles außer dem Kursabruf. Kurse lassen sich je Aktie auch von Hand eintragen.
+Für Vorschläge zu den Urteilsfaktoren kommen optional `TYPESAFE_API_KEY` (Jev) und `ANTHROPIC_API_KEY`
+(Recherche mit Claude) in `.env.local`; ohne sie bleibt die Einstufung von Hand. Ohne Token läuft alles außer dem Kursabruf. Kurse lassen sich je Aktie auch von Hand eintragen.
 
 ## Täglicher Betrieb
 

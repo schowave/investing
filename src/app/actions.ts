@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { judgeStock } from "../judgement/judge.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
 import { database, today } from "./server.ts";
 
@@ -24,14 +25,40 @@ export async function saveInputs(stockId: string, form: FormData): Promise<void>
     updates.push({ key, value: parsed.value });
   }
 
-  const notes = new Map(db.manualInputs(stockId).map((input) => [input.key, input.note]));
+  const previous = new Map(db.manualInputs(stockId).map((input) => [input.key, input]));
+  const jev = db.judgement(stockId);
   for (const { key, value } of updates) {
-    if (value === null) db.clearManualInput(stockId, key);
-    else db.setManualInput(stockId, key, value, notes.get(key) ?? "");
+    if (value === null) {
+      db.clearManualInput(stockId, key);
+      continue;
+    }
+    const before = previous.get(key);
+    // Ein unverändert übernommener Jev-Vorschlag wird als solcher vermerkt.
+    const proposal = jev?.proposals[key.replace(/^risk\./, "")];
+    const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
+    db.setManualInput(stockId, key, value, fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : (before?.note ?? ""));
   }
   revalidatePath("/");
   revalidatePath(page);
   redirect(`${page}?gespeichert=1`);
+}
+
+/** Holt Vorschläge für die Urteilsfaktoren von Jev, auf Wunsch mit Recherche im Netz. */
+export async function requestJudgement(stockId: string, form: FormData): Promise<void> {
+  const db = database();
+  const page = `/aktie/${encodeURIComponent(stockId)}`;
+  const stock = db.stock(stockId);
+  if (!stock) redirect("/");
+  let failure: string | null = null;
+  try {
+    await judgeStock(db, stock, today(), { research: form.get("research") !== "off" });
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+  }
+  // redirect() wirft absichtlich und darf deshalb nicht im try-Block stehen.
+  if (failure !== null) redirect(`${page}?fehler=${encodeURIComponent(failure)}`);
+  revalidatePath(page);
+  redirect(`${page}#urteil`);
 }
 
 /** Formularfelder: Text, deutsches Dezimalkomma erlaubt. Ein leeres Feld ist `null`. */

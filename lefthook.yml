@@ -7,5 +7,7 @@ pre-commit:
       glob: "*.{ts,tsx,js,json,jsonc,css}"
       run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
+      priority: 1
     check:
       run: mise run check
+      priority: 2
