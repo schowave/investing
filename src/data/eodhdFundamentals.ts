@@ -30,6 +30,14 @@ function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const absolute = (value: number | null) => (value === null ? null : Math.abs(value));
+const sum = (a: number | null, b: number | null) => (a === null || b === null ? null : a + b);
+
+function debtLessCash(totalDebt: number | null, longTermDebt: number | null, cash: number | null): number | null {
+  const debt = totalDebt ?? longTermDebt;
+  return debt === null ? null : debt - (cash ?? 0);
+}
+
 function yearly(financials: Row | undefined, statement: string): Statement {
   const section = financials?.[statement] as { yearly?: Statement } | undefined;
   return section?.yearly ?? {};
@@ -73,6 +81,9 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
         cash: num(bal.cash),
         operatingCashFlow: num(cf.totalCashFromOperatingActivities),
         freeCashFlow: num(cf.freeCashFlow),
+        netDebt: num(bal.netDebt) ?? debtLessCash(num(bal.shortLongTermDebtTotal), num(bal.longTermDebt), num(bal.cash)),
+        interestExpense: absolute(num(inc.interestExpense)),
+        ebitda: num(inc.ebitda) ?? sum(num(inc.ebit), num(inc.depreciationAndAmortization)),
       };
     });
 

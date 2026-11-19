@@ -8,6 +8,7 @@ export interface PortfolioItem {
   sector: string;
   region: string;
   innerReturn: number | null;
+  cautiousReturn: number | null;
   riskScore: number;
   complete: boolean;
   /** Gehaltene Stückzahl, 0 wenn nicht gehalten. */
@@ -53,6 +54,7 @@ function reasonFor(item: PortfolioItem, profile: Profile): string {
   if (item.riskScore >= EXCLUSION_SCORE) return "Risikowert ab 75 %";
   if (!item.complete) return "Bewertung unvollständig";
   if (item.innerReturn === null || item.innerReturn < profile.minReturn) return "unter der Mindestrendite";
+  if (item.cautiousReturn === null || item.cautiousReturn < profile.minReturn) return "ohne Sicherheitsmarge: vorsichtiger Fall unter der Mindestrendite";
   return "von Titeln mit höherer Rendite verdrängt oder Regelgrenze erreicht";
 }
 
@@ -74,7 +76,7 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
   const weight = (item: PortfolioItem) => (totalEur > 0 ? value(item) / totalEur : 0);
 
   const stocks = items.map((item) => ({
-    id: item.id, innerReturn: item.innerReturn, riskScore: item.riskScore, complete: item.complete,
+    id: item.id, innerReturn: item.innerReturn, cautiousReturn: item.cautiousReturn, riskScore: item.riskScore, complete: item.complete,
     sector: item.sector, region: item.region, heldWeight: weight(item),
   }));
   const target = targetPortfolio(stocks, profile);

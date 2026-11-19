@@ -11,6 +11,7 @@ export interface Profile {
   maxRegionShare: number | null;
   /** Aufschlag in Prozentpunkten (als Anteil), den gehaltene Titel in der Sortierung erhalten. */
   swapThreshold: number;
+  /** Fester Ersatzwert, falls keine Anleiherendite vorliegt; sonst gilt `hurdleRate`. */
   minReturn: number;
 }
 
@@ -34,10 +35,31 @@ export const PROFILE_GLOBAL: Profile = {
   minReturn: 0.085,
 };
 
+export interface HurdleParams {
+  /** Aufschlag auf die Rendite der zehnjährigen Euro-Staatsanleihe. */
+  premium: number;
+  /** Untergrenze, auch bei sehr niedrigen Zinsen. */
+  floor: number;
+}
+
+export const DEFAULT_HURDLE_PARAMS: HurdleParams = { premium: 0.05, floor: 0.07 };
+
+/** Mindestrendite aus dem Zinsniveau: Anleiherendite plus Aufschlag, mindestens die Untergrenze. */
+export function hurdleRate(bondYield: number, params: HurdleParams = DEFAULT_HURDLE_PARAMS): number {
+  return Math.max(params.floor, bondYield + params.premium);
+}
+
+/** Profil mit der Mindestrendite zum aktuellen Zinsniveau; ohne Anleiherendite bleibt der feste Wert des Profils. */
+export function withHurdle(profile: Profile, bondYield: number | null, params: HurdleParams = DEFAULT_HURDLE_PARAMS): Profile {
+  return bondYield === null ? profile : { ...profile, minReturn: hurdleRate(bondYield, params) };
+}
+
 export interface Stock {
   id: string;
   /** Innere Rendite im Basisfall; `null`, wenn nicht berechenbar. */
   innerReturn: number | null;
+  /** Innere Rendite im vorsichtigen Fall. Sie muss die Mindestrendite erreichen (Sicherheitsmarge). */
+  cautiousReturn: number | null;
   riskScore: number;
   /** Alle Eingaben und alle 15 Risikofaktoren sind gesetzt. */
   complete: boolean;
@@ -67,7 +89,8 @@ export function isCandidate(stock: Stock, profile: Profile): boolean {
     stock.complete &&
     stock.riskScore < EXCLUSION_SCORE &&
     stock.innerReturn !== null &&
-    stock.innerReturn >= profile.minReturn
+    stock.cautiousReturn !== null &&
+    stock.cautiousReturn >= profile.minReturn
   );
 }
 

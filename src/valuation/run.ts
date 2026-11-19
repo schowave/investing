@@ -23,7 +23,15 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
 
   const latest = db.latestPrice(stock.id);
   const price = latest ? priceInReportingCurrency(latest.close, db.latestFxRate(stock.priceCurrency), reportingPerEur) : null;
-  const valuation = evaluate(proposals.values, manual, price);
+  // Fremdwährung: Inflationsunterschied zum Euro abziehen, damit die Renditen vergleichbar sind.
+  let inflationGap = 0;
+  if (stock.reportingCurrency !== "EUR") {
+    const local = db.referenceRate(`inflation:${stock.reportingCurrency}`);
+    const euro = db.referenceRate("inflation:EUR");
+    if (local !== null && euro !== null) inflationGap = local - euro;
+    else proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
+  }
+  const valuation = evaluate(proposals.values, manual, price, inflationGap);
 
   return { stock, priceDate: latest?.date ?? null, proposals, valuation };
 }

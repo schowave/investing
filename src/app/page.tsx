@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { EXCLUSION_SCORE, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL } from "../calc/index.ts";
+import { EXCLUSION_SCORE, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL, withHurdle } from "../calc/index.ts";
+import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { amount, isoDate, percent } from "./format.ts";
 import type { SyncReport } from "../sync/dailySync.ts";
@@ -15,11 +16,12 @@ function syncProblem(report: SyncReport): string {
 
 export const dynamic = "force-dynamic";
 
-const MIN_RETURN = PROFILE_FOCUSED.minReturn;
 
 export default function Ranking() {
   const db = database();
   const date = today();
+  const bondYield = db.referenceRate(BOND_KEY);
+  const MIN_RETURN = withHurdle(PROFILE_FOCUSED, bondYield).minReturn;
   const rows = db
     .stocks()
     .map((stock) => computeValuation(db, stock, date))
@@ -33,7 +35,9 @@ export default function Ranking() {
       <h1>Rangliste</h1>
       <p className="lede">
         Die Watchlist, geordnet nach dem, was im heutigen Kurs an Rendite steckt. Solange Eingaben offen sind, ist die
-        Rendite vorläufig und der Risikowert eine Untergrenze. Kurse vom {isoDate(priceDates.at(-1) ?? null)}.
+        Rendite vorläufig und der Risikowert eine Untergrenze. Mindestrendite {percent(MIN_RETURN)}
+        {bondYield === null ? " (fester Wert, keine Anleiherendite geladen)" : `: zehnjährige Euro-Staatsanleihe ${percent(bondYield)} plus Aufschlag`}
+        ; sie muss auch im vorsichtigen Fall erreicht werden. Kurse vom {isoDate(priceDates.at(-1) ?? null)}.
       </p>
       <p className="meta">
         {lastSync
@@ -102,6 +106,10 @@ export default function Ranking() {
                     ) : (
                       <span className="tag warn">{v.missing.length > 0 ? `${v.missing.length} offen` : "Kurs fehlt"}</span>
                     )}
+                    {!excluded && base !== null && base >= MIN_RETURN && (v.returns?.cautious ?? -1) < MIN_RETURN && (
+                      <small>ohne Sicherheitsmarge</small>
+                    )}
+                    {v.inflationGap !== 0 && <small>Währungsabzug {percent(v.inflationGap)}</small>}
                   </td>
                 </tr>,
               ];

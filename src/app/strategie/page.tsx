@@ -1,21 +1,26 @@
 import {
-  DEFAULT_GROWTH_PARAMS, DEFAULT_PROBABILITY_PARAMS, DEFAULT_RETURN_PARAMS, DEFAULT_SCENARIO_SPREAD, EXCLUSION_SCORE,
-  PROFILE_FOCUSED, PROFILE_GLOBAL, RISK_FACTORS, RISK_FACTOR_IDS,
+  DEFAULT_DEBT_PARAMS, DEFAULT_GROWTH_PARAMS, DEFAULT_HURDLE_PARAMS, DEFAULT_PROBABILITY_PARAMS, DEFAULT_RETURN_PARAMS, DEFAULT_SCENARIO_SPREAD, EXCLUSION_SCORE,
+  hurdleRate, PROFILE_FOCUSED, PROFILE_GLOBAL, RISK_FACTORS, RISK_FACTOR_IDS,
 } from "../../calc/index.ts";
 import { STRATEGY_CLAIM, STRATEGY_NAME } from "../brand.ts";
+import { BOND_KEY } from "../../valuation/portfolioRun.ts";
 import { percent } from "../format.ts";
+import { database } from "../server.ts";
+
+export const dynamic = "force-dynamic";
 
 const whole = (value: number) => percent(value, 0);
 const share = (value: number | null) => (value === null ? "keine Grenze" : whole(value));
 
 export default function Strategy() {
   const p = DEFAULT_PROBABILITY_PARAMS;
+  const bondYield = database().referenceRate(BOND_KEY);
+  const hurdle = DEFAULT_HURDLE_PARAMS;
   const judged = RISK_FACTOR_IDS.filter((id) => RISK_FACTORS[id].manual).length;
   const example = (score: number) => percent(p.base + p.perScore * score);
   const profiles = [
     { label: "Basislimit je Titel", pick: (x: typeof PROFILE_FOCUSED) => percent(x.baseLimit) },
     { label: "Mindestposition", pick: (x: typeof PROFILE_FOCUSED) => whole(x.minPosition) },
-    { label: "Mindestrendite", pick: (x: typeof PROFILE_FOCUSED) => percent(x.minReturn) },
     { label: "Tauschschwelle", pick: (x: typeof PROFILE_FOCUSED) => `${x.swapThreshold * 100} Prozentpunkte` },
     { label: "Neue Titel je Branche und Region", pick: (x: typeof PROFILE_FOCUSED) => (x.maxPerSectorAndRegion === null ? "keine Grenze" : `höchstens ${x.maxPerSectorAndRegion}`) },
     { label: "Höchstanteil je Branche", pick: (x: typeof PROFILE_FOCUSED) => share(x.maxSectorShare) },
@@ -46,16 +51,34 @@ export default function Strategy() {
           beides zusammen höchstens so viel, wie das Unternehmen an freiem Cashflow verdient. Ausschüttungen auf Pump
           zählen nicht.
         </li>
+        <li>
+          Liegen die Nettoschulden über dem {DEFAULT_DEBT_PARAMS.maxDebtToEbitda}-Fachen des EBITDA, wird der Überhang
+          rechnerisch in {DEFAULT_DEBT_PARAMS.repaymentYears} Jahren getilgt. Diese Tilgung gehört den Gläubigern und
+          wird vom Rückfluss abgezogen. Hohe Schulden machen einen Titel damit nicht attraktiver.
+        </li>
       </ul>
 
       <h2>Wachstum</h2>
       <p>
         Das Wachstum der Rückflüsse wird vorsichtig angesetzt. Es gilt der kleinste dieser Werte: das Wachstum des
-        Gewinns je Aktie der letzten zehn Jahre, das Wachstum des Umsatzes je Aktie, das Wachstum, das sich aus
+        Gewinns der letzten zehn Jahre, das Wachstum des Umsatzes, das Wachstum, das sich aus
         einbehaltenen Gewinnen finanzieren lässt (zuzüglich {whole(DEFAULT_GROWTH_PARAMS.inflationAllowance)} für
         Preissteigerungen), und {percent(DEFAULT_GROWTH_PARAMS.maxGrowth)} als feste Obergrenze. Über{" "}
         {DEFAULT_RETURN_PARAMS.fadeYears} Jahre schmilzt es auf höchstens {whole(DEFAULT_RETURN_PARAMS.maxTerminalGrowth)}{" "}
         ab, denn kein Unternehmen wächst auf Dauer schneller als die Wirtschaft.
+      </p>
+      <p>
+        Gewinn und Umsatz werden dabei am ganzen Unternehmen gemessen, nicht je Aktie. Rückkäufe lassen den Gewinn je
+        Aktie steigen, stehen aber schon im Rückfluss und dürfen nicht zweimal zählen. Gibt ein Unternehmen dagegen
+        laufend neue Aktien aus, gilt das niedrigere Wachstum je Aktie.
+      </p>
+
+      <h2>Vergleich über Währungen</h2>
+      <p>
+        Eine Rendite in einer Währung mit hoher Inflation sieht größer aus, als sie ist: Die Inflation steckt im
+        Wachstum und geht über die Abwertung wieder verloren. Deshalb wird von jeder Rendite in Fremdwährung der
+        Unterschied zwischen der erwarteten Inflation dieser Währung und der des Euro abgezogen. Grundlage sind die
+        Prognosen des Internationalen Währungsfonds für die nächsten vier Jahre.
       </p>
 
       <h2>Risiko</h2>
@@ -105,13 +128,23 @@ export default function Strategy() {
       <p>
         Die Annahmen sind unsicher. Deshalb steht neben jeder inneren Rendite eine Spanne: einmal mit{" "}
         {whole(DEFAULT_SCENARIO_SPREAD.payoutFactor)} weniger Rückfluss und {DEFAULT_SCENARIO_SPREAD.growthPoints * 100}{" "}
-        Prozentpunkt weniger Wachstum, einmal mit entsprechend mehr. Liegt der vorsichtige Wert unter der Mindestrendite,
-        ist der Titel kein klarer Fall.
+        Prozentpunkt weniger Wachstum, einmal mit entsprechend mehr. Der vorsichtige Wert entscheidet, ob ein
+        Titel ins Portfolio darf.
       </p>
 
       <h2>Vom Rang zum Portfolio</h2>
       <ul>
-        <li>Aufgenommen werden nur vollständig bewertete Titel über der Mindestrendite, die besten zuerst.</li>
+        <li>
+          Die Mindestrendite folgt dem Zinsniveau: Rendite der zehnjährigen Euro-Staatsanleihe plus{" "}
+          {hurdle.premium * 100} Prozentpunkte, mindestens {whole(hurdle.floor)}.{" "}
+          {bondYield === null
+            ? `Solange keine Anleiherendite geladen ist, gelten ${percent(PROFILE_FOCUSED.minReturn)}.`
+            : `Derzeit sind das ${percent(bondYield)} plus Aufschlag, also ${percent(hurdleRate(bondYield))}.`}
+        </li>
+        <li>
+          Sicherheitsmarge: Ein Titel muss die Mindestrendite auch im vorsichtigen Fall erreichen. Aufgenommen werden
+          nur vollständig bewertete Titel, die besten zuerst.
+        </li>
         <li>Je riskanter ein Titel, desto kleiner seine Position:</li>
       </ul>
       <p className="formula">Positionslimit = Basislimit × (1 − Risikowert)</p>
@@ -165,7 +198,9 @@ export default function Strategy() {
         Rendite zu ordnen und das Risiko über ein Raster von Abzügen zu fassen, verdankt sie Stefan Meißners Buch
         „Langfristige Vermögensvermehrung mit wertorientierten Investments" und seinem Ansatz „Yield Investing". Eigene
         Regeln sind: die Begrenzung der Rückflüsse auf den freien Cashflow, der Abzug der Vergütung in Aktien, die
-        Wachstumsgrenzen aus Umsatz und Einbehaltung, das Abschmelzen des Wachstums, die Umrechnung des Risikowerts in
+        Wachstumsgrenzen aus Umsatz und Einbehaltung, die Messung des Wachstums am ganzen Unternehmen, das Abschmelzen
+        des Wachstums, der Abzug für die Tilgung hoher Schulden, die Bewertung der Finanzierung an der Ertragskraft, der
+        Inflationsabgleich zwischen Währungen, die Mindestrendite nach dem Zinsniveau mit Sicherheitsmarge, die Umrechnung des Risikowerts in
         eine Ausfallwahrscheinlichkeit, die Bandbreite und die Tauschschwelle. Diese Seite ist kein Angebot dieses
         Autors und nicht mit ihm abgestimmt.
       </p>

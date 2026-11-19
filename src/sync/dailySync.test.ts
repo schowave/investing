@@ -14,7 +14,7 @@ const stock = (id: string, change: Partial<Stock> = {}): Stock => ({
 const years: FundamentalsYear[] = Array.from({ length: 10 }, (_, i) => ({
   fiscalYear: 2016 + i, epsDiluted: 5 + i * 0.1, dividendPerShare: 2, shares: 100, repurchases: 0, issuance: 0,
   stockBasedCompensation: 0, revenue: 5000 * 1.03 ** i, ebit: 750, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
-  currentLiabilities: 1000, longTermDebt: 0, cash: 0, operatingCashFlow: 600, freeCashFlow: 400,
+  currentLiabilities: 1000, longTermDebt: 0, cash: 0, operatingCashFlow: 600, freeCashFlow: 400, netDebt: 0, interestExpense: 0, ebitda: 900,
 }));
 
 interface Fake {
@@ -25,6 +25,10 @@ interface Fake {
   /** Tageslimit und bisheriger Verbrauch laut Konto. */
   account?: { limit: number; used: number };
   extraRates?: Record<string, number>;
+  /** Rendite der zehnjährigen Anleihe in Prozent. */
+  bondYield?: number;
+  /** Inflationsprognose in Prozent je IWF-Ländercode. */
+  inflation?: Record<string, number>;
 }
 
 /** Stellt EZB, Zusatzkurse und EODHD nach und merkt sich die abgefragten Adressen (ohne Token). */
@@ -32,6 +36,13 @@ function fakeFetch(fake: Fake) {
   const calls: string[] = [];
   const fetchFn = (async (input: string | URL) => {
     const url = new URL(String(input));
+    if (url.hostname.includes("data-api.ecb")) {
+      return new Response(fake.bondYield === undefined ? "" : `KEY,TIME_PERIOD,OBS_VALUE\nYC,2026-11-18,${fake.bondYield}`, { status: fake.bondYield === undefined ? 500 : 200 });
+    }
+    if (url.hostname.includes("imf.org")) {
+      const forecast = (value: number) => ({ 2027: value, 2028: value, 2029: value, 2030: value });
+      return fake.inflation ? Response.json({ values: { PCPIPCH: Object.fromEntries(Object.entries(fake.inflation).map(([k, v]) => [k, forecast(v)])) } }) : new Response("", { status: 500 });
+    }
     if (url.hostname.includes("ecb")) return new Response(ECB, { status: fake.ecbOk === false ? 500 : 200 });
     if (url.hostname.includes("er-api")) return Response.json({ result: "success", rates: fake.extraRates ?? {} });
     const [kind, ...rest] = url.pathname.replace("/api/", "").split("/");
@@ -169,6 +180,23 @@ describe("runDailySync", () => {
     expect(db.latestFxRate("KZT")).toBe(487.5);
     // Kurse der EZB werden nicht überschrieben.
     expect(db.latestFxRate("USD")).toBe(1.25);
+    db.close();
+  });
+});
+
+describe("Bezugsgrößen", () => {
+  it("speichert Anleiherendite und Inflationsprognosen und behält bei einem Ausfall die alten Werte", async () => {
+    const db = setup();
+    db.addStockIfMissing(stock("HSBK.LSE", { reportingCurrency: "KZT", priceCurrency: "USD" }));
+    const first = await runDailySync(db, null, NOW, fakeFetch({ bondYield: 3.41, inflation: { EURO: 2.25, KAZ: 6.55, USA: 2.2 } }).fetchFn);
+    expect(first.referenceErrors).toEqual([]);
+    expect(db.referenceRate("bond:EUR10Y")).toBeCloseTo(0.0341);
+    expect(db.referenceRate("inflation:KZT")).toBeCloseTo(0.0655);
+    expect(db.referenceRate("inflation:EUR")).toBeCloseTo(0.0225);
+
+    const second = await runDailySync(db, null, NOW, fakeFetch({}).fetchFn);
+    expect(second.referenceErrors).toHaveLength(2);
+    expect(db.referenceRate("bond:EUR10Y")).toBeCloseTo(0.0341);
     db.close();
   });
 });

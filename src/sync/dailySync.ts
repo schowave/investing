@@ -10,7 +10,8 @@ import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
 import type { DailyClose } from "../data/eodhd.ts";
 import { searchEodhd } from "../data/eodhdFundamentals.ts";
 import { fetchSupplementRates } from "../data/fxSupplement.ts";
-import { loadPortfolio } from "../valuation/portfolioRun.ts";
+import { fetchBondYield, fetchInflationForecasts } from "../data/reference.ts";
+import { BOND_KEY, loadPortfolio } from "../valuation/portfolioRun.ts";
 import { computeValuation, valueStock } from "../valuation/run.ts";
 
 /** Der kostenlose Tarif liefert höchstens ein Jahr Kurshistorie. */
@@ -37,6 +38,8 @@ export interface SyncReport {
   /** Watchlist- und Portfolio-Titel, die wegen des Budgets auf den nächsten Lauf warten. */
   pricesDeferred: string[];
   priceErrors: { id: string; error: string }[];
+  /** Anleiherendite oder Inflationsprognosen nicht geladen; dann gelten die alten Werte. */
+  referenceErrors: string[];
   valuations: number;
   screened: number;
   portfolios: number;
@@ -84,6 +87,7 @@ export async function runDailySync(
   const yesterday = isoDay(now.getTime() - 86_400_000);
   const report: SyncReport = {
     date, fxDate: null, fxError: null, budget: 0, pricesLoaded: 0, pricesCurrent: 0, pricesDeferred: [], priceErrors: [],
+    referenceErrors: [],
     valuations: 0, screened: 0, portfolios: 0,
   };
 
@@ -102,6 +106,21 @@ export async function runDailySync(
     }
   } catch (error) {
     report.fxError = (error as Error).message;
+  }
+
+  // --- Bezugsgrößen: Anleiherendite für die Mindestrendite, Inflationsprognosen für den Währungsabgleich.
+  // Fällt eine Quelle aus, gelten die zuletzt gespeicherten Werte weiter.
+  try {
+    const bond = await fetchBondYield(fetchFn);
+    db.setReferenceRate(BOND_KEY, bond.rate, bond.date);
+  } catch (error) {
+    report.referenceErrors.push((error as Error).message);
+  }
+  try {
+    const forecasts = await fetchInflationForecasts(now.getUTCFullYear(), fetchFn);
+    for (const [currency, rate] of Object.entries(forecasts)) db.setReferenceRate(`inflation:${currency}`, rate, date);
+  } catch (error) {
+    report.referenceErrors.push((error as Error).message);
   }
 
   // --- Reihenfolge: gehaltene Titel, Watchlist, Datenvorrat; je Gruppe der älteste Kurs zuerst ---

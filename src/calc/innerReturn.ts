@@ -99,3 +99,12 @@ export function scenarioReturns(
     ),
   };
 }
+
+/**
+ * Macht eine Rendite in fremder Währung mit einer in Euro vergleichbar: Die höhere Inflation einer Währung
+ * steckt im nominalen Wachstum, geht aber über die Abwertung wieder verloren.
+ * @param inflationGap Erwartete Inflation der Währung minus die des Euro, z. B. 0.043.
+ */
+export function comparableReturn(localReturn: number | null, inflationGap: number): number | null {
+  return localReturn === null ? null : (1 + localReturn) / (1 + inflationGap) - 1;
+}

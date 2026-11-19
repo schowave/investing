@@ -89,6 +89,11 @@ export default async function StockPage(props: {
           <span className="sub">
             {v.returns ? `${percent(v.returns.cautious)} bis ${percent(v.returns.optimistic)}` : "nicht berechenbar"}
           </span>
+          {v.inflationGap !== 0 && v.localReturn !== null && (
+            <span className="sub">
+              in {currency} {percent(v.localReturn)}, Inflationsabstand zum Euro {percent(v.inflationGap)}
+            </span>
+          )}
         </div>
         <div className="figure">
           <dt>Kurs</dt>
@@ -189,8 +194,11 @@ export default async function StockPage(props: {
             <tr><td>Dividendenniveau je Aktie</td><td className="num">{amount(d.dividendLevel)}</td></tr>
             <tr><td>Netto-Rückkäufe je Aktie (fünf Jahre)</td><td className="num">{amount(d.netBuybacksPerShare)}</td></tr>
             <tr><td>Tragbarer Rückfluss je Aktie</td><td className="num">{amount(d.sustainablePayout)}</td></tr>
-            <tr><td>Wachstum Gewinn je Aktie</td><td className="num">{percent(d.historicalGrowth)}</td></tr>
-            <tr><td>Wachstum Umsatz je Aktie</td><td className="num">{percent(d.revenueGrowth)}</td></tr>
+            <tr><td>Tilgung überhöhter Schulden je Aktie (schon abgezogen)</td><td className="num">{amount(d.debtRepaymentPerShare)}</td></tr>
+            <tr><td>Wachstum Gewinn je Aktie</td><td className="num">{percent(d.earningsGrowthPerShare)}</td></tr>
+            <tr><td>Wachstum Gewinn des Unternehmens</td><td className="num">{percent(d.earningsGrowthTotal)}</td></tr>
+            <tr><td>Wachstum Gewinn, angesetzt (das niedrigere)</td><td className="num">{percent(d.historicalGrowth)}</td></tr>
+            <tr><td>Wachstum Umsatz, angesetzt (das niedrigere aus je Aktie und gesamt)</td><td className="num">{percent(d.revenueGrowth)}</td></tr>
             <tr><td>Wachstumsgrenze aus Einbehaltung</td><td className="num">{percent(d.retentionCap)}</td></tr>
           </tbody>
         </table>

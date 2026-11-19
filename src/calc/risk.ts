@@ -105,19 +105,29 @@ export function proposeEarnings(earningsPerShare: readonly number[]): number {
   return alwaysRising ? -0.1 : 0;
 }
 
-/** Faktor 2. `steadyEarnings`: Faktor 1 erhält den Bonus. */
+/**
+ * Faktor 2: Verschuldung gemessen an der Ertragskraft statt an der Eigenkapitalquote. Rückkäufe lassen das
+ * Eigenkapital schrumpfen, ohne dass ein Unternehmen dadurch schlechter zahlen kann.
+ * - Nettoschulden zum EBITDA: bis 1 kein Abzug, ab 4 der volle Abzug von 30 %.
+ * - Zinsdeckung (EBIT zu Zinsaufwand): ab 8 kein Abzug, bis 2 der volle Abzug von 20 %.
+ * - Kurzfristige Verbindlichkeiten über dem Umlaufvermögen: 10 %.
+ */
 export function proposeFinancing(args: {
-  equityRatio: number;
+  /** Finanzschulden abzüglich Zahlungsmittel; negativ bei Nettoguthaben. */
+  netDebt: number;
+  ebitda: number;
+  ebit: number;
+  /** Zinsaufwand als positive Zahl, 0 wenn keiner anfällt. */
+  interestExpense: number;
   currentAssets: number;
   currentLiabilities: number;
-  longTermDebt: number;
-  operatingCashFlow: number;
-  steadyEarnings: boolean;
 }): number {
-  const requiredRatio = args.steadyEarnings ? 0.4 : 0.5;
-  let deduction = Math.max(0, requiredRatio - args.equityRatio);
+  let deduction = 0;
+  if (args.netDebt > 0) {
+    deduction += args.ebitda > 0 ? interpolate(args.netDebt / args.ebitda, 4, 1, 0.3) : 0.3;
+  }
+  if (args.interestExpense > 0) deduction += interpolate(args.ebit / args.interestExpense, 2, 8, 0.2);
   if (args.currentLiabilities > args.currentAssets) deduction += 0.1;
-  if (args.longTermDebt > 3 * Math.max(0, args.operatingCashFlow)) deduction += 0.1;
   return Math.min(0.5, deduction);
 }
 

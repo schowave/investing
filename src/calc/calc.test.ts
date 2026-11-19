@@ -3,12 +3,16 @@ import {
   PROFILE_FOCUSED,
   PROFILE_GLOBAL,
   assessRisk,
+  comparableReturn,
   defaultProbability,
   dividendLevel,
   earningsLevel,
   growthProposal,
   historicalGrowth,
+  hurdleRate,
   innerReturn,
+  isCandidate,
+  lowerGrowth,
   levelFromAverage,
   netBuybacksPerShare,
   payoutLevelProposal,
@@ -23,9 +27,11 @@ import {
   proposeFinancing,
   proposeProfitability,
   proposeSize,
+  requiredDebtRepayment,
   riskClass,
   scenarioReturns,
   targetPortfolio,
+  withHurdle,
   type RiskRatings,
   type Stock,
 } from "./index.ts";
@@ -174,10 +180,15 @@ describe("Risiko", () => {
     expect(proposeEarnings([1, -1, 1, 1, 1, 1, 1, 1, 1, 1])).toBe(0.25);
     expect(proposeEarnings([1, -1, -1, -1, 1, 1, 1, 1, 1, 1])).toBe(0.5);
 
-    const solid = { currentAssets: 2, currentLiabilities: 1, longTermDebt: 2, operatingCashFlow: 1 };
-    expect(proposeFinancing({ ...solid, equityRatio: 0.415, steadyEarnings: false })).toBeCloseTo(0.085);
-    expect(proposeFinancing({ ...solid, equityRatio: 0.415, steadyEarnings: true })).toBe(0);
-    expect(proposeFinancing({ ...solid, equityRatio: 0.39, longTermDebt: 4, steadyEarnings: false })).toBeCloseTo(0.21);
+    const solid = { netDebt: 100, ebitda: 100, ebit: 80, interestExpense: 5, currentAssets: 2, currentLiabilities: 1 };
+    expect(proposeFinancing(solid)).toBe(0);
+    expect(proposeFinancing({ ...solid, netDebt: -50 })).toBe(0);
+    // Nettoschulden beim 2,5-Fachen des EBITDA: halber Weg zwischen 1 und 4, also 15 %.
+    expect(proposeFinancing({ ...solid, netDebt: 250 })).toBeCloseTo(0.15);
+    // Zinsdeckung 5: halber Weg zwischen 2 und 8, also 10 %.
+    expect(proposeFinancing({ ...solid, interestExpense: 16 })).toBeCloseTo(0.1);
+    expect(proposeFinancing({ ...solid, netDebt: 600, interestExpense: 50, currentLiabilities: 3 })).toBe(0.5);
+    expect(proposeFinancing({ ...solid, ebitda: -10 })).toBeCloseTo(0.3);
 
     expect(proposeSize(20e9)).toBe(0);
     expect(proposeSize(2e9)).toBeCloseTo(0.4 / 3);
@@ -199,7 +210,7 @@ describe("Risiko", () => {
 
 function stock(id: string, innerReturnValue: number, overrides: Partial<Stock> = {}): Stock {
   return {
-    id, innerReturn: innerReturnValue, riskScore: 0.2, complete: true,
+    id, innerReturn: innerReturnValue, cautiousReturn: innerReturnValue, riskScore: 0.2, complete: true,
     sector: id, region: "Europa", heldWeight: 0, ...overrides,
   };
 }
@@ -263,5 +274,41 @@ describe("Zielportfolio", () => {
     expect(result).toHaveLength(2);
     expect(result).toContainEqual({ id: "raus", action: "verkaufen", change: -0.1 });
     expect(result.find((p) => p.id === "neu")).toMatchObject({ action: "kaufen" });
+  });
+});
+
+describe("Schulden, Währung und Hürde", () => {
+  it("verlangt Tilgung nur für Schulden über dem Dreifachen des EBITDA", () => {
+    expect(requiredDebtRepayment(250, 100)).toBe(0);
+    expect(requiredDebtRepayment(500, 100)).toBe(20);
+    expect(requiredDebtRepayment(500, -10)).toBe(50);
+    expect(requiredDebtRepayment(-40, 100)).toBe(0);
+  });
+
+  it("nimmt das vorsichtigere Wachstum", () => {
+    expect(lowerGrowth(0.1, 0.04)).toBe(0.04);
+    expect(lowerGrowth(0.02, 0.05)).toBe(0.02);
+    expect(lowerGrowth(null, 0.05)).toBeNull();
+  });
+
+  it("zieht den Inflationsunterschied von Renditen in Fremdwährung ab", () => {
+    expect(comparableReturn(0.18, 0.043)).toBeCloseTo(0.1313, 3);
+    expect(comparableReturn(0.05, -0.015)).toBeCloseTo(0.066, 3);
+    expect(comparableReturn(0.08, 0)).toBeCloseTo(0.08);
+    expect(comparableReturn(null, 0.04)).toBeNull();
+  });
+
+  it("leitet die Mindestrendite aus der Anleiherendite ab", () => {
+    expect(hurdleRate(0.034)).toBeCloseTo(0.084);
+    expect(hurdleRate(0.005)).toBe(0.07);
+    expect(withHurdle(PROFILE_FOCUSED, 0.04).minReturn).toBeCloseTo(0.09);
+    expect(withHurdle(PROFILE_FOCUSED, null).minReturn).toBe(0.085);
+  });
+
+  it("verlangt die Mindestrendite auch im vorsichtigen Fall", () => {
+    const profile = { ...PROFILE_FOCUSED, minReturn: 0.085 };
+    expect(isCandidate(stock("klar", 0.1, { cautiousReturn: 0.09 }), profile)).toBe(true);
+    expect(isCandidate(stock("knapp", 0.1, { cautiousReturn: 0.08 }), profile)).toBe(false);
+    expect(isCandidate(stock("ohne", 0.1, { cautiousReturn: null }), profile)).toBe(false);
   });
 });

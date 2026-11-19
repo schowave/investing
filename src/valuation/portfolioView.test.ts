@@ -5,7 +5,7 @@ import { buildPortfolioView } from "./portfolioView.ts";
 import type { PortfolioItem } from "./portfolioView.ts";
 
 const item = (id: string, change: Partial<PortfolioItem> = {}): PortfolioItem => ({
-  id, sector: "Chemie", region: "Europa", innerReturn: 0.1, riskScore: 0.2, complete: true, shares: 0, priceEur: 10, ...change,
+  id, sector: "Chemie", region: "Europa", innerReturn: 0.1, cautiousReturn: 0.1, riskScore: 0.2, complete: true, shares: 0, priceEur: 10, ...change,
 });
 
 describe("buildPortfolioView", () => {
@@ -13,7 +13,8 @@ describe("buildPortfolioView", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 5000, [
       item("GUT", { innerReturn: 0.12 }),
       item("HALTEN", { shares: 300, innerReturn: 0.1 }),
-      item("SCHWACH", { shares: 200, innerReturn: 0.05 }),
+      item("SCHWACH", { shares: 200, innerReturn: 0.05, cautiousReturn: 0.04 }),
+      item("KNAPP", { innerReturn: 0.09, cautiousReturn: 0.08, shares: 0 }),
       item("OFFEN", { complete: false }),
     ]);
     expect(view.totalEur).toBe(10000);

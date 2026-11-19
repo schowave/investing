@@ -2,9 +2,10 @@
 // Reine Rechnung ohne Datenbank- und Netzzugriff (Spezifikation Abschnitte 4 bis 6).
 
 import {
-  assessRisk, defaultProbability, dividendLevel, dividendWasCut, earningsLevel, growthProposal, historicalGrowth,
-  MANUAL_FOR_FINANCIALS, netBuybacksPerShare, payoutLevelProposal, proposeAge, proposeCashFlow, proposeCountry,
-  proposeCurrency, proposeEarnings, proposeFinancing, proposeProfitability, proposeSize, RISK_FACTOR_IDS, RISK_FACTORS,
+  assessRisk, comparableReturn, defaultProbability, dividendLevel, dividendWasCut, earningsLevel, growthProposal, historicalGrowth,
+  lowerGrowth, MANUAL_FOR_FINANCIALS, netBuybacksPerShare, payoutLevelProposal, proposeAge, proposeCashFlow, proposeCountry,
+  proposeCurrency, proposeEarnings, proposeFinancing, proposeProfitability, proposeSize, requiredDebtRepayment,
+  RISK_FACTOR_IDS, RISK_FACTORS,
   riskClass,
   scenarioReturns,
 } from "../calc/index.ts";
@@ -28,8 +29,14 @@ export interface Proposals {
     dividendLevel: number | null;
     netBuybacksPerShare: number | null;
     sustainablePayout: number | null;
+    /** Gewinnwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
     historicalGrowth: number | null;
+    /** Umsatzwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
     revenueGrowth: number | null;
+    earningsGrowthPerShare: number | null;
+    earningsGrowthTotal: number | null;
+    /** Jährliche Tilgung je Aktie für überhöhte Schulden; mindert den tragbaren Rückfluss. */
+    debtRepaymentPerShare: number | null;
     retentionCap: number | null;
   };
   /** Hinweise für die Oberfläche, z. B. gegriffene Deckelung oder fehlende Daten. */
@@ -62,7 +69,8 @@ export function proposeInputs(
   const notes: string[] = [];
   const details: Proposals["details"] = {
     fiscalYears: [], earningsLevel: null, dividendLevel: null, netBuybacksPerShare: null,
-    sustainablePayout: null, historicalGrowth: null, revenueGrowth: null, retentionCap: null,
+    sustainablePayout: null, historicalGrowth: null, revenueGrowth: null, earningsGrowthPerShare: null,
+    earningsGrowthTotal: null, debtRepaymentPerShare: null, retentionCap: null,
   };
 
   values["risk.currency"] = proposeCurrency(stock.reportingCurrency);
@@ -105,7 +113,14 @@ export function proposeInputs(
     })),
   );
   const fcfPerShare = ten.slice(5).map((y, i) => (y.freeCashFlow === null ? null : y.freeCashFlow / shares[i + 5]!));
-  const sustainable = stock.isFinancial ? level : allNumbers(fcfPerShare) ? mean(fcfPerShare) : null;
+  // Schulden über dem Dreifachen des EBITDA müssen getilgt werden; das Geld steht den Eigentümern nicht zu.
+  let repayment = 0;
+  if (!stock.isFinancial && last.netDebt !== null && last.ebitda !== null) {
+    repayment = requiredDebtRepayment(last.netDebt, last.ebitda) / last.shares!;
+    details.debtRepaymentPerShare = repayment;
+    if (repayment > 0) notes.push(`Hohe Schulden: ${repayment.toFixed(2)} je Aktie und Jahr sind für die Tilgung angesetzt und zählen nicht als Rückfluss.`);
+  }
+  const sustainable = stock.isFinancial ? level : allNumbers(fcfPerShare) ? Math.max(0, mean(fcfPerShare) - repayment) : null;
   Object.assign(details, { earningsLevel: level, dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
 
   let payout: number | null = null;
@@ -120,12 +135,18 @@ export function proposeInputs(
   }
 
   // Wachstum
-  const growthHistory = historicalGrowth(eps);
-  details.historicalGrowth = growthHistory;
+  // Rückkäufe stehen schon im Rückfluss. Das Wachstum je Aktie enthält sie ein zweites Mal, deshalb gilt das
+  // niedrigere aus je Aktie und Gesamtunternehmen (bei Verwässerung ist das der Wert je Aktie).
+  const perShareGrowth = historicalGrowth(eps);
+  const totalGrowth = historicalGrowth(eps.map((e, i) => e * shares[i]!));
+  const growthHistory = lowerGrowth(perShareGrowth, totalGrowth);
+  Object.assign(details, { historicalGrowth: growthHistory, earningsGrowthPerShare: perShareGrowth, earningsGrowthTotal: totalGrowth });
   const equityPerShare = last.equity === null ? null : last.equity / last.shares!;
   if (payout !== null && equityPerShare !== null) {
     const revenuePerShare = ten.map((y, i) => (y.revenue === null ? null : y.revenue / shares[i]!));
-    const revenueGrowth = allNumbers(revenuePerShare) ? historicalGrowth(revenuePerShare) : null;
+    const revenueGrowth = allNumbers(revenuePerShare)
+      ? lowerGrowth(historicalGrowth(revenuePerShare), historicalGrowth(revenuePerShare.map((r, i) => r * shares[i]!)))
+      : null;
     details.revenueGrowth = revenueGrowth;
     const growth = growthProposal({ historicalGrowth: growthHistory, revenueGrowth, payoutLevel: payout, earningsLevel: level, equityPerShare });
     details.retentionCap = growth.retentionCap;
@@ -141,14 +162,16 @@ export function proposeInputs(
   else if (reportingPerEur === null) notes.push(`Kein Wechselkurs für ${stock.reportingCurrency}, Größe nicht bewertbar.`);
 
   if (!stock.isFinancial) {
-    if (last.equity !== null && last.totalAssets && last.currentAssets !== null && last.currentLiabilities !== null && last.operatingCashFlow !== null) {
+    const netDebt = last.netDebt ?? (last.longTermDebt === null ? null : last.longTermDebt - (last.cash ?? 0));
+    const ebitda = last.ebitda ?? last.ebit;
+    if (netDebt !== null && ebitda !== null && last.ebit !== null && last.currentAssets !== null && last.currentLiabilities !== null) {
       values["risk.financing"] = proposeFinancing({
-        equityRatio: last.equity / last.totalAssets,
+        netDebt,
+        ebitda,
+        ebit: last.ebit,
+        interestExpense: last.interestExpense ?? 0,
         currentAssets: last.currentAssets,
         currentLiabilities: last.currentLiabilities,
-        longTermDebt: last.longTermDebt ?? 0,
-        operatingCashFlow: last.operatingCashFlow,
-        steadyEarnings: earningsRating < 0,
       });
     }
     // Kapitalrendite und Marge als Durchschnitt der letzten fünf Jahre, damit ein Ausreißerjahr nicht entscheidet.
@@ -183,12 +206,24 @@ export interface Valuation {
   defaultProbability: number;
   /** Kurs je Aktie in Berichtswährung; `null`, wenn Kurs oder Wechselkurs fehlen. */
   price: number | null;
-  /** Innere Rendite mit Bandbreite; bei unvollständiger Bewertung vorläufig (fehlende Risikofaktoren als 0). */
+  /**
+   * Innere Rendite mit Bandbreite, mit dem Euro vergleichbar gemacht; bei unvollständiger Bewertung vorläufig
+   * (fehlende Risikofaktoren als 0).
+   */
   returns: ScenarioReturns | null;
+  /** Innere Rendite im Basisfall in Berichtswährung, vor dem Währungsabgleich. */
+  localReturn: number | null;
+  /** Erwartete Inflation der Berichtswährung minus die des Euro. */
+  inflationGap: number;
 }
 
 /** Führt Vorschläge und manuelle Werte zusammen und rechnet die innere Rendite. */
-export function evaluate(proposals: InputValues, manualValues: InputValues, price: number | null): Valuation {
+export function evaluate(
+  proposals: InputValues,
+  manualValues: InputValues,
+  price: number | null,
+  inflationGap = 0,
+): Valuation {
   const inputs: InputValues = { ...proposals, ...manualValues };
   const manual = INPUT_KEYS.filter((key) => manualValues[key] !== undefined);
   const missing = INPUT_KEYS.filter((key) => inputs[key] === undefined);
@@ -201,10 +236,15 @@ export function evaluate(proposals: InputValues, manualValues: InputValues, pric
   const risk = assessRisk(ratings);
   const probability = defaultProbability(risk.score);
   const { payoutLevel, growth } = inputs;
-  const returns =
+  const local =
     price !== null && payoutLevel !== undefined && growth !== undefined
       ? scenarioReturns(price, { payoutLevel, growth, defaultProbability: probability })
       : null;
+  const returns = local && {
+    cautious: comparableReturn(local.cautious, inflationGap),
+    base: comparableReturn(local.base, inflationGap),
+    optimistic: comparableReturn(local.optimistic, inflationGap),
+  };
   return {
     inputs, manual, missing,
     complete: missing.length === 0 && price !== null && returns?.base != null,
@@ -213,6 +253,8 @@ export function evaluate(proposals: InputValues, manualValues: InputValues, pric
     defaultProbability: probability,
     price,
     returns,
+    localReturn: local?.base ?? null,
+    inflationGap,
   };
 }
 

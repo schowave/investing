@@ -20,6 +20,9 @@ export const FUNDAMENTAL_FIELDS = [
   "cash",
   "operatingCashFlow",
   "freeCashFlow",
+  "netDebt",
+  "interestExpense",
+  "ebitda",
 ] as const;
 
 export type FundamentalField = (typeof FUNDAMENTAL_FIELDS)[number];
@@ -194,6 +197,11 @@ CREATE TABLE IF NOT EXISTS screening (
   inner_return REAL,
   implausible INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS reference_rates (
+  key TEXT PRIMARY KEY,
+  value REAL NOT NULL,
+  date TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -246,6 +254,10 @@ export class Database {
       this.#db.exec("ALTER TABLE stocks ADD COLUMN watched INTEGER NOT NULL DEFAULT 1");
     }
     if (!columns.some((c) => c.name === "security_type")) this.#db.exec("ALTER TABLE stocks ADD COLUMN security_type TEXT");
+    const fundamentalColumns = new Set((this.#db.prepare("PRAGMA table_info(fundamentals)").all() as { name: string }[]).map((c) => c.name));
+    for (const column of FUNDAMENTAL_FIELDS.map(toColumn)) {
+      if (!fundamentalColumns.has(column)) this.#db.exec(`ALTER TABLE fundamentals ADD COLUMN ${column} REAL`);
+    }
     const screeningColumns = this.#db.prepare("PRAGMA table_info(screening)").all() as { name: string }[];
     if (!screeningColumns.some((c) => c.name === "implausible")) {
       this.#db.exec("ALTER TABLE screening ADD COLUMN implausible INTEGER NOT NULL DEFAULT 0");
@@ -504,6 +516,18 @@ export class Database {
       | { finished_at: string; ok: number; report: string }
       | undefined;
     return row ? { finishedAt: row.finished_at, ok: row.ok === 1, report: JSON.parse(row.report) } : null;
+  }
+
+  /** Bezugsgrößen des Marktes, z. B. `bond:EUR10Y` oder `inflation:KZT`, als Anteil (0.034). */
+  setReferenceRate(key: string, value: number, date: string): void {
+    this.#db
+      .prepare("INSERT INTO reference_rates (key, value, date) VALUES (?, ?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, date = excluded.date")
+      .run(key, value, date);
+  }
+
+  referenceRate(key: string): number | null {
+    const row = this.#db.prepare("SELECT value FROM reference_rates WHERE key = ?").get(key) as { value: number } | undefined;
+    return row ? row.value : null;
   }
 
   /** Datum des jüngsten Kurses je Aktie. */

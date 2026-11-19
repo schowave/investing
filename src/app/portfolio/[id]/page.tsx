@@ -93,7 +93,7 @@ export default async function PortfolioPage(props: {
       {targetCount === 0 && (
         <div className="notice">
           Das Zielportfolio ist leer. Kandidat wird eine Aktie erst, wenn ihre Bewertung vollständig ist, der Risikowert
-          unter 75 % liegt und die innere Rendite mindestens {percent(profile.minReturn)} beträgt.
+          unter 75 % liegt und die innere Rendite auch im vorsichtigen Fall mindestens {percent(profile.minReturn)} beträgt.
         </div>
       )}
 

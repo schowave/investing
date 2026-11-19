@@ -81,6 +81,29 @@ export function netBuybacksPerShare(years: readonly BuybackYear[]): number {
   return Math.max(0, mean(perShare));
 }
 
+export interface DebtParams {
+  /** Nettoschulden bis zu diesem Vielfachen des EBITDA gelten als tragbar. */
+  maxDebtToEbitda: number;
+  /** Jahre, in denen der Überhang zu tilgen ist. */
+  repaymentYears: number;
+}
+
+export const DEFAULT_DEBT_PARAMS: DebtParams = { maxDebtToEbitda: 3, repaymentYears: 10 };
+
+/**
+ * Jährliche Tilgung, die nötig ist, um überhöhte Schulden abzubauen. Sie steht den Eigentümern nicht zur
+ * Verfügung und mindert den tragbaren Rückfluss. Ohne Überhang 0.
+ */
+export function requiredDebtRepayment(netDebt: number, ebitda: number, params: DebtParams = DEFAULT_DEBT_PARAMS): number {
+  const excess = netDebt - params.maxDebtToEbitda * Math.max(0, ebitda);
+  return excess > 0 ? excess / params.repaymentYears : 0;
+}
+
+/** Vorsichtigeres von zwei Wachstumswerten; `null`, wenn eines nicht bestimmbar ist. */
+export function lowerGrowth(a: number | null, b: number | null): number | null {
+  return a === null || b === null ? null : Math.min(a, b);
+}
+
 export interface PayoutProposal {
   value: number;
   /** Die Deckelung auf den tragbaren Rückfluss hat gegriffen. */

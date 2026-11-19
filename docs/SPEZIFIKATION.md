@@ -113,22 +113,24 @@ Ausgabe neuer Aktien minus aktienbasierte Vergütung) geteilt durch die Aktienza
 mindestens 0.
 
 **Tragbarer Rückfluss je Aktie:** Durchschnitt des freien Cashflows je Aktie der letzten
-fünf Jahre. Bei Banken und Versicherern stattdessen das Gewinnniveau.
+fünf Jahre, abzüglich der Tilgung überhöhter Schulden: Liegen die Nettoschulden über dem Dreifachen des EBITDA, wird der Überhang rechnerisch in zehn Jahren getilgt. Bei Banken und Versicherern stattdessen das Gewinnniveau.
 
 **Rückflussniveau `R0`:** Dividendenniveau plus Netto-Rückkäufe je Aktie, höchstens der
 tragbare Rückfluss. Rückkäufe, die nicht aus freiem Cashflow gedeckt sind, zählen damit
 nicht. Greift die Deckelung, zeigt die Oberfläche das an.
 
 **Wachstum `g0`:** der kleinste dieser vier Werte, mindestens 0 %:
-- Wachstum des Gewinns je Aktie nach obiger Formel,
-- Wachstum des Umsatzes je Aktie nach derselben Formel (entfällt, wenn nicht bestimmbar),
+- Wachstum des Gewinns nach obiger Formel,
+- Wachstum des Umsatzes nach derselben Formel (entfällt, wenn nicht bestimmbar),
 - 8,5 %,
 - `Einbehaltungsquote · Eigenkapitalrendite + 2 %`, mit
   `Einbehaltungsquote = max(0, 1 − R0 / Gewinnniveau)` und
   `Eigenkapitalrendite = Gewinnniveau / Eigenkapital je Aktie`. Die 2 % stehen für
   Preissteigerungen ohne zusätzliches Kapital.
 
-Bei negativem Eigenkapital entfällt die dritte Grenze, die Oberfläche weist darauf hin. Ist
+Gewinn und Umsatz werden je Aktie und für das ganze Unternehmen gemessen; es gilt der niedrigere Wert. Rückkäufe stehen schon im Rückfluss und würden im Wachstum je Aktie ein zweites Mal zählen; bei Verwässerung ist der Wert je Aktie der niedrigere.
+
+Bei negativem Eigenkapital entfällt die Grenze aus Einbehaltung, die Oberfläche weist darauf hin. Ist
 das historische Wachstum negativ oder nicht bestimmbar, gibt es keinen Vorschlag; der Wert
 muss manuell gesetzt werden.
 
@@ -169,7 +171,7 @@ Zwischen den Stützpunkten wird linear interpoliert.
 | # | Regel |
 |---|---|
 | 1 | Zehn Jahre Gewinn je Aktie: 3 oder mehr Verlustjahre 50 %; 1 bis 2 Verlustjahre 25 %; kein Verlust, aber ein Rückgang um mehr als 50 % in einem Jahr 12,5 %; jedes Jahr gestiegen Bonus 10 %; sonst 0 % |
-| 2 | 1 Prozentpunkt Abzug je fehlendem Prozentpunkt EK-Quote unter 50 % (unter 40 %, wenn Faktor 1 den Bonus erhält); plus 10 %, wenn kurzfr. Verbindlichkeiten > Umlaufvermögen; plus 10 %, wenn langfr. Fremdkapital > 3 × operativer Cashflow; höchstens 50 % |
+| 2 | Nettoschulden zum EBITDA: bis 1 kein Abzug, ab 4 der Abzug von 30 %; Zinsdeckung (EBIT zu Zinsaufwand): ab 8 kein Abzug, bis 2 der Abzug von 20 %; plus 10 %, wenn kurzfr. Verbindlichkeiten > Umlaufvermögen; höchstens 50 %. Eigene Regel statt der Eigenkapitalquote des Buchs, weil Rückkäufe das Eigenkapital schrumpfen lassen, ohne die Zahlungsfähigkeit zu ändern |
 | 3 | Bilanzsumme ≥ 20 Mrd. € 0 %; ≤ 20 Mio. € 40 %; dazwischen linear im Logarithmus (2 Mrd. € ergeben rund 13 %) |
 | 4 | ≥ 20 Jahre 0 %; ≤ 3 Jahre 30 % |
 | 6 | Sitz in Europa, Nordamerika, Japan 0 %; sonst 12,5 % als Ausgangswert zur manuellen Anpassung |
@@ -197,7 +199,11 @@ Zwischen den Stützpunkten wird linear interpoliert.
 Eine Aktie ist Kandidat, wenn alle Punkte gelten:
 - Bewertung vollständig (alle Eingaben und alle 15 Risikofaktoren gesetzt),
 - Risikowert unter 75 %,
-- innere Rendite mindestens die Mindestrendite des Portfolios (Standard 8,5 %).
+- innere Rendite auch im vorsichtigen Fall der Bandbreite mindestens die Mindestrendite (Sicherheitsmarge).
+
+Die Mindestrendite folgt dem Zinsniveau: Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität (EZB-Zinsstrukturkurve) plus 5 Prozentpunkte, mindestens 7 %. Ohne geladene Anleiherendite gelten 8,5 %.
+
+Renditen in Fremdwährung werden vor dem Vergleich um den Unterschied zwischen der erwarteten Inflation der Berichtswährung und der des Euro gekürzt (`(1 + r) / (1 + Abstand) − 1`). Grundlage ist das Mittel der IWF-Prognosen für die vier Folgejahre. Fehlt die Prognose, bleibt die Rendite unverändert und die Bewertung weist darauf hin.
 
 Überfällige Bewertungen (älter als zwölf Monate) bleiben zulässig, werden aber markiert.
 
@@ -221,7 +227,7 @@ Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 | Höchstanteil je Branche | – | 20 % |
 | Höchstanteil je Region | – | 40 % |
 | Tauschschwelle | 1 Prozentpunkt | 2 Prozentpunkte |
-| Mindestrendite | 8,5 % | 8,5 % |
+| Mindestrendite | nach Zinsniveau | nach Zinsniveau |
 
 ### 7.4 Vorschläge zum Ist-Bestand
 

@@ -19,6 +19,7 @@ function steadyYears(change: (year: FundamentalsYear, index: number) => void = (
       fiscalYear: 2016 + i, epsDiluted: 5 + i * 0.1, dividendPerShare: 2, shares: 100, repurchases: 100, issuance: 0,
       stockBasedCompensation: null, revenue: 5000 * 1.03 ** i, ebit: 750 * 1.03 ** i, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
       currentLiabilities: 1000, longTermDebt: null, cash: 0, operatingCashFlow: 600, freeCashFlow: 400,
+      netDebt: 0, interestExpense: 0, ebitda: 900 * 1.03 ** i,
     };
     change(year, i);
     return year;
@@ -86,6 +87,43 @@ describe("proposeInputs", () => {
     expect(details.earningsLevel).toBe(3.0);
   });
 
+  it("zählt Rückkäufe nicht doppelt: bei schrumpfender Aktienzahl gilt das Wachstum des Gesamtgewinns", () => {
+    // Gesamtgewinn konstant bei 500, die Aktienzahl sinkt um 5 % im Jahr: je Aktie wächst der Gewinn, insgesamt nicht.
+    const years = steadyYears((y, i) => {
+      y.shares = 100 * 0.95 ** i;
+      y.epsDiluted = 500 / y.shares;
+    });
+    const { values, details } = proposeInputs(stock, years, 1, 2026);
+    expect(details.earningsGrowthPerShare!).toBeGreaterThan(0.05);
+    expect(details.earningsGrowthTotal!).toBeCloseTo(0);
+    expect(values.growth).toBeCloseTo(0);
+  });
+
+  it("nimmt bei Verwässerung das Wachstum je Aktie", () => {
+    const years = steadyYears((y, i) => {
+      y.shares = 100 * 1.05 ** i;
+      y.epsDiluted = (500 * 1.06 ** i) / y.shares;
+    });
+    const { details } = proposeInputs(stock, years, 1, 2026);
+    expect(details.historicalGrowth!).toBeCloseTo(details.earningsGrowthPerShare!);
+    expect(details.earningsGrowthTotal!).toBeGreaterThan(details.earningsGrowthPerShare!);
+  });
+
+  it("zieht die Tilgung überhöhter Schulden vom tragbaren Rückfluss ab und bewertet die Finanzierung", () => {
+    // EBITDA rund 1174 im letzten Jahr; Nettoschulden 5000 liegen über dem Dreifachen, der Überhang wird in zehn Jahren getilgt.
+    const years = steadyYears((y) => {
+      y.netDebt = 5000;
+      y.interestExpense = 300;
+    });
+    const { values, details, notes } = proposeInputs(stock, years, 1, 2026);
+    const ebitda = 900 * 1.03 ** 9;
+    expect(details.debtRepaymentPerShare!).toBeCloseTo((5000 - 3 * ebitda) / 10 / 100);
+    expect(details.sustainablePayout!).toBeCloseTo(4 - details.debtRepaymentPerShare!);
+    expect(values.payoutLevel!).toBeCloseTo(details.sustainablePayout!);
+    expect(values["risk.financing"]!).toBeGreaterThan(0.3);
+    expect(notes.some((n) => n.includes("Tilgung"))).toBe(true);
+  });
+
   it("bewertet die Größe nicht ohne Wechselkurs und das Alter ohne Gründungsjahr nur bei langer Historie", () => {
     const young = proposeInputs({ ...stock, foundedYear: null }, steadyYears(), null, 2026).values;
     expect(young["risk.size"]).toBeUndefined();
@@ -133,6 +171,14 @@ describe("evaluate", () => {
     expect(v.missing).toEqual(["risk.management"]);
     expect(v.returns!.base).not.toBeNull();
     expect(evaluate(imperial, {}, null).complete).toBe(false);
+  });
+
+  it("zieht bei Fremdwährung den Inflationsunterschied ab und zeigt die Rendite in Landeswährung", () => {
+    const euro = evaluate(imperial, {}, 30);
+    const tenge = evaluate(imperial, {}, 30, 0.043);
+    expect(tenge.localReturn).toBeCloseTo(euro.returns!.base!);
+    expect(tenge.returns!.base!).toBeCloseTo((1 + euro.returns!.base!) / 1.043 - 1);
+    expect(tenge.returns!.cautious!).toBeLessThan(tenge.returns!.base!);
   });
 
   it("rechnet Kurse in die Berichtswährung um", () => {
