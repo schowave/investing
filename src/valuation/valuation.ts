@@ -286,18 +286,34 @@ export function proposeInputs(
   }
 
   // Risikofaktoren aus Zahlen
-  const earningsRating = proposeEarnings(eps);
+  const earningsRating = proposeEarnings(
+    eps,
+    ten.map((y) => y.ebit),
+  );
   values["risk.earnings"] = earningsRating;
   if (last.totalAssets !== null && reportingPerEur !== null) values["risk.size"] = proposeSize(last.totalAssets / reportingPerEur);
   else if (reportingPerEur === null) notes.push(`Kein Wechselkurs für ${stock.reportingCurrency}, Größe nicht bewertbar.`);
 
   if (!stock.isFinancial) {
     const netDebt = last.netDebt ?? (last.longTermDebt === null ? null : last.longTermDebt - (last.cash ?? 0));
-    const ebitda = last.ebitda ?? last.ebit;
-    if (netDebt !== null && ebitda !== null && last.ebit !== null && last.currentAssets !== null && last.currentLiabilities !== null) {
+    // Operativer Cashflow als Mittel der letzten drei Jahre, damit ein Jahr mit Sondereffekten im Umlaufvermögen nicht
+    // entscheidet; fehlt er ganz, steht das EBITDA für ihn.
+    const cashFlows = ten
+      .slice(-3)
+      .map((y) => y.operatingCashFlow)
+      .filter((v): v is number => v !== null);
+    const operatingCashFlow = cashFlows.length > 0 ? mean(cashFlows) : (last.ebitda ?? last.ebit);
+    if (
+      netDebt !== null &&
+      operatingCashFlow !== null &&
+      last.ebit !== null &&
+      last.currentAssets !== null &&
+      last.currentLiabilities !== null
+    ) {
       values["risk.financing"] = proposeFinancing({
         netDebt,
-        ebitda,
+        operatingCashFlow,
+        earningsRating,
         ebit: last.ebit,
         interestExpense: last.interestExpense ?? 0,
         currentAssets: last.currentAssets,
@@ -313,7 +329,8 @@ export function proposeInputs(
   }
 
   values["risk.cashFlow"] = proposeCashFlow({
-    positiveFreeCashFlowYears: ten.filter((y) => (y.freeCashFlow ?? 0) > 0).length,
+    // Der freie Cashflow einer Bank oder Versicherung sagt nichts über ihre Ertragskraft; dort zählen die Gewinnjahre.
+    positiveFreeCashFlowYears: stock.isFinancial ? eps.filter((e) => e > 0).length : ten.filter((y) => (y.freeCashFlow ?? 0) > 0).length,
     paysOut: divLevel > 0 || buybacks > 0,
     dividendCutInLastTenYears: dividendWasCut(dividends),
   });

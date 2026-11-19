@@ -139,7 +139,9 @@ describe("proposeInputs", () => {
     expect(details.debtRepaymentPerShare!).toBeCloseTo((5000 - 3 * ebitda) / 10 / 100);
     expect(details.sustainablePayout!).toBeCloseTo(4 - details.debtRepaymentPerShare!);
     expect(values.payoutLevel!).toBeCloseTo(details.sustainablePayout!);
-    expect(values["risk.financing"]!).toBeGreaterThan(0.3);
+    // Nettoschulden beim 8,3-Fachen des operativen Cashflows: voller Abzug von 30 %. Der Gewinn steigt jedes Jahr,
+    // deshalb zählen davon 40 %.
+    expect(values["risk.financing"]!).toBeCloseTo(0.12);
     expect(notes.some((n) => n.includes("Tilgung"))).toBe(true);
   });
 

@@ -238,15 +238,41 @@ describe("Risiko", () => {
     expect(proposeEarnings([1, -1, 1, 1, 1, 1, 1, 1, 1, 1])).toBe(0.25);
     expect(proposeEarnings([1, -1, -1, -1, 1, 1, 1, 1, 1, 1])).toBe(0.5);
 
-    const solid = { netDebt: 100, ebitda: 100, ebit: 80, interestExpense: 5, currentAssets: 2, currentLiabilities: 1 };
+    // Einmaleffekte unterhalb des EBIT zählen nicht: Coca-Cola 2017 (Steuerreform), Gewinn und EBIT in Mrd. USD.
+    const cola = [6.5, 1.2, 6.4, 8.9, 7.7, 9.8, 9.5, 10.7, 10.6, 13.1];
+    expect(proposeEarnings(cola)).toBe(0.125);
+    expect(proposeEarnings(cola, [8.9, 7.7, 9.2, 11.7, 11.2, 14.0, 12.6, 14.5, 14.7, 17.7])).toBe(0);
+    // Das Jahr nach einem Sondergewinn ist kein Einbruch (Charter 2017/18): gemessen wird am Mittel der Vorjahre.
+    expect(proposeEarnings([3, 3, 3, 9, 2.5, 3, 3, 3, 3, 3])).toBe(0);
+    // Verlust bei intaktem operativem Ergebnis zählt nicht, bei eingebrochenem als Einbruch, bei operativem Verlust voll.
+    const oneLoss = [1, 1, 1, -1, 1, 1, 1, 1, 1, 1];
+    expect(proposeEarnings(oneLoss, [2, 2, 2, 2, 2, 2, 2, 2, 2, 2])).toBe(0);
+    expect(proposeEarnings(oneLoss, [2, 2, 2, 1.2, 2, 2, 2, 2, 2, 2])).toBe(0.125);
+    expect(proposeEarnings(oneLoss, [2, 2, 2, -1, 2, 2, 2, 2, 2, 2])).toBe(0.25);
+    // Fehlt das EBIT in dem Jahr, entscheidet der Gewinn allein.
+    expect(proposeEarnings(oneLoss, [2, 2, 2, null, 2, 2, 2, 2, 2, 2])).toBe(0.25);
+    // Ein halbierter Gewinn zählt, wenn auch das EBIT um mehr als 30 % fällt (BASF 2022).
+    const halved = [4, 4, 4, 4, 1.5, 4, 4, 4, 4, 4];
+    expect(proposeEarnings(halved, [6, 6, 6, 6, 5, 6, 6, 6, 6, 6])).toBe(0);
+    expect(proposeEarnings(halved, [6, 6, 6, 6, 4, 6, 6, 6, 6, 6])).toBe(0.125);
+
+    const solid = { netDebt: 100, operatingCashFlow: 100, ebit: 80, interestExpense: 5, currentAssets: 2, currentLiabilities: 1 };
     expect(proposeFinancing(solid)).toBe(0);
     expect(proposeFinancing({ ...solid, netDebt: -50 })).toBe(0);
-    // Nettoschulden beim 2,5-Fachen des EBITDA: halber Weg zwischen 1 und 4, also 15 %.
-    expect(proposeFinancing({ ...solid, netDebt: 250 })).toBeCloseTo(0.15);
+    // Buch: Nettoschulden bis zum Dreifachen des operativen Cashflows sind in Ordnung, ab dem Sechsfachen gilt der volle Abzug.
+    expect(proposeFinancing({ ...solid, netDebt: 300 })).toBe(0);
+    expect(proposeFinancing({ ...solid, netDebt: 450 })).toBeCloseTo(0.15);
+    expect(proposeFinancing({ ...solid, netDebt: 700 })).toBeCloseTo(0.3);
+    expect(proposeFinancing({ ...solid, operatingCashFlow: -10 })).toBeCloseTo(0.3);
     // Zinsdeckung 5: halber Weg zwischen 2 und 8, also 10 %.
     expect(proposeFinancing({ ...solid, interestExpense: 16 })).toBeCloseTo(0.1);
-    expect(proposeFinancing({ ...solid, netDebt: 600, interestExpense: 50, currentLiabilities: 3 })).toBe(0.5);
-    expect(proposeFinancing({ ...solid, ebitda: -10 })).toBeCloseTo(0.3);
+    // Schulden und Zinsdeckung messen dieselbe Last: Es gilt der höhere Abzug, dazu 10 % für knappes Umlaufvermögen.
+    const strained = { ...solid, netDebt: 700, interestExpense: 50, currentLiabilities: 3 };
+    expect(proposeFinancing(strained)).toBeCloseTo(0.4);
+    // Stetige Gewinne tragen mehr Schulden (Buch: Wal-Mart 5 % statt 14 %).
+    expect(proposeFinancing({ ...strained, earningsRating: 0.125 })).toBeCloseTo(0.4);
+    expect(proposeFinancing({ ...strained, earningsRating: 0 })).toBeCloseTo(0.28);
+    expect(proposeFinancing({ ...strained, earningsRating: -0.1 })).toBeCloseTo(0.16);
 
     expect(proposeSize(20e9)).toBe(0);
     expect(proposeSize(2e9)).toBeCloseTo(0.4 / 3);
