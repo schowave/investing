@@ -7,4 +7,4 @@ Requires=docker.service
 Type=oneshot
 WorkingDirectory=/opt/investing
 # Der Worker arbeitet ihn ab, nach einem eventuell laufenden Lauf von Hand (Seite „Abgleich“).
-ExecStart=/usr/bin/docker compose exec -T worker node scripts/enqueue.ts sync
+ExecStart=/usr/bin/docker compose exec -T worker node scripts/enqueue.ts sync --zeitplan

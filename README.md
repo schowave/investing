@@ -39,8 +39,11 @@ Das Wachstum schmilzt über 15 Jahre auf ein Dauerwachstum von höchstens 3 % ab
 ewig schneller als die Wirtschaft. Die innere Rendite ist dann der Zinssatz, bei dem der Barwert aller
 erwarteten Rückflüsse genau dem Kurs entspricht.
 
-Jede Aktie wird in drei Fällen gerechnet: **vorsichtig, Basis, optimistisch**. Ins Portfolio kommt ein Titel
-nur, wenn schon der vorsichtige Fall die Mindestrendite erreicht. Das ist die Sicherheitsmarge.
+Wer wächst, behält Gewinn ein. Flacht das Wachstum ab, steigt in der Rechnung die Ausschüttungsquote, soweit die
+einbehaltenen Gewinne bisher Wachstum gebracht haben. Wer einbehält und nicht wächst, bleibt bei seiner Ausschüttung.
+
+Jede Aktie wird in drei Fällen gerechnet: **vorsichtig, Basis, optimistisch**. Der Basisfall bestimmt den Rang,
+die Spanne zeigt, wie stark er an den Annahmen hängt.
 
 Alle Annahmen haben einen automatischen **Vorschlag** aus zehn Jahren Fundamentaldaten und lassen sich von
 Hand **übersteuern**. Ein Handwert gilt, bis man ihn löscht; neue Zahlen ändern nur den Vorschlag.
@@ -65,9 +68,9 @@ erlaubte Positionsgröße.
 
 ### Vom Ranking zum Zielportfolio
 
-1. **Kandidaten** sind vollständig bewertete Titel unter 75 % Risiko, deren vorsichtige Rendite die
-   **Mindestrendite** erreicht. Die Mindestrendite folgt dem Zinsniveau: Rendite zehnjähriger
-   Euro-Staatsanleihen plus 5 Prozentpunkte, mindestens 7 %.
+1. **Kandidaten** sind vollständig bewertete Titel unter 75 % Risiko, deren innere Rendite über der Rendite
+   zehnjähriger Euro-Staatsanleihen liegt. Ein Renditeziel gibt es nicht: Die besten kommen zuerst ins Portfolio,
+   bis es voll ist.
 2. Renditen in Fremdwährung werden um den erwarteten **Inflationsunterschied** zum Euro gekürzt, damit eine
    hohe Rendite in einer inflationsstarken Währung nicht besser aussieht, als sie ist.
 3. Die Kandidaten werden nach innerer Rendite sortiert und der Reihe nach gewichtet:
@@ -137,6 +140,8 @@ LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀─────�
                          Sicherung und Abgleich im Container
 ```
 
+- **Nächtlicher Abgleich** lässt sich auf der Seite „Abgleich“ aus- und einschalten (der Timer läuft weiter,
+  stellt dann aber nichts ein). Gegen die lokale Kopie gleicht `mise run sync` von Hand ab.
 - **Ausrollen passiert von selbst.** Jeder grüne Push auf `main`, auch ein Renovate-Update, landet
   spätestens fünf Minuten später im LXC. Startet eine neue Version nicht gesund, läuft die vorherige weiter.
 - **Daten** liegen im LXC unter `/opt/investing/data` (Datenbank, `backups/` mit den letzten drei Tagen).
@@ -152,6 +157,8 @@ LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀─────�
 | `mise run deploy:env`                   | Zugangsdaten aus `.env.local` in den LXC kopieren                                          |
 | `mise run deploy:config`                | Betriebsdateien von `main` neu einspielen (macht sonst der Update-Timer aus dem Image)     |
 | `mise run deploy:db`                    | Lokale Datenbank konsistent kopieren und einspielen (die dortige bleibt als `.vor-import`) |
+| `mise run lxc:snapshot <name>`          | Konsistente Kopie der Datenbank im LXC anlegen (vor Änderungen von Hand)                   |
+| `mise run lxc:exec <befehl>`            | Befehl im Worker-Container ausführen, z. B. `node scripts/set-input.ts …`                  |
 | `mise run db:pull`                      | Datenbank aus dem LXC nach lokal holen (die lokale bleibt als `.vor-pull`)                 |
 | `mise run deploy:status`                | `/healthz`, Timer und die letzten Updates und Abgleiche                                    |
 | `mise run docker:build`, `docker:smoke` | Image lokal bauen und mit leerer Datenbank testen                                          |

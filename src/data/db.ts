@@ -122,6 +122,8 @@ export interface StoredJudgement {
   sources: { url: string; title: string; pageAge: string | null; kind?: "sec" }[];
   /** Je Faktor (z. B. "moat"): Abzug, Sicherheit und Wahrscheinlichkeit je Stufe. */
   proposals: Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>;
+  /** Fassung der Stufen, nach der eingestuft wurde (`LEVELS_VERSION` in `src/judgement/factors.ts`). */
+  levelsVersion: number;
 }
 
 type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
@@ -141,6 +143,9 @@ export interface Job {
   log: string;
   summary: string | null;
 }
+
+/** Schlüssel der Einstellung für den nächtlichen Abgleich. */
+const AUTO_SYNC = "auto-sync";
 
 const toJob = (row: typeof t.jobs.$inferSelect): Job => ({ ...row, status: row.status as JobStatus });
 
@@ -587,6 +592,22 @@ export class Database {
       .insert(t.referenceRates)
       .values({ key, value, date })
       .onConflictDoUpdate({ target: t.referenceRates.key, set: { value, date } })
+      .run();
+  }
+
+  /** Ob der nächtliche Timer den Abgleich einstellt (Standard: ja). Von Hand geht der Abgleich immer. */
+  autoSync(): boolean {
+    const row = this.#db.select({ value: t.settings.value }).from(t.settings).where(eq(t.settings.key, AUTO_SYNC)).get();
+    return row?.value !== "aus";
+  }
+
+  setAutoSync(on: boolean): void {
+    const value = on ? "an" : "aus";
+    const updatedAt = new Date().toISOString();
+    this.#db
+      .insert(t.settings)
+      .values({ key: AUTO_SYNC, value, updatedAt })
+      .onConflictDoUpdate({ target: t.settings.key, set: { value, updatedAt } })
       .run();
   }
 

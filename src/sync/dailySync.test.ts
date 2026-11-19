@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
+import { computeValuation } from "../valuation/run.ts";
 import { looksImplausible, runDailySync, syncSucceeded } from "./dailySync.ts";
 
 const ECB = `<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.25"/><Cube currency="GBP" rate="0.8"/></Cube></Cube>`;
@@ -58,6 +59,8 @@ interface Fake {
   bondYield?: number;
   /** Inflationsprognose in Prozent je IWF-Ländercode. */
   inflation?: Record<string, number>;
+  /** Splits je Symbol im Format von EODHD ("8.000000/1.000000"); ohne Angabe ist der Abruf gesperrt. */
+  splits?: Record<string, { date: string; split: string }[]>;
 }
 
 /** Stellt EZB, Zusatzkurse und EODHD nach und merkt sich die abgefragten Adressen (ohne Token). */
@@ -92,6 +95,10 @@ function fakeFetch(fake: Fake) {
           .filter(([id]) => id.endsWith(`.${symbol}`))
           .map(([id, close]) => ({ code: id.slice(0, id.lastIndexOf(".")), date: "2026-11-18", close })),
       );
+    }
+    if (kind === "splits") {
+      calls.push(`splits ${symbol}`);
+      return fake.splits ? Response.json(fake.splits[symbol] ?? []) : new Response("", { status: 403 });
     }
     if (kind === "search") {
       calls.push(`suche ${symbol}`);
@@ -181,6 +188,35 @@ describe("runDailySync", () => {
     expect(calls.map((c) => c.split(" ")[0])).toEqual(["C.US", "A.XETRA"]);
     expect(report.pricesDeferred).toEqual(["B.US"]);
     expect(syncSucceeded(report)).toBe(false);
+    db.close();
+  });
+
+  it("holt Splits für Titel mit manuellem Rückfluss und bereinigt den Betrag je Aktie", async () => {
+    const db = setup();
+    db.setManualInput("A.XETRA", "payoutLevel", 8);
+    // Der Split liegt nach dem Setzen des Werts; ein Datum in der Zukunft, damit der Test nicht von der Uhr abhängt.
+    const splits = { "A.XETRA": [{ date: "2099-01-02", split: "8.000000/1.000000" }] };
+    const { fetchFn, calls } = fakeFetch({ closes: { "A.XETRA": [{ date: "2026-11-19", close: 5 }] }, splits });
+
+    await runDailySync(db, "geheim", NOW, fetchFn);
+
+    expect(calls).toContain("splits A.XETRA");
+    expect(calls).not.toContain("splits B.US");
+    expect(db.splits("A.XETRA")).toEqual([{ date: "2099-01-02", ratio: 8 }]);
+    const { valuation, proposals } = computeValuation(db, db.stock("A.XETRA")!, "2099-01-03");
+    expect(valuation.inputs.payoutLevel).toBe(1);
+    expect(proposals.notes.some((n) => n.startsWith("Rückflussniveau vom") && n.includes("8 wird zu 1"))).toBe(true);
+    db.close();
+  });
+
+  it("holt keine Splits, wenn das Budget für die Kurse aufgebraucht ist", async () => {
+    const db = setup();
+    db.setManualInput("A.XETRA", "payoutLevel", 8);
+    const { fetchFn, calls } = fakeFetch({ closes: { "A.XETRA": [], "B.US": [] }, account: { limit: 20, used: 16 }, splits: {} });
+
+    await runDailySync(db, "geheim", NOW, fetchFn);
+
+    expect(calls.some((c) => c.startsWith("splits"))).toBe(false);
     db.close();
   });
 

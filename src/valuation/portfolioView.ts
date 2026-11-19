@@ -8,7 +8,6 @@ export interface PortfolioItem {
   sector: string;
   region: string;
   innerReturn: number | null;
-  cautiousReturn: number | null;
   riskScore: number;
   complete: boolean;
   /** Gehaltene Stückzahl, 0 wenn nicht gehalten. */
@@ -59,9 +58,8 @@ const MAX_JUDGEMENT_BONUS = RISK_FACTOR_IDS.filter((id) => RISK_FACTORS[id].manu
 function reasonFor(item: PortfolioItem, profile: Profile): string {
   if (item.riskScore - (item.complete ? 0 : MAX_JUDGEMENT_BONUS) >= EXCLUSION_SCORE) return "Risikowert ab 75 %";
   if (!item.complete) return "Bewertung unvollständig";
-  if (item.innerReturn === null || item.innerReturn < profile.minReturn) return "unter der Mindestrendite";
-  if (item.cautiousReturn === null || item.cautiousReturn < profile.minReturn)
-    return "ohne Sicherheitsmarge: vorsichtiger Fall unter der Mindestrendite";
+  if (item.innerReturn === null) return "innere Rendite nicht berechenbar";
+  if (item.innerReturn < profile.minReturn) return "bringt weniger als die Anleihe";
   return "von Titeln mit höherer Rendite verdrängt oder Regelgrenze erreicht";
 }
 
@@ -90,7 +88,6 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
   const stocks = items.map((item) => ({
     id: item.id,
     innerReturn: item.innerReturn,
-    cautiousReturn: item.cautiousReturn,
     riskScore: item.riskScore,
     complete: item.complete,
     sector: item.sector,

@@ -31,14 +31,23 @@ describe("loadPortfolio", () => {
     expect(loaded.profile).toEqual(PROFILE_FOCUSED);
   });
 
-  it("nimmt das Profil des Portfolios und leitet die Mindestrendite aus der Anleiherendite ab", () => {
+  it("nimmt das Profil des Portfolios und setzt die Anleiherendite als Untergrenze", () => {
     const db = prepared();
     const id = db.createPortfolio("Welt", "global");
     expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").profile).toEqual(PROFILE_GLOBAL);
-    db.setReferenceRate(BOND_KEY, 0.03, "2026-11-18");
+    db.setReferenceRate(BOND_KEY, 0.034, "2026-11-18");
     const withBond = loadPortfolio(db, db.portfolio(id)!, "2026-11-19").profile;
-    expect(withBond.minReturn).not.toBe(PROFILE_GLOBAL.minReturn);
+    expect(withBond.minReturn).toBeCloseTo(0.034);
     expect(withBond.baseLimit).toBe(PROFILE_GLOBAL.baseLimit);
+  });
+
+  it("markiert Titel, deren Zahlen nicht zum Kurs passen", () => {
+    const db = prepared();
+    const id = db.createPortfolio("Depot", "fokussiert");
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").doubtful.size).toBe(0);
+    // Rückfluss von 20 bei Kurs 40: typisch für einen Hinterlegungsschein mit anderer Stückelung.
+    db.setManualInput(stock.id, "payoutLevel", 20);
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").doubtful.get(stock.id)).toBe("Rückfluss ist 50 % des Kurses.");
   });
 
   it("führt gehaltene Titel ohne Kurs als nicht bewertet", () => {

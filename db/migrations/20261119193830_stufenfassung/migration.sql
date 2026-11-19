@@ -1,0 +1,1 @@
+ALTER TABLE `judgements` ADD `levels_version` integer DEFAULT 1 NOT NULL;

@@ -1,6 +1,7 @@
 // Stellt zusammen, was Jev über ein Unternehmen erfährt: Stammdaten und Beschreibung, zehn Geschäftsjahre,
-// Gewinnüberraschungen, Insidergeschäfte, bei US-Werten die Mitteilungen an die SEC und, falls vorhanden, die Recherche
-// aus dem Netz.
+// Insidergeschäfte, bei US-Werten die Mitteilungen an die SEC und, falls vorhanden, die Recherche aus dem Netz.
+// Die Gewinnüberraschungen des Anbieters gehen nicht mit: Außerhalb der USA mischen sie Einheiten (Pence und Pfund,
+// Aktie und Hinterlegungsschein, unbereinigte Splits) und sehen dann wie grobe Verfehlungen aus.
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 import type { Filing } from "./edgar.ts";
@@ -15,15 +16,13 @@ const num = (value: unknown): number | null => {
 const round = (value: number | null, digits = 2) => (value === null ? null : Math.round(value * 10 ** digits) / 10 ** digits);
 const ratio = (a: number | null, b: number | null) => (a === null || !b ? null : a / b);
 
-/** Wie viele Quartale und Insidergeschäfte Jev sieht. */
-const QUARTERS = 12;
+/** Wie weit die Insidergeschäfte zurückreichen, die Jev sieht. */
 const INSIDER_YEARS = 3;
 
 export interface Evidence {
   asOf: string;
   company: Row;
   fiscalYears: Row[];
-  earningsSurprises: Row[];
   insiderTransactions: Row[];
   analystRatings: Row | null;
   /** Mitteilungen an die SEC der letzten zwölf Monate; `null`, wenn nicht abgefragt (kein US-Wert, keine CIK). */
@@ -46,7 +45,6 @@ export function buildEvidence(args: {
 }): Evidence {
   const raw = args.fundamentalsJson ? (JSON.parse(args.fundamentalsJson) as Row) : {};
   const general = (raw.General ?? {}) as Row;
-  const earnings = (raw.Earnings ?? {}) as Row;
 
   const officers = Object.values((general.Officers ?? {}) as Row)
     .map((o) => o as Row)
@@ -80,18 +78,6 @@ export function buildEvidence(args: {
     sharesMillions: round(ratio(y.shares, 1e6), 1),
   }));
 
-  const earningsSurprises = Object.values((earnings.History ?? {}) as Row)
-    .map((q) => q as Row)
-    .filter((q) => num(q.epsActual) !== null && num(q.epsEstimate) !== null)
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
-    .slice(0, QUARTERS)
-    .map((q) => ({
-      quarter: q.date,
-      epsActual: num(q.epsActual),
-      epsEstimate: round(num(q.epsEstimate), 3),
-      surprisePercent: round(num(q.surprisePercent), 1),
-    }));
-
   const cutoff = `${Number(args.asOf.slice(0, 4)) - INSIDER_YEARS}${args.asOf.slice(4)}`;
   const insiderTransactions = Object.values((raw.InsiderTransactions ?? {}) as Row)
     .map((t) => t as Row)
@@ -115,7 +101,6 @@ export function buildEvidence(args: {
     asOf: args.asOf,
     company,
     fiscalYears,
-    earningsSurprises,
     insiderTransactions,
     analystRatings: ratings ? { rating: num(ratings.Rating), targetPrice: num(ratings.TargetPrice) } : null,
     secFilings: args.secFilings

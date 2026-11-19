@@ -16,7 +16,8 @@ actionlint = "1.7.12"
 shellcheck = "0.11.0"
 
 [env]
-INVESTING_DB = "data/investing.sqlite"
+# Ein gesetztes INVESTING_DB gilt weiter (Tests gegen eine Kopie), sonst die lokale Datenbank.
+INVESTING_DB = "{{ get_env(name='INVESTING_DB', default='data/investing.sqlite') }}"
 # Proxmox-Host für die deploy:*-Tasks (Schlüssel und Adresse überschreibbar).
 PVE_HOST = "root@192.168.1.110"
 PVE_SSH_KEY = "{{env.HOME}}/.ssh/pve_ed25519"
@@ -217,15 +218,10 @@ set -e
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 opts=(-i "$PVE_SSH_KEY" -o IdentitiesOnly=yes)
-# Im LXC gibt es kein sqlite3; der Container kopiert mit VACUUM INTO, das ist auch bei laufendem Abgleich konsistent.
-ssh "${opts[@]}" "$PVE_HOST" \
-  "pct exec $INVESTING_CTID -- bash -c 'rm -f /opt/investing/data/pull.sqlite && cd /opt/investing && docker compose exec -T investing node -'" <<'JS'
-const { DatabaseSync } = require("node:sqlite");
-new DatabaseSync("/data/investing.sqlite", { readOnly: true }).exec("VACUUM INTO '/data/pull.sqlite'");
-JS
+mise run lxc:snapshot pull
 ssh "${opts[@]}" "$PVE_HOST" "set -e
-  pct pull $INVESTING_CTID /opt/investing/data/pull.sqlite /tmp/investing-pull.sqlite
-  pct exec $INVESTING_CTID -- rm -f /opt/investing/data/pull.sqlite"
+  pct pull $INVESTING_CTID /opt/investing/data/investing.sqlite.pull /tmp/investing-pull.sqlite
+  pct exec $INVESTING_CTID -- rm -f /opt/investing/data/investing.sqlite.pull"
 scp "${opts[@]}" "$PVE_HOST:/tmp/investing-pull.sqlite" "$tmp/investing.sqlite"
 ssh "${opts[@]}" "$PVE_HOST" "rm -f /tmp/investing-pull.sqlite"
 test "$(sqlite3 "$tmp/investing.sqlite" 'PRAGMA integrity_check')" = ok
@@ -238,12 +234,37 @@ sqlite3 "$INVESTING_DB" ".restore $tmp/investing.sqlite"
 echo "Geholt: $(du -h "$INVESTING_DB" | cut -f1), vorherige lokale Datenbank: $INVESTING_DB.vor-pull"
 '''
 
+[tasks."lxc:snapshot"]
+description = "Konsistente Kopie der Datenbank im LXC anlegen: /opt/investing/data/investing.sqlite.<name> (vor Schreibzugriffen)"
+usage = 'arg "<name>" help="Kleinbuchstaben, Ziffern, Bindestrich, z. B. vor-urteil"'
+run = '''
+set -e
+case "$usage_name" in *[!a-z0-9-]* | "") echo "Name nur aus a-z, 0-9 und -" >&2; exit 1 ;; esac
+# Im LXC gibt es kein sqlite3; der Container kopiert mit VACUUM INTO, auch bei laufendem Abgleich konsistent.
+ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" \
+  "pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose exec -T worker node - /data/investing.sqlite.$usage_name'" <<'JS'
+const target = process.argv[2];
+require("node:fs").rmSync(target, { force: true });
+new (require("node:sqlite").DatabaseSync)("/data/investing.sqlite", { readOnly: true }).prepare("VACUUM INTO ?").run(target);
+console.log(`Kopie: ${target} (${(require("node:fs").statSync(target).size / 1e6).toFixed(0)} MB)`);
+JS
+'''
+
+[tasks."lxc:exec"]
+description = "Befehl im Worker-Container des LXC ausführen, Standardeingabe wird durchgereicht (z. B. node scripts/set-input.ts …)"
+usage = 'arg "<befehl>..." var=#true help="Befehl mit Argumenten; Argumente mit Leerzeichen per sh -s und Heredoc übergeben"'
+run = '''
+ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" \
+  "pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose exec -T worker $usage_befehl'"
+'''
+
 [tasks."deploy:status"]
 description = "Stand im LXC: /healthz, Container, Timer, letzte Updates"
 run = '''
 ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "pct exec $INVESTING_CTID -- bash -c '
   curl -s localhost:3000/healthz; echo
   cd /opt/investing && docker compose ps
+  grep -oE \"^[A-Z_]+=.\" .env | cut -d= -f1 | xargs echo Gesetzt in .env:
   systemctl list-timers \"investing-*\" --no-pager
   journalctl -u investing-update -u investing-sync -n 20 --no-pager'"
 '''

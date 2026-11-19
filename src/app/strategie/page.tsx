@@ -1,7 +1,6 @@
 import {
   DEFAULT_DEBT_PARAMS,
   DEFAULT_GROWTH_PARAMS,
-  DEFAULT_HURDLE_PARAMS,
   DEFAULT_PROBABILITY_PARAMS,
   DEFAULT_RETURN_PARAMS,
   DEFAULT_SCENARIO_SPREAD,
@@ -25,7 +24,6 @@ const share = (value: number | null) => (value === null ? "keine Grenze" : whole
 export default function Strategy() {
   const p = DEFAULT_PROBABILITY_PARAMS;
   const bondYield = database().referenceRate(BOND_KEY);
-  const hurdle = DEFAULT_HURDLE_PARAMS;
   const judged = RISK_FACTOR_IDS.filter((id) => RISK_FACTORS[id].manual).length;
   const example = (score: number) => percent(p.base + p.perScore * score);
   const profiles = [
@@ -81,6 +79,13 @@ export default function Strategy() {
             {whole(DEFAULT_GROWTH_PARAMS.inflationAllowance)} für Preissteigerungen), und {percent(DEFAULT_GROWTH_PARAMS.maxGrowth)} als
             feste Obergrenze. Über {DEFAULT_RETURN_PARAMS.fadeYears} Jahre schmilzt es auf höchstens{" "}
             {whole(DEFAULT_RETURN_PARAMS.maxTerminalGrowth)} ab, denn kein Unternehmen wächst auf Dauer schneller als die Wirtschaft.
+          </p>
+          <p>
+            Wer wächst, behält Gewinn ein. Flacht das Wachstum ab, wird dieser Gewinn frei: Die Rechnung lässt die Ausschüttungsquote über
+            dieselben {DEFAULT_RETURN_PARAMS.fadeYears} Jahre steigen, bis auf den Teil, den das Dauerwachstum noch braucht. Voll
+            angerechnet wird das nur, wenn die einbehaltenen Gewinne bisher mindestens {whole(DEFAULT_RETURN_PARAMS.returnOnRetained)}{" "}
+            Rendite gebracht haben. Ein Unternehmen, das Gewinne einbehält und trotzdem nicht wächst, bleibt bei seiner heutigen
+            Ausschüttung: Was nie zurückfließt, hat keinen Wert.
           </p>
           <p>
             Gewinn und Umsatz werden dabei am ganzen Unternehmen gemessen, nicht je Aktie. Rückkäufe lassen den Gewinn je Aktie steigen,
@@ -142,21 +147,21 @@ export default function Strategy() {
           <p>
             Die Annahmen sind unsicher. Deshalb steht neben jeder inneren Rendite eine Spanne: einmal mit{" "}
             {whole(DEFAULT_SCENARIO_SPREAD.payoutFactor)} weniger Rückfluss und {DEFAULT_SCENARIO_SPREAD.growthPoints * 100} Prozentpunkt
-            weniger Wachstum, einmal mit entsprechend mehr. Der vorsichtige Wert entscheidet, ob ein Titel ins Portfolio darf.
+            weniger Wachstum, einmal mit entsprechend mehr. Rang und Auswahl richten sich nach dem Basisfall; die Spanne zeigt, wie stark er
+            von den Annahmen abhängt.
           </p>
 
           <h2>Vom Rang zum Portfolio</h2>
           <ul>
             <li>
-              Die Mindestrendite folgt dem Zinsniveau: Rendite der zehnjährigen Euro-Staatsanleihe plus {hurdle.premium * 100}{" "}
-              Prozentpunkte, mindestens {whole(hurdle.floor)}.{" "}
-              {bondYield === null
-                ? `Solange keine Anleiherendite geladen ist, gelten ${percent(PROFILE_FOCUSED.minReturn)}.`
-                : `Derzeit sind das ${percent(bondYield)} plus Aufschlag, also ${percent(hurdleRate(bondYield))}.`}
+              Es gibt kein Renditeziel. Die vollständig bewerteten Titel werden nach innerer Rendite gereiht und die besten zuerst
+              aufgenommen, bis das Portfolio voll ist. Bargeld bringt nichts und bleibt nur übrig, wenn die Kandidaten ausgehen.
             </li>
             <li>
-              Sicherheitsmarge: Ein Titel muss die Mindestrendite auch im vorsichtigen Fall erreichen. Aufgenommen werden nur vollständig
-              bewertete Titel, die besten zuerst.
+              Einzige Untergrenze ist die Rendite der zehnjährigen Euro-Staatsanleihe: Was sie nicht schlägt, lohnt das Risiko nicht.{" "}
+              {bondYield === null
+                ? `Solange keine Anleiherendite geladen ist, gelten ${percent(PROFILE_FOCUSED.minReturn)}.`
+                : `Derzeit sind das ${percent(hurdleRate(bondYield))}.`}
             </li>
             <li>Je riskanter ein Titel, desto kleiner seine Position:</li>
           </ul>
@@ -212,9 +217,9 @@ export default function Strategy() {
             wertorientierten Investments" und seinem Ansatz „Yield Investing". Eigene Regeln sind: die Begrenzung der Rückflüsse auf den
             freien Cashflow, der Abzug der Vergütung in Aktien, die Wachstumsgrenzen aus Umsatz und Einbehaltung, die Messung des Wachstums
             am ganzen Unternehmen, das Abschmelzen des Wachstums, der Abzug für die Tilgung hoher Schulden, die Bewertung der Finanzierung
-            an der Ertragskraft, der Inflationsabgleich zwischen Währungen, die Mindestrendite nach dem Zinsniveau mit Sicherheitsmarge, die
-            Umrechnung des Risikowerts in eine Ausfallwahrscheinlichkeit, die Bandbreite und die Tauschschwelle. Diese Seite ist kein
-            Angebot dieses Autors und nicht mit ihm abgestimmt.
+            an der Ertragskraft, der Inflationsabgleich zwischen Währungen, die Anleiherendite als Untergrenze, das Maß, in dem einbehaltene
+            Gewinne zählen, die Umrechnung des Risikowerts in eine Ausfallwahrscheinlichkeit, die Bandbreite und die Tauschschwelle. Diese
+            Seite ist kein Angebot dieses Autors und nicht mit ihm abgestimmt.
           </p>
         </div>
       </div>

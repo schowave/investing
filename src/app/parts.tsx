@@ -4,8 +4,7 @@ import { percent } from "./format.ts";
 
 /**
  * Renditeleiste: die Spanne vom vorsichtigen bis zum optimistischen Fall auf einer gemeinsamen Skala, der Basisfall
- * als Strich, die Mindestrendite als gestrichelte Linie. Blau ist die Spanne nur, wenn auch der vorsichtige Fall die
- * Mindestrendite erreicht.
+ * als Strich, die Anleiherendite als gestrichelte Linie. Blau ist die Spanne nur, wenn der Basisfall die Anleihe schlägt.
  */
 export function ReturnRange(props: {
   cautious: number | null;
@@ -17,12 +16,12 @@ export function ReturnRange(props: {
   const { cautious, base, optimistic, hurdle, scaleMax } = props;
   if (cautious === null || base === null || optimistic === null) return <span className="meta">nicht berechenbar</span>;
   const at = (value: number) => `${Math.min(100, Math.max(0, (value / scaleMax) * 100))}%`;
-  const clears = cautious >= hurdle;
+  const clears = base >= hurdle;
   return (
     <div
       className={`range${clears ? "" : " short"}`}
       role="img"
-      aria-label={`${percent(cautious)} bis ${percent(optimistic)}, Basisfall ${percent(base)}, Mindestrendite ${percent(hurdle)}`}
+      aria-label={`${percent(cautious)} bis ${percent(optimistic)}, Basisfall ${percent(base)}, Anleiherendite ${percent(hurdle)}`}
     >
       <span className="track" />
       <span className="span" style={{ left: at(cautious), width: `calc(${at(optimistic)} - ${at(cautious)})` }} />
@@ -45,7 +44,7 @@ export function RangeLegend() {
       </span>
       <span>
         <i className="l-hurdle" />
-        Mindestrendite
+        Anleiherendite
       </span>
     </p>
   );

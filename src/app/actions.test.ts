@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Database } from "../data/db.ts";
+import { LEVELS_VERSION } from "../judgement/factors.ts";
 import { stock } from "../test/fixtures.ts";
 
 // redirect() beendet eine Server Action in Next.js mit einer Ausnahme; hier ebenso, mit dem Ziel als Text.
@@ -25,6 +26,7 @@ const {
   saveHoldings,
   saveInputs,
   saveManualPrice,
+  setAutoSync,
   setWatched,
   startHistory,
   startIndexImport,
@@ -121,12 +123,37 @@ describe("Server Actions", () => {
         moat: { value: -0.1, confidence: 0.7, probabilities: { "1": 1 } },
         management: { value: 0, confidence: 0.6, probabilities: {} },
       },
+      levelsVersion: LEVELS_VERSION,
     });
     await expect(saveInputs("IMB.LSE", form({ "risk.moat": "-10", "risk.management": "5" }))).rejects.toThrow(/gespeichert=1/);
     expect(db.manualInputs("IMB.LSE").map((i) => [i.key, i.note])).toEqual([
       ["risk.management", ""],
       ["risk.moat", "Jev-Vorschlag vom 2026-11-18 übernommen"],
     ]);
+  });
+
+  it("vermerkt nichts, wenn die Einstufung nach älteren Stufen entstand", async () => {
+    db.saveJudgement("IMB.LSE", {
+      createdAt: "2026-11-18T10:00:00.000Z",
+      jevModel: "jev-test",
+      researchModel: null,
+      research: null,
+      sources: [],
+      proposals: { moat: { value: -0.1, confidence: 0.7, probabilities: { "1": 1 } } },
+      levelsVersion: LEVELS_VERSION - 1,
+    });
+    await expect(saveInputs("IMB.LSE", form({ "risk.moat": "-10" }))).rejects.toThrow(/gespeichert=1/);
+    expect(db.manualInputs("IMB.LSE").map((i) => [i.key, i.note])).toEqual([["risk.moat", ""]]);
+  });
+
+  it("schaltet den nächtlichen Abgleich aus und wieder ein, der Standard ist an", async () => {
+    expect(db.autoSync()).toBe(true);
+    await expect(setAutoSync(form({ automatisch: "aus" }))).rejects.toThrow(/^redirect:\/abgleich$/);
+    expect(db.autoSync()).toBe(false);
+    await expect(setAutoSync(form({ automatisch: "vielleicht" }))).rejects.toThrow(/fehler=/);
+    expect(db.autoSync()).toBe(false);
+    await expect(setAutoSync(form({ automatisch: "an" }))).rejects.toThrow(/^redirect:\/abgleich$/);
+    expect(db.autoSync()).toBe(true);
   });
 
   it("stellt Läufe ein, fasst Doppelklicks zusammen und bricht sie ab", async () => {

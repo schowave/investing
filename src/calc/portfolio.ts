@@ -11,7 +11,10 @@ export interface Profile {
   maxRegionShare: number | null;
   /** Aufschlag in Prozentpunkten (als Anteil), den gehaltene Titel in der Sortierung erhalten. */
   swapThreshold: number;
-  /** Fester Ersatzwert, falls keine Anleiherendite vorliegt; sonst gilt `hurdleRate`. */
+  /**
+   * Untergrenze der inneren Rendite. Fester Ersatzwert, falls keine Anleiherendite vorliegt; sonst gilt `hurdleRate`.
+   * Sie ist kein Renditeziel: Ausgewählt wird nach Rangfolge, die Grenze hält nur fern, was Anleihen nicht schlägt.
+   */
   minReturn: number;
 }
 
@@ -22,7 +25,7 @@ export const PROFILE_FOCUSED: Profile = {
   maxSectorShare: null,
   maxRegionShare: null,
   swapThreshold: 0.01,
-  minReturn: 0.085,
+  minReturn: 0.03,
 };
 
 export const PROFILE_GLOBAL: Profile = {
@@ -32,7 +35,7 @@ export const PROFILE_GLOBAL: Profile = {
   maxSectorShare: 0.2,
   maxRegionShare: 0.4,
   swapThreshold: 0.02,
-  minReturn: 0.085,
+  minReturn: 0.03,
 };
 
 export interface HurdleParams {
@@ -42,7 +45,7 @@ export interface HurdleParams {
   floor: number;
 }
 
-export const DEFAULT_HURDLE_PARAMS: HurdleParams = { premium: 0.05, floor: 0.07 };
+const DEFAULT_HURDLE_PARAMS: HurdleParams = { premium: 0, floor: 0 };
 
 /** Mindestrendite aus dem Zinsniveau: Anleiherendite plus Aufschlag, mindestens die Untergrenze. */
 export function hurdleRate(bondYield: number, params: HurdleParams = DEFAULT_HURDLE_PARAMS): number {
@@ -58,8 +61,6 @@ export interface Stock {
   id: string;
   /** Innere Rendite im Basisfall; `null`, wenn nicht berechenbar. */
   innerReturn: number | null;
-  /** Innere Rendite im vorsichtigen Fall. Sie muss die Mindestrendite erreichen (Sicherheitsmarge). */
-  cautiousReturn: number | null;
   riskScore: number;
   /** Alle Eingaben und alle 15 Risikofaktoren sind gesetzt. */
   complete: boolean;
@@ -85,13 +86,7 @@ export function positionLimit(baseLimit: number, riskScore: number): number {
 }
 
 export function isCandidate(stock: Stock, profile: Profile): boolean {
-  return (
-    stock.complete &&
-    stock.riskScore < EXCLUSION_SCORE &&
-    stock.innerReturn !== null &&
-    stock.cautiousReturn !== null &&
-    stock.cautiousReturn >= profile.minReturn
-  );
+  return stock.complete && stock.riskScore < EXCLUSION_SCORE && stock.innerReturn !== null && stock.innerReturn >= profile.minReturn;
 }
 
 const EPSILON = 1e-9;

@@ -33,6 +33,7 @@ import {
   type Stock,
   scenarioReturns,
   targetPortfolio,
+  terminalPayoutRatio,
   withHurdle,
 } from "./index.ts";
 
@@ -72,6 +73,46 @@ describe("innere Rendite", () => {
 
   it("ordnet die Bandbreite vorsichtig < Basis < optimistisch", () => {
     const s = scenarioReturns(30, IMPERIAL);
+    expect(s.cautious!).toBeLessThan(s.base!);
+    expect(s.base!).toBeLessThan(s.optimistic!);
+  });
+});
+
+describe("steigende Ausschüttungsquote", () => {
+  // Gewinn 10, davon 2 ausgeschüttet, Wachstum 8,5 %: Einbehaltene Gewinne bringen 6,5 % / 0,8 = 8,1 %.
+  const grower = { payoutLevel: 2, growth: 0.085, defaultProbability: 0.02, earningsLevel: 10 };
+
+  it("rechnet einbehaltene Gewinne an, soweit sie Wachstum gebracht haben", () => {
+    // Ziel 90 % (Dauerwachstum 3 % braucht 10 % des Gewinns), angerechnet zu 81,25 %: 0,2 + 0,8125 · 0,7.
+    expect(terminalPayoutRatio(grower)).toBeCloseTo(0.76875);
+    // Volle Anrechnung ab 10 % Rendite auf das Einbehaltene.
+    expect(terminalPayoutRatio({ ...grower, payoutLevel: 4 })).toBeCloseTo(0.9);
+  });
+
+  it("lässt die Quote, wenn einbehalten wird, ohne dass das Unternehmen wächst", () => {
+    const trap = { ...grower, growth: 0.02 };
+    expect(terminalPayoutRatio(trap)).toBeCloseTo(0.2);
+    expect(innerReturn(40, trap)!).toBeCloseTo(innerReturn(40, { ...trap, earningsLevel: null })!, 10);
+  });
+
+  it("senkt die Quote nie und braucht ein Gewinnniveau", () => {
+    expect(terminalPayoutRatio({ ...grower, payoutLevel: 9.5 })).toBeCloseTo(0.95);
+    expect(terminalPayoutRatio({ ...grower, payoutLevel: 12 })).toBeNull();
+    expect(terminalPayoutRatio({ ...grower, earningsLevel: null })).toBeNull();
+    expect(terminalPayoutRatio(IMPERIAL)).toBeNull();
+  });
+
+  it("hebt die innere Rendite eines Wachstumswerts und lässt das erste Jahr unverändert", () => {
+    const without = { ...grower, earningsLevel: null };
+    expect(innerReturn(40, grower)!).toBeGreaterThan(innerReturn(40, without)! + 0.03);
+    const rate = innerReturn(40, grower)!;
+    expect(presentValue(rate, grower)).toBeCloseTo(40, 6);
+    // Bei sehr hohem Zins zählt fast nur das erste Jahr: Dort gilt noch die heutige Ausschüttung.
+    expect(presentValue(50, grower) / presentValue(50, without)).toBeCloseTo(1, 2);
+  });
+
+  it("verschiebt in der Bandbreite Rückfluss und Gewinn gemeinsam", () => {
+    const s = scenarioReturns(40, grower);
     expect(s.cautious!).toBeLessThan(s.base!);
     expect(s.base!).toBeLessThan(s.optimistic!);
   });
@@ -229,7 +270,6 @@ function stock(id: string, innerReturnValue: number, overrides: Partial<Stock> =
   return {
     id,
     innerReturn: innerReturnValue,
-    cautiousReturn: innerReturnValue,
     riskScore: 0.2,
     complete: true,
     sector: id,
@@ -256,7 +296,7 @@ describe("Zielportfolio", () => {
       [
         stock("offen", 0.2, { complete: false }),
         stock("riskant", 0.2, { riskScore: 0.75 }),
-        stock("schwach", 0.08),
+        stock("schwach", 0.02),
         stock("ohne", 0.2, { innerReturn: null }),
         stock("gut", 0.09),
       ],
@@ -287,7 +327,7 @@ describe("Zielportfolio", () => {
   });
 
   it("kürzt eine über ihr Limit gewachsene Position nicht und schlägt Käufe und Verkäufe vor", () => {
-    const stocks = [stock("gewachsen", 0.12, { heldWeight: 0.3 }), stock("neu", 0.11), stock("raus", 0.05, { heldWeight: 0.1 })];
+    const stocks = [stock("gewachsen", 0.12, { heldWeight: 0.3 }), stock("neu", 0.11), stock("raus", 0.02, { heldWeight: 0.1 })];
     const target = targetPortfolio(stocks, PROFILE_FOCUSED);
     expect(target.positions.find((p) => p.id === "gewachsen")!.weight).toBeCloseTo(0.3);
     const result = proposals(stocks, target);
@@ -318,17 +358,20 @@ describe("Schulden, Währung und Hürde", () => {
     expect(comparableReturn(null, 0.04)).toBeNull();
   });
 
-  it("leitet die Mindestrendite aus der Anleiherendite ab", () => {
-    expect(hurdleRate(0.034)).toBeCloseTo(0.084);
-    expect(hurdleRate(0.005)).toBe(0.07);
-    expect(withHurdle(PROFILE_FOCUSED, 0.04).minReturn).toBeCloseTo(0.09);
-    expect(withHurdle(PROFILE_FOCUSED, null).minReturn).toBe(0.085);
+  it("nimmt die Anleiherendite als Untergrenze, ohne Aufschlag", () => {
+    expect(hurdleRate(0.034)).toBeCloseTo(0.034);
+    expect(hurdleRate(0.034, { premium: 0.05, floor: 0.07 })).toBeCloseTo(0.084);
+    expect(hurdleRate(0.005, { premium: 0.05, floor: 0.07 })).toBe(0.07);
+    expect(withHurdle(PROFILE_FOCUSED, 0.04).minReturn).toBeCloseTo(0.04);
+    expect(withHurdle(PROFILE_FOCUSED, null).minReturn).toBe(0.03);
   });
 
-  it("verlangt die Mindestrendite auch im vorsichtigen Fall", () => {
-    const profile = { ...PROFILE_FOCUSED, minReturn: 0.085 };
-    expect(isCandidate(stock("klar", 0.1, { cautiousReturn: 0.09 }), profile)).toBe(true);
-    expect(isCandidate(stock("knapp", 0.1, { cautiousReturn: 0.08 }), profile)).toBe(false);
-    expect(isCandidate(stock("ohne", 0.1, { cautiousReturn: null }), profile)).toBe(false);
+  it("lässt jeden vollständig bewerteten Titel zu, der die Anleihe schlägt", () => {
+    const profile = { ...PROFILE_FOCUSED, minReturn: 0.034 };
+    expect(isCandidate(stock("mäßig", 0.05), profile)).toBe(true);
+    expect(isCandidate(stock("darunter", 0.03), profile)).toBe(false);
+    expect(isCandidate(stock("offen", 0.2, { complete: false }), profile)).toBe(false);
+    expect(isCandidate(stock("riskant", 0.2, { riskScore: 0.75 }), profile)).toBe(false);
+    expect(isCandidate(stock("ohne", 0.2, { innerReturn: null }), profile)).toBe(false);
   });
 });

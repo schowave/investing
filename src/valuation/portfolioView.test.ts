@@ -9,7 +9,6 @@ const item = (id: string, change: Partial<PortfolioItem> = {}): PortfolioItem =>
   sector: "Chemie",
   region: "Europa",
   innerReturn: 0.1,
-  cautiousReturn: 0.1,
   riskScore: 0.2,
   complete: true,
   shares: 0,
@@ -22,8 +21,8 @@ describe("buildPortfolioView", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 5000, [
       item("GUT", { innerReturn: 0.12 }),
       item("HALTEN", { shares: 300, innerReturn: 0.1 }),
-      item("SCHWACH", { shares: 200, innerReturn: 0.05, cautiousReturn: 0.04 }),
-      item("KNAPP", { innerReturn: 0.09, cautiousReturn: 0.08, shares: 0 }),
+      // Unter der Untergrenze des Profils (ohne geladene Anleiherendite 3 %).
+      item("SCHWACH", { shares: 200, innerReturn: 0.02 }),
       item("OFFEN", { complete: false }),
     ]);
     expect(view.totalEur).toBe(10000);
@@ -37,7 +36,7 @@ describe("buildPortfolioView", () => {
     // Die gehaltene Position liegt mit 30 % über dem Limit und wird nicht gekürzt.
     expect(row("HALTEN")).toMatchObject({ action: "halten", change: 0 });
     expect(row("HALTEN").targetWeight).toBeCloseTo(0.3);
-    expect(row("SCHWACH")).toMatchObject({ action: "verkaufen", targetWeight: 0, reason: "unter der Mindestrendite" });
+    expect(row("SCHWACH")).toMatchObject({ action: "verkaufen", targetWeight: 0, reason: "bringt weniger als die Anleihe" });
     expect(row("SCHWACH").changeEur).toBeCloseTo(-2000);
     expect(view.rows.some((r) => r.id === "OFFEN")).toBe(false);
     expect(view.targetCashWeight).toBeCloseTo(0.58);

@@ -14,11 +14,13 @@ import {
   withHurdle,
 } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
+import { currentProposals, LEVELS_VERSION } from "../../../judgement/factors.ts";
 import { researchAvailable } from "../../../judgement/research.ts";
 import { situationSignals } from "../../../judgement/situation.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
+import { doubtfulNumbers } from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
@@ -88,6 +90,7 @@ export default async function StockPage(props: {
   if (!stock) notFound();
 
   const { proposals, valuation: v, priceDate } = computeValuation(db, stock, today());
+  const doubtful = doubtfulNumbers(v, proposals);
   const years = db.fundamentals(stock.id).slice(-10);
   const history = db.valuationHistory(stock.id, 12);
   const d = proposals.details;
@@ -97,7 +100,10 @@ export default async function StockPage(props: {
   const currency = stock.reportingCurrency;
   const self = `/aktie/${encodeURIComponent(stock.id)}`;
   const judgement = db.judgement(stock.id);
-  const jevFor = (key: InputKey) => judgement?.proposals[key.replace(/^risk\./, "")];
+  // Eine Einstufung nach älteren Stufen bleibt mit Recherche und Quellen sichtbar, schlägt aber nichts mehr vor.
+  const outdated = judgement !== null && judgement.levelsVersion !== LEVELS_VERSION;
+  const jevProposals = currentProposals(judgement);
+  const jevFor = (key: InputKey) => jevProposals[key.replace(/^risk\./, "")];
   const canResearch = researchAvailable();
   const secFilings = judgement?.sources.filter((source) => source.kind === "sec") ?? [];
   const webSources = judgement?.sources.filter((source) => source.kind !== "sec") ?? [];
@@ -129,11 +135,9 @@ export default async function StockPage(props: {
   else if (base === null) finding = "Die innere Rendite lässt sich noch nicht rechnen. Unten steht, welche Eingabe fehlt.";
   else if (!v.complete) {
     finding = `Vorläufig ${percent(base)}. ${v.missing.length === 1 ? "Eine Eingabe fehlt" : `${v.missing.length} Eingaben fehlen`}, bevor der Titel Kandidat fürs Portfolio werden kann.`;
-  } else if (cautious !== null && cautious >= hurdle)
-    finding = `Kandidat: Auch der vorsichtige Fall liegt mit ${percent(cautious)} über der Mindestrendite von ${percent(hurdle)}.`;
-  else if (base >= hurdle)
-    finding = `Ohne Sicherheitsmarge: Der Basisfall erreicht die Mindestrendite von ${percent(hurdle)}, der vorsichtige Fall mit ${percent(cautious)} nicht.`;
-  else finding = `Unter der Mindestrendite von ${percent(hurdle)}.`;
+  } else if (base >= hurdle)
+    finding = `Kandidat mit ${percent(base)} innerer Rendite (vorsichtig ${percent(cautious)}). Ob er ins Portfolio kommt, entscheidet sein Rang.`;
+  else finding = `Bringt mit ${percent(base)} weniger als die Anleihe (${percent(hurdle)}).`;
 
   const numberRow = (
     key: InputKey,
@@ -243,6 +247,12 @@ export default async function StockPage(props: {
 
       {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
       {query.gespeichert && <div className="notice ok">Gespeichert.</div>}
+      {doubtful && (
+        <div className="notice error">
+          <strong>Zahlen passen nicht zum Kurs.</strong> {doubtful} Meist bezieht sich ein Hinterlegungsschein auf eine andere Stückelung
+          oder Währung. Die Rendite ist so nicht verwertbar; setze das Rückflussniveau von Hand passend zum Kurs.
+        </div>
+      )}
       {query.lauf && (
         <div className="notice ok">
           Abschlüsse und Historie werden im Hintergrund neu geladen (13 Abrufe), danach neu bewertet. Stand auf der Seite{" "}
@@ -253,10 +263,10 @@ export default async function StockPage(props: {
       <dl className="card figures">
         <div className="figure">
           <dt>Innere Rendite{v.complete ? "" : ", vorläufig"}</dt>
-          <dd className={base !== null && cautious !== null && cautious >= hurdle ? "lead" : ""}>{percent(base)}</dd>
+          <dd className={base !== null && base >= hurdle ? "lead" : ""}>{percent(base)}</dd>
           <span className="sub">
             {v.returns
-              ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Mindestrendite ${percent(hurdle)}`
+              ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Anleiherendite ${percent(hurdle)}`
               : "nicht berechenbar"}
           </span>
           {v.returns && (
@@ -267,6 +277,12 @@ export default async function StockPage(props: {
               hurdle={hurdle}
               scaleMax={scaleFor([v.returns.optimistic], hurdle)}
             />
+          )}
+          {v.payoutRatio && (
+            <span className="sub">
+              Ausschüttungsquote steigt in der Rechnung von {percent(v.payoutRatio.now, 0)} auf {percent(v.payoutRatio.terminal, 0)}, wenn
+              das Wachstum abflacht
+            </span>
           )}
           {Math.abs(v.inflationGap) >= 0.005 && v.localReturn !== null && (
             <span className="sub">
@@ -388,12 +404,13 @@ export default async function StockPage(props: {
                     ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz (${judgement.researchModel}, ${webSources.length} Quellen)${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}.`
                     : `Eingestuft von ${judgement.jevModel} aus den gespeicherten Daten${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}, ohne Recherche im Netz.`
                   : "Jev stuft die sechs Urteilsfaktoren ein. Vorher sucht Claude im Netz nach Belegen zu Management, Prognosen und aktueller Lage."}
+                {outdated && " Die Stufen wurden seitdem neu gefasst; diese Vorschläge gelten nicht mehr. Bitte neu einstufen."}
                 {!canResearch && " Für die Recherche fehlt ANTHROPIC_API_KEY in .env.local."}
               </p>
               <form className="row" action={requestJudgement.bind(null, stock.id)} style={{ marginTop: 12 }}>
                 {canResearch ? <input type="hidden" name="research" value="on" /> : <input type="hidden" name="research" value="off" />}
                 <PendingButton
-                  className={judgement ? "quiet" : ""}
+                  className={judgement && !outdated ? "quiet" : ""}
                   label={judgement ? "Neu einstufen" : "Vorschläge holen"}
                   pendingLabel={canResearch ? "Recherchiere, bis zu drei Minuten …" : "Stufe ein …"}
                 />
@@ -466,7 +483,12 @@ export default async function StockPage(props: {
                   <tbody>
                     {PRICE_STEPS.map((step) => {
                       const value = comparableReturn(
-                        innerReturn(v.price! * (1 + step), { payoutLevel, growth, defaultProbability: v.defaultProbability }),
+                        innerReturn(v.price! * (1 + step), {
+                          payoutLevel,
+                          growth,
+                          defaultProbability: v.defaultProbability,
+                          earningsLevel: proposals.details.earningsLevel,
+                        }),
                         v.inflationGap,
                       );
                       return (

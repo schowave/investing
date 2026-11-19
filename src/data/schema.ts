@@ -241,6 +241,8 @@ export const judgements = sqliteTable("judgements", {
   proposals: text("proposals", { mode: "json" })
     .notNull()
     .$type<Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>>(),
+  /** Fassung der Stufen (`LEVELS_VERSION`), nach der eingestuft wurde; Vorschläge einer älteren Fassung gelten nicht mehr. */
+  levelsVersion: integer("levels_version").notNull().default(1),
 });
 
 /** Warteschlange der Hintergrundläufe (Abgleich, Importe). Der Worker arbeitet sie nacheinander ab. */
@@ -266,3 +268,10 @@ export const jobs = sqliteTable(
   },
   (t) => [index("jobs_status").on(t.status)],
 );
+
+/** Einstellungen der Anwendung als Schlüssel und Wert (z. B. ob der nächtliche Abgleich läuft). */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

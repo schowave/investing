@@ -1,6 +1,6 @@
 import type { Job } from "../../data/db.ts";
 import { estimateCalls, isJobKind, JOB_KINDS } from "../../jobs/registry.ts";
-import { cancelJob, startHistory, startIndexImport, startRefreshAll, startSync } from "../actions.ts";
+import { cancelJob, setAutoSync, startHistory, startIndexImport, startRefreshAll, startSync } from "../actions.ts";
 import { AutoRefresh } from "../autoRefresh.tsx";
 import { eodhdBudget } from "../budget.ts";
 import { amount, isoDate } from "../format.ts";
@@ -57,6 +57,7 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
   const free = budget ? Math.max(0, budget.dailyRateLimit - budget.requestsToday) : null;
   const requested = query.lauf ? db.job(Number(query.lauf)) : null;
   const self = "/abgleich";
+  const auto = db.autoSync();
 
   return (
     <>
@@ -67,12 +68,24 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
           <p className="finding">
             {running
               ? `Läuft gerade: ${label(running)}${running.progressTotal ? ` (${running.progressDone ?? 0} von ${running.progressTotal})` : ""}.`
-              : "Kein Lauf aktiv. Der Abgleich läuft jede Nacht um 1:15 Uhr (im Sommer 2:15 Uhr) von selbst, nachdem EODHD das Tageslimit zurückgesetzt hat; hier startest du ihn und größere Läufe von Hand."}
+              : auto
+                ? "Kein Lauf aktiv. Der Abgleich läuft jede Nacht um 1:15 Uhr (im Sommer 2:15 Uhr) von selbst, nachdem EODHD das Tageslimit zurückgesetzt hat; hier startest du ihn und größere Läufe von Hand."
+                : "Kein Lauf aktiv. Der nächtliche Abgleich ist ausgeschaltet: Kurse und Bewertungen kommen nur, wenn du ihn hier von Hand startest."}
           </p>
         </div>
-        <form className="title-actions" action={startSync.bind(null, self)}>
-          <PendingButton label="Jetzt abgleichen" pendingLabel="Wird eingestellt …" />
-        </form>
+        <div className="title-actions">
+          <form action={setAutoSync}>
+            <input type="hidden" name="automatisch" value={auto ? "aus" : "an"} />
+            <PendingButton
+              className="quiet"
+              label={auto ? "Nächtlichen Abgleich ausschalten" : "Nächtlichen Abgleich einschalten"}
+              pendingLabel="Wird gespeichert …"
+            />
+          </form>
+          <form action={startSync.bind(null, self)}>
+            <PendingButton label="Jetzt abgleichen" pendingLabel="Wird eingestellt …" />
+          </form>
+        </div>
       </div>
       {query.fehler && <div className="notice error">{query.fehler}</div>}
       {requested && (

@@ -5,7 +5,7 @@ import type { Database, Stock, StoredJudgement } from "../data/db.ts";
 import type { Filing } from "./edgar.ts";
 import { cikFromFundamentals, fetchFilings } from "./edgar.ts";
 import { buildEvidence } from "./evidence.ts";
-import { FACTOR_QUESTIONS, JUDGED_FACTORS, proposalFromScore } from "./factors.ts";
+import { FACTOR_QUESTIONS, JUDGED_FACTORS, LEVELS_VERSION, proposalFromScore } from "./factors.ts";
 import type { ScoreQuestion } from "./jev.ts";
 import { askJev } from "./jev.ts";
 import type { Research } from "./research.ts";
@@ -69,6 +69,7 @@ export async function judgeStock(db: Database, stock: Stock, asOf: string, optio
       ...(research?.sources ?? []),
     ],
     proposals,
+    levelsVersion: LEVELS_VERSION,
   };
   db.saveJudgement(stock.id, judgement);
   return judgement;

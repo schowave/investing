@@ -1,6 +1,11 @@
 // Stufen der Urteilsfaktoren für Jev (Spezifikation Abschnitt 6.4).
 // Jev wählt keine Prozentzahl, sondern schätzt für jede Stufe eine Wahrscheinlichkeit. Der Vorschlag ist der
 // danach gewichtete Abzug. Die Stufen stehen auf Englisch, weil Jev und die Unterlagen englisch sind.
+//
+// Maßstab ist das Buch (Kap. 5.8, Abb. 32): Wer die Anforderung erfüllt, bekommt 0 %. Ein Abzug braucht einen
+// benannten Befund; fehlende Information ist keiner. Was andere Faktoren schon messen (Regulierung, Zyklik,
+// Verschuldung, Land), zählt hier nicht noch einmal. Geeicht an Titeln, die das Buch selbst einstuft
+// (Wal-Mart, BASF), und an Qualitätswerten: Deren Urteilsfaktoren ergeben zusammen etwa 0 %.
 
 import { RISK_FACTORS } from "../calc/risk.ts";
 
@@ -23,91 +28,134 @@ export interface FactorQuestion {
 export const FACTOR_QUESTIONS: Record<JudgedFactor, FactorQuestion> = {
   sector: {
     instructions:
-      "Rate the company's industry for a long-term investor: does the business depend on subsidies or regulation that can be withdrawn, and how fast does the industry change (technology shifts, short product cycles, fashion)?",
+      "Rate only how fast the company's industry changes and whether it lives on state subsidies. Do not rate regulation, cyclicality, leverage, country or the company's current results: other factors cover them. Banks, insurers, utilities, telecoms, healthcare providers, tobacco, energy, retail, industrials and consumer staples are ordinary industries here. Choose the first level unless the description shows a fast-changing, trend-driven or subsidised business.",
     levels: [
-      { value: 0, criterion: "Stable, slow-changing industry; no dependence on subsidies or favourable regulation" },
+      { value: 0, criterion: "Ordinary industry: products and business model change slowly; no dependence on subsidies" },
       {
         value: 0.08,
-        criterion: "Some regulatory dependence or moderate pace of change, but the business model has been stable for decades",
+        criterion:
+          "Faster-changing or trend-dependent industry, but the company sells several products and has kept its position through earlier shifts (e.g. established diversified software or internet platforms)",
       },
       {
         value: 0.15,
-        criterion: "Noticeable dependence on subsidies/regulation, or a fast-changing industry where incumbents are regularly displaced",
+        criterion:
+          "Fast-changing industry where leaders are regularly displaced (e.g. hardware, semiconductors, consumer electronics, fashion), or a business that materially depends on state subsidies",
       },
-      { value: 0.25, criterion: "Heavily subsidized or very fast-moving industry; today's business model may not exist in ten years" },
+      {
+        value: 0.25,
+        criterion: "Essentially one product in a fast-changing industry, or a business that would not exist without subsidies",
+      },
     ],
   },
   moat: {
     instructions:
-      "Rate the company's durable competitive advantages (brand, network effects, switching costs, cost advantages, scale, licences). Use the multi-year margins and returns as evidence: a moat shows up as stable, above-average profitability.",
+      "Rate the company's durable competitive advantages (brand, network effects, switching costs, cost advantages, scale, licences, local monopoly) against its competitors. Use the multi-year margins and returns as evidence. Most companies are average; choose another level only when the evidence clearly shows it. A weak recent year or a low share price is not evidence of a weak position.",
     levels: [
-      { value: -0.2, criterion: "Wide moat: dominant, durable advantage, consistently high returns over many years" },
-      { value: -0.1, criterion: "Narrow but durable advantage, clearly better than average competitors" },
-      { value: 0, criterion: "Average competitive position, comparable to typical peers" },
-      { value: 0.1, criterion: "Below average: weak pricing power, losing share or margins under pressure" },
-      { value: 0.2, criterion: "No advantage: commodity-like business, price taker, easily replaced" },
+      {
+        value: -0.2,
+        criterion:
+          "Extraordinary advantage and pricing power: no real competition or dominant for many years, with consistently high returns",
+      },
+      { value: -0.1, criterion: "Durable advantage, clearly stronger than its competitors" },
+      { value: 0, criterion: "Average company, comparable to typical competitors" },
+      { value: 0.1, criterion: "Weaker than its competitors: persistently lower margins or steadily losing market share" },
+      { value: 0.2, criterion: "Clearly below average: no advantage at all, price taker in a commodity-like business, easily replaced" },
     ],
   },
   management: {
     instructions:
-      "Rate management quality and integrity: capital allocation, shareholder orientation, honesty of communication, insider behaviour, accounting quality, governance, legal or regulatory problems.",
+      "Rate whether there are indications of poor or dishonest management. Absence of information is not an indication: choose 'no indications' unless the evidence names a specific event. Routine insider sales, ordinary executive pay, a departing CEO or CFO, a weak year and ordinary lawsuits or fines of a large company are not indications.",
     levels: [
-      { value: -0.1, criterion: "Outstanding: long, proven record of excellent capital allocation and candour, owner-oriented" },
-      { value: 0, criterion: "Solid: no signs of poor or dishonest management" },
       {
-        value: 0.1,
-        criterion: "Minor concerns: e.g. heavy insider selling, aggressive pay, frequent turnover in key roles, promotional communication",
+        value: -0.1,
+        criterion:
+          "Specific evidence of exceptionally capable and committed management: long record of excellent capital allocation, founders or managers holding a large stake",
+      },
+      { value: 0, criterion: "No indications of poor or dishonest management" },
+      {
+        value: 0.15,
+        criterion:
+          "Specific indications of poor management: repeated value-destroying acquisitions or repeated strategic failures, reported profits that never reach the owners",
       },
       {
-        value: 0.35,
+        value: 0.4,
         criterion:
-          "Serious concerns: questionable related-party dealings, value-destroying acquisitions, regulatory sanctions, misleading statements",
+          "Serious indications: dealings that favour insiders over owners, sanctions for misconduct attributable to management, statements to investors that proved misleading",
       },
       {
         value: 1,
-        criterion: "Strong evidence of dishonesty: fraud, accounting restatements from manipulation, criminal charges against leadership",
+        criterion: "Suspicion of dishonesty or corruption: fraud, manipulated or restated accounts, criminal charges against leadership",
       },
     ],
   },
   forecast: {
     instructions:
-      "Rate how reliable the company's own guidance and the consensus estimates have been: compare past expectations with what was actually reported.",
+      "Rate how reliably the company's earnings level and growth over the coming years can be estimated. Judge the business, not analysts or quarterly results: is the multi-year record steady enough to read a level from it, and is there a known upcoming event that puts future earnings in doubt (patent expiry, expiring concession or licence, pending regulation or litigation that threatens the core business, a business model in transition)? Country and currency are rated elsewhere.",
     levels: [
-      { value: 0, criterion: "Results usually meet or beat guidance and estimates; misses are rare and small" },
-      { value: 0.1, criterion: "Occasional misses, mostly moderate" },
-      { value: 0.25, criterion: "Frequent or large misses, guidance repeatedly cut" },
-      { value: 0.4, criterion: "Forecasts are unreliable: results swing far from expectations most of the time" },
+      { value: 0, criterion: "Largely reliable: steady record and no known event that puts future earnings in doubt" },
+      {
+        value: 0.05,
+        criterion: "Somewhat harder to estimate: cyclical or lumpy earnings, but the level over a cycle is clear",
+      },
+      {
+        value: 0.12,
+        criterion:
+          "Noticeable uncertainty: a known structural shift or upcoming event will move earnings, but within a limited range (e.g. a slowly shrinking core business with stable cash flows)",
+      },
+      {
+        value: 0.25,
+        criterion:
+          "High uncertainty: a business in transition with an open outcome, a short or broken record, or an event that could remove a large part of earnings",
+      },
+      {
+        value: 0.4,
+        criterion: "Large uncertainty about the company's value: the future earnings level cannot be estimated with any confidence",
+      },
     ],
   },
   dependencies: {
-    instructions: "Rate concentration risk: dependence on a single customer, supplier, commodity price, licence, partner or product.",
+    instructions:
+      "Rate strong dependence on a single commodity (on the revenue or the cost side), a single supplier or a single customer. Dependence on a country, on regulation or on the economy is rated elsewhere. Choose 'no dependence' unless the evidence names the commodity, supplier, customer, licence or concession.",
     levels: [
-      { value: 0, criterion: "Diversified: no single customer, supplier or commodity matters much" },
+      { value: 0, criterion: "No dependence: no single customer, supplier or commodity matters much" },
       {
         value: 0.1,
-        criterion:
-          "Moderate concentration: one customer, supplier, partner or commodity is important (roughly 10–25 % of revenue or costs)",
+        criterion: "Noticeable dependence: one customer, supplier, partner or commodity stands for a large part of revenue or costs",
       },
       {
         value: 0.2,
-        criterion: "Strong dependence: losing one customer, supplier, licence or a commodity price move would hit the business hard",
+        criterion:
+          "Strong dependence: the business rests on one commodity price, customer, supplier, licence or concession, and losing it would be devastating",
       },
     ],
   },
   situation: {
     instructions:
-      "Rate the company's current situation as of the given date: is it in a crisis (collapsing results, liquidity problems, failed transaction, major litigation, loss of key business)?",
+      "Rate whether the company is in an immediately recognisable crisis as of the given date. A weaker year, cost pressure, a soft market, a fallen share price or an ordinary lawsuit is not a crisis.",
     levels: [
-      { value: 0, criterion: "No crisis; business as usual" },
-      { value: 0.1, criterion: "Headwinds: a weak year, temporary problems, uncertainty that is likely to pass" },
+      { value: 0, criterion: "No crisis: business as usual, including ordinary headwinds" },
       {
-        value: 0.2,
-        criterion: "Serious difficulties: sharp decline in results, strategic upheaval, significant legal or regulatory threat",
+        value: 0.1,
+        criterion:
+          "Serious difficulties: results have dropped sharply, or a significant legal, regulatory or strategic threat is unresolved",
       },
-      { value: 0.3, criterion: "Acute crisis: survival or the core business is at stake" },
+      { value: 0.2, criterion: "Crisis: losses, forced restructuring, covenant or refinancing problems" },
+      { value: 0.3, criterion: "Severe crisis: survival or the core business is at stake" },
     ],
   },
 };
+
+/**
+ * Fassung der Stufen. Bei jeder Änderung an Stufen oder Anweisungen erhöhen: Gespeicherte Vorschläge einer
+ * älteren Fassung beziehen sich auf andere Stufen und gelten nicht mehr (`currentProposals`).
+ * 1: erste Fassung. 2: am Buch geeicht, Prognosen als Planbarkeit statt als Treffsicherheit der Analysten.
+ */
+export const LEVELS_VERSION = 2;
+
+/** Vorschläge einer Einstufung, sofern sie nach den heutigen Stufen entstanden ist; sonst keine. */
+export function currentProposals<P>(judgement: { levelsVersion: number; proposals: Record<string, P> } | null): Record<string, P> {
+  return judgement !== null && judgement.levelsVersion === LEVELS_VERSION ? judgement.proposals : {};
+}
 
 export interface FactorProposal {
   /** Gewichteter Abzug, auf 0,5 Prozentpunkte gerundet. */

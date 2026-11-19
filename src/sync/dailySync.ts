@@ -9,12 +9,12 @@ import { fetchEcbRates } from "../data/ecb.ts";
 import type { DailyClose } from "../data/eodhd.ts";
 import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
 import { searchEodhd } from "../data/eodhdFundamentals.ts";
-import { fetchBulkLastDay } from "../data/eodhdHistory.ts";
+import { fetchBulkLastDay, fetchSplits } from "../data/eodhdHistory.ts";
 import { fetchSupplementRates } from "../data/fxSupplement.ts";
 import { fetchBondYield, fetchInflationForecasts } from "../data/reference.ts";
 import { BOND_KEY, loadPortfolio } from "../valuation/portfolioRun.ts";
 import { computeValuation, valueStock } from "../valuation/run.ts";
-import { looksImplausible } from "../valuation/valuation.ts";
+import { doubtfulNumbers, looksImplausible } from "../valuation/valuation.ts";
 
 export { looksImplausible };
 
@@ -219,6 +219,22 @@ export async function runDailySync(
     await Promise.all(Array.from({ length: PARALLEL }, worker));
   }
 
+  // --- Splits für beobachtete Titel mit manuellem Rückfluss: Der Betrag je Aktie wird danach bereinigt
+  // (`computeValuation`). Ein Abruf je Titel, nur aus dem Rest des Budgets.
+  if (token !== null && !limitReached) {
+    let spare = report.budget - planned.length;
+    const manualPayout = all.filter((s) => group(s) < 2 && db.manualInputs(s.id).some((i) => i.key === "payoutLevel"));
+    for (const stock of manualPayout) {
+      if (spare-- <= 0) break;
+      try {
+        db.saveSplits(stock.id, await fetchSplits(stock.id, token, fetchFn));
+      } catch (error) {
+        // Nicht im Tarif oder Limit erreicht: Dann bleibt es bei den gespeicherten Splits.
+        if (error instanceof EodhdError && (error.status === 403 || error.status === 402)) break;
+      }
+    }
+  }
+
   // --- Bewertungen: mit Verlauf für beobachtete Titel, als Momentaufnahme für den Datenvorrat ---
   const screening: ScreeningRow[] = [];
   for (const stock of all) {
@@ -234,9 +250,7 @@ export async function runDailySync(
       growth: valuation.inputs.growth ?? null,
       riskScore: valuation.riskScore,
       innerReturn: valuation.returns?.base ?? null,
-      implausible:
-        proposals.details.unadjustedSplit !== null ||
-        looksImplausible(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel),
+      implausible: doubtfulNumbers(valuation, proposals) !== null,
     });
   }
   db.saveScreening(screening);

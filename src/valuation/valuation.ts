@@ -28,6 +28,7 @@ import {
   requiredDebtRepayment,
   riskClass,
   scenarioReturns,
+  terminalPayoutRatio,
 } from "../calc/index.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 
@@ -344,10 +345,24 @@ export interface Valuation {
   localReturn: number | null;
   /** Erwartete Inflation der Berichtswährung minus die des Euro. */
   inflationGap: number;
+  /**
+   * Ausschüttungsquote heute und am Ende der Abschmelzphase, wenn die Rechnung eine steigende Quote annimmt;
+   * sonst `null` (kein Gewinnniveau, schon volle Ausschüttung oder einbehaltene Gewinne ohne Wachstum).
+   */
+  payoutRatio: { now: number; terminal: number } | null;
 }
 
-/** Führt Vorschläge und manuelle Werte zusammen und rechnet die innere Rendite. */
-export function evaluate(proposals: InputValues, manualValues: InputValues, price: number | null, inflationGap = 0): Valuation {
+/**
+ * Führt Vorschläge und manuelle Werte zusammen und rechnet die innere Rendite.
+ * @param earningsLevel Gewinnniveau je Aktie aus den Vorschlägen; ohne es bleibt die Ausschüttungsquote in der Rechnung fest.
+ */
+export function evaluate(
+  proposals: InputValues,
+  manualValues: InputValues,
+  price: number | null,
+  inflationGap = 0,
+  earningsLevel: number | null = null,
+): Valuation {
   const inputs: InputValues = { ...proposals, ...manualValues };
   const manual = INPUT_KEYS.filter((key) => manualValues[key] !== undefined);
   const missing = INPUT_KEYS.filter((key) => inputs[key] === undefined);
@@ -360,10 +375,11 @@ export function evaluate(proposals: InputValues, manualValues: InputValues, pric
   const risk = assessRisk(ratings);
   const probability = defaultProbability(risk.score);
   const { payoutLevel, growth } = inputs;
-  const local =
-    price !== null && payoutLevel !== undefined && growth !== undefined
-      ? scenarioReturns(price, { payoutLevel, growth, defaultProbability: probability })
-      : null;
+  const returnInputs =
+    payoutLevel !== undefined && growth !== undefined ? { payoutLevel, growth, defaultProbability: probability, earningsLevel } : null;
+  const local = price !== null && returnInputs ? scenarioReturns(price, returnInputs) : null;
+  const terminalRatio = returnInputs && terminalPayoutRatio(returnInputs);
+  const ratioNow = returnInputs && earningsLevel ? returnInputs.payoutLevel / earningsLevel : null;
   const returns = local && {
     cautious: comparableReturn(local.cautious, inflationGap),
     base: comparableReturn(local.base, inflationGap),
@@ -381,6 +397,8 @@ export function evaluate(proposals: InputValues, manualValues: InputValues, pric
     returns,
     localReturn: local?.base ?? null,
     inflationGap,
+    payoutRatio:
+      terminalRatio != null && ratioNow !== null && terminalRatio > ratioNow + 1e-9 ? { now: ratioNow, terminal: terminalRatio } : null,
   };
 }
 
@@ -419,7 +437,26 @@ const MIN_PRICE_TO_EARNINGS = 3;
  * Zahlen sich auf eine andere Stückelung oder Währung beziehen. Echte Sonderfälle fallen auch darunter.
  */
 export function looksImplausible(price: number | null, payoutLevel: number | undefined, earningsLevel: number | null): boolean {
-  if (price === null || !(price > 0)) return false;
-  if (payoutLevel !== undefined && payoutLevel / price > MAX_PAYOUT_YIELD) return true;
-  return earningsLevel !== null && earningsLevel > 0 && price / earningsLevel < MIN_PRICE_TO_EARNINGS;
+  return implausibleReason(price, payoutLevel, earningsLevel) !== null;
+}
+
+function implausibleReason(price: number | null, payoutLevel: number | undefined, earningsLevel: number | null): string | null {
+  if (price === null || !(price > 0)) return null;
+  if (payoutLevel !== undefined && payoutLevel / price > MAX_PAYOUT_YIELD) {
+    return `Rückfluss ist ${Math.round((payoutLevel / price) * 100)} % des Kurses.`;
+  }
+  if (earningsLevel !== null && earningsLevel > 0 && price / earningsLevel < MIN_PRICE_TO_EARNINGS) {
+    return `Kurs ist nur das ${(price / earningsLevel).toFixed(1).replace(".", ",")}-Fache des Gewinnniveaus.`;
+  }
+  return null;
+}
+
+/**
+ * Warum Zahlen und Kurs nicht zusammenpassen, oder `null`. Dann ist die Rendite nicht ernst zu nehmen.
+ * Eine Prüfung für Rangliste, Datenvorrat, Aktien- und Portfolioseite.
+ */
+export function doubtfulNumbers(valuation: Valuation, proposals: Proposals): string | null {
+  const split = proposals.details.unadjustedSplit;
+  if (split) return `Aktiensplit vom ${split.date} ist in den Zahlen nicht bereinigt.`;
+  return implausibleReason(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel);
 }

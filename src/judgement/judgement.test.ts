@@ -3,7 +3,7 @@ import { RISK_FACTORS } from "../calc/risk.ts";
 import type { Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { buildEvidence } from "./evidence.ts";
-import { FACTOR_QUESTIONS, JUDGED_FACTORS, proposalFromScore } from "./factors.ts";
+import { currentProposals, FACTOR_QUESTIONS, JUDGED_FACTORS, LEVELS_VERSION, proposalFromScore } from "./factors.ts";
 import { judgeStock } from "./judge.ts";
 
 const stock: Stock = {
@@ -31,6 +31,22 @@ describe("FACTOR_QUESTIONS", () => {
       expect(Math.min(...values)).toBe(-bonus + 0);
       expect([...values].sort((a, b) => a - b)).toEqual(values);
     }
+  });
+
+  it("hat je Faktor genau eine Stufe mit 0 %: die erfüllte Anforderung des Buchs", () => {
+    for (const factor of JUDGED_FACTORS) {
+      expect(FACTOR_QUESTIONS[factor].levels.filter((level) => level.value === 0)).toHaveLength(1);
+    }
+  });
+});
+
+describe("currentProposals", () => {
+  const proposals = { moat: { value: -0.1 } };
+
+  it("gibt nur Vorschläge nach den heutigen Stufen weiter", () => {
+    expect(currentProposals({ levelsVersion: LEVELS_VERSION, proposals })).toBe(proposals);
+    expect(currentProposals({ levelsVersion: LEVELS_VERSION - 1, proposals })).toEqual({});
+    expect(currentProposals(null)).toEqual({});
   });
 });
 
@@ -85,7 +101,8 @@ describe("buildEvidence", () => {
     const evidence = buildEvidence({ stock, years: [], fundamentalsJson: raw, research: "notes", asOf: "2026-11-19" });
     expect(evidence.company.description).toBe("Sends money abroad.");
     expect(evidence.company.officers).toEqual(["A. Boss, CEO"]);
-    expect(evidence.earningsSurprises.map((q) => q.quarter)).toEqual(["2026-09-30", "2026-06-30"]);
+    // Die Gewinnüberraschungen des Anbieters mischen Einheiten und gehen nicht an Jev.
+    expect(evidence).not.toHaveProperty("earningsSurprises");
     expect(evidence.insiderTransactions).toEqual([
       { date: "2026-03-01", insider: "A. Boss", type: "sell", shares: 1000, price: 9, sharesHeldAfter: null },
     ]);
@@ -135,6 +152,7 @@ describe("judgeStock", () => {
     expect(judgement.proposals.moat!.value).toBeCloseTo(-0.2);
     expect(judgement.proposals.management!.value).toBeCloseTo(-0.1);
     expect(db.judgement(stock.id)?.jevModel).toBe("jev-test");
+    expect(db.judgement(stock.id)?.levelsVersion).toBe(LEVELS_VERSION);
     expect(db.judgement(stock.id)?.research).toBeNull();
   });
 

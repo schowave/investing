@@ -24,6 +24,8 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
   const manual: InputValues = {};
   for (const input of db.manualInputs(stock.id)) {
     if ((INPUT_KEYS as string[]).includes(input.key)) manual[input.key as InputKey] = input.value;
+    // Ein Betrag je Aktie, der vor einem Split gesetzt wurde, passt danach nicht mehr zum Kurs.
+    if (input.key === "payoutLevel") manual.payoutLevel = afterSplits(input, history.splits, proposals.notes);
   }
 
   const latest = db.latestPrice(stock.id);
@@ -37,9 +39,26 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
     else
       proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
   }
-  const valuation = evaluate(proposals.values, manual, price, inflationGap);
+  const valuation = evaluate(proposals.values, manual, price, inflationGap, proposals.details.earningsLevel);
 
   return { stock, priceDate: latest?.date ?? null, proposals, valuation };
+}
+
+/** Manueller Betrag je Aktie, um alle Splits nach seinem Setzen bereinigt; jede Bereinigung steht in den Hinweisen. */
+function afterSplits(
+  input: { value: number; updatedAt: string },
+  splits: readonly { date: string; ratio: number }[],
+  notes: string[],
+): number {
+  const setOn = input.updatedAt.slice(0, 10);
+  let value = input.value;
+  for (const split of splits.filter((s) => s.date > setOn && s.ratio > 0)) {
+    value /= split.ratio;
+    notes.push(
+      `Rückflussniveau vom ${setOn} um den Split vom ${split.date} (Verhältnis ${split.ratio.toLocaleString("de-DE")}) bereinigt: ${input.value.toLocaleString("de-DE")} wird zu ${value.toLocaleString("de-DE", { maximumFractionDigits: 4 })}.`,
+    );
+  }
+  return value;
 }
 
 /** Rechnet die Bewertung und speichert sie als Tagesstand. */

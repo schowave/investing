@@ -25,11 +25,11 @@ export interface Research {
 const SYSTEM = `You research listed companies for a long-term value investor. You collect evidence; you do not rate or recommend.
 
 Search the web and report dated facts for each of these headings, in this order:
-1. Industry: subsidies or regulation the business depends on; pace of change in the industry.
+1. Industry: pace of change in the industry (technology shifts, short product cycles, trends); dependence on state subsidies.
 2. Competitive position: market share, pricing power, competitors, signs of a durable advantage or of erosion.
 3. Management: track record, capital allocation, insider buying or selling, pay, governance, lawsuits, regulatory actions, accounting issues, executive turnover.
-4. Forecast reliability: the company's own guidance over the last three years compared with actual results; guidance cuts.
-5. Dependencies: concentration on customers, suppliers, partners, licences or commodities, with percentages where disclosed (10-K, annual report).
+4. Predictability: known upcoming events that put future earnings in doubt (patent expiries, expiring concessions or licences, pending regulation or litigation that threatens the core business, a business model in transition); guidance cuts over the last three years.
+5. Dependencies: concentration on a single customer, supplier, partner, licence, concession or commodity, with percentages where disclosed (10-K, annual report).
 6. Current situation: anything from the last twelve months that changes the picture, such as takeover offers and their status, profit warnings, liquidity, litigation.
 
 Rules:

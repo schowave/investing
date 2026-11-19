@@ -3,7 +3,7 @@ import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit, withHurdle } from "../
 import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { computeValuation } from "../valuation/run.ts";
-import { looksImplausible } from "../valuation/valuation.ts";
+import { doubtfulNumbers } from "../valuation/valuation.ts";
 import { startSync } from "./actions.ts";
 import { amount, isoDate, percent } from "./format.ts";
 import { RangeLegend, ReturnRange, scaleFor } from "./parts.tsx";
@@ -29,14 +29,12 @@ export default function Ranking() {
   const hurdle = withHurdle(PROFILE_FOCUSED, bondYield).minReturn;
   const valued = db.stocks().map((stock) => computeValuation(db, stock, date));
   // Zahlen, die nicht zum Kurs passen (meist Hinterlegungsscheine): Die Rendite ist dann nicht ernst zu nehmen.
-  const doubtful = (r: (typeof valued)[number]) =>
-    r.proposals.details.unadjustedSplit !== null ||
-    looksImplausible(r.valuation.price, r.valuation.inputs.payoutLevel, r.proposals.details.earningsLevel);
+  const doubtful = (r: (typeof valued)[number]) => doubtfulNumbers(r.valuation, r.proposals) !== null;
   // Zweifelhafte Titel stehen hinter allen mit belastbarer Rendite.
   const order = (r: (typeof valued)[number]) => (doubtful(r) ? -0.5 : (r.valuation.returns?.base ?? -1));
   const rows = [...valued].sort((x, y) => order(y) - order(x));
 
-  const clears = (r: (typeof rows)[number]) => (r.valuation.returns?.cautious ?? -1) >= hurdle && r.valuation.riskScore < EXCLUSION_SCORE;
+  const clears = (r: (typeof rows)[number]) => (r.valuation.returns?.base ?? -1) >= hurdle && r.valuation.riskScore < EXCLUSION_SCORE;
   const candidates = rows.filter((r) => r.valuation.complete && clears(r) && !doubtful(r));
   const incomplete = rows.filter((r) => !r.valuation.complete && r.valuation.riskScore < EXCLUSION_SCORE);
   const promising = incomplete.filter((r) => clears(r) && !doubtful(r));
@@ -56,10 +54,10 @@ export default function Ranking() {
   let finding: string;
   if (rows.length === 0) finding = "Die Watchlist ist leer. Im Datenvorrat findest du Titel zum Aufnehmen.";
   else if (candidates.length > 0) {
-    finding = `${plural(candidates.length, "Titel ist", "Titel sind")} vollständig bewertet und ${candidates.length === 1 ? "erreicht" : "erreichen"} die Mindestrendite auch im vorsichtigen Fall.`;
+    finding = `${plural(candidates.length, "Titel ist", "Titel sind")} vollständig bewertet und ${candidates.length === 1 ? "schlägt" : "schlagen"} die Anleiherendite; ins Portfolio kommen die mit der höchsten inneren Rendite.`;
   } else if (incomplete.length > 0) {
-    finding = `Noch kein Titel ist Kandidat fürs Portfolio: ${plural(incomplete.length, "Bewertung wartet", "Bewertungen warten")} auf dein Urteil${promising.length > 0 ? `, ${promising.length === 1 ? "eine davon liegt" : `${promising.length} davon liegen`} vorläufig über der Mindestrendite` : ""}.`;
-  } else finding = "Alle Titel sind bewertet, keiner erreicht die Mindestrendite im vorsichtigen Fall.";
+    finding = `Noch kein Titel ist Kandidat fürs Portfolio: ${plural(incomplete.length, "Bewertung wartet", "Bewertungen warten")} auf dein Urteil${promising.length > 0 ? `, ${promising.length === 1 ? "eine davon liegt" : `${promising.length} davon liegen`} vorläufig über der Anleiherendite` : ""}.`;
+  } else finding = "Alle Titel sind bewertet, keiner schlägt die Anleiherendite.";
 
   return (
     <>
@@ -85,10 +83,12 @@ export default function Ranking() {
 
       <dl className="card figures">
         <div className="figure">
-          <dt>Mindestrendite</dt>
+          <dt>Anleiherendite</dt>
           <dd>{percent(hurdle)}</dd>
           <span className="sub">
-            {bondYield === null ? "fester Wert, keine Anleiherendite geladen" : `Euro-Staatsanleihe ${percent(bondYield, 2)} plus 5 Punkte`}
+            {bondYield === null
+              ? "fester Wert, keine Anleiherendite geladen"
+              : "zehnjährige Euro-Staatsanleihe; was darunter liegt, lohnt nicht"}
           </span>
         </div>
         <div className="figure">
@@ -96,7 +96,7 @@ export default function Ranking() {
           <dd className={candidates.length === 0 ? "muted-value" : ""}>
             {candidates.length} von {rows.length}
           </dd>
-          <span className="sub">vollständig bewertet, vorsichtiger Fall über der Mindestrendite</span>
+          <span className="sub">vollständig bewertet, Basisfall über der Anleiherendite</span>
         </div>
         <div className="figure">
           <dt>Offene Bewertungen</dt>
@@ -145,7 +145,7 @@ export default function Ranking() {
                   return [
                     index === firstBelow && firstBelow > 0 ? (
                       <tr className="threshold" key="threshold">
-                        <td colSpan={9}>Darunter liegt der Basisfall unter der Mindestrendite von {percent(hurdle)}</td>
+                        <td colSpan={9}>Darunter liegt der Basisfall unter der Anleiherendite von {percent(hurdle)}</td>
                       </tr>
                     ) : null,
                     <tr key={stock.id} className={base !== null && base >= hurdle && !suspect ? "" : "below"}>
@@ -196,9 +196,7 @@ export default function Ranking() {
                           clears(row) && !suspect ? (
                             <span className="tag ok">Kandidat</span>
                           ) : (
-                            <span className="tag">
-                              {base !== null && base >= hurdle ? "ohne Sicherheitsmarge" : "unter der Mindestrendite"}
-                            </span>
+                            <span className="tag">unter der Anleiherendite</span>
                           )
                         ) : (
                           <Link className="tag warn" href={`${link}#urteil`}>

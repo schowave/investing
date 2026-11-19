@@ -47,6 +47,9 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
   sonst rollt der LXC zurück. Pfade im Container: Datenbank `/data/investing.sqlite`, Arbeitsverzeichnis `/app`
   (schreibgeschützt für den App-Benutzer). Skripte schreiben nur neben `INVESTING_DB`, nie relativ zu `data/`.
 - Der nächtliche Abgleich läuft im LXC (`investing-sync.timer`), nicht auf dem Mac.
+- Maßgeblich ist die Datenbank im LXC; `data/investing.sqlite` ist eine Kopie. Skripte gegen die deployte Datenbank:
+  erst `mise run lxc:snapshot <name>`, dann `mise run lxc:exec node scripts/<skript>.ts …` (Stapel per `sh -s` und Heredoc).
+  Zum Durchrechnen ohne Schreibzugriff: `INVESTING_DB=<testdatei> mise run db:pull`, dann lokal gegen die Testdatei.
 
 ## Worktrees
 

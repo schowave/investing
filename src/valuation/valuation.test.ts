@@ -5,7 +5,15 @@ import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data
 import { steadyYears, stock } from "../test/fixtures.ts";
 import { valueStock } from "./run.ts";
 import type { InputValues } from "./valuation.ts";
-import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, unadjustedSplit } from "./valuation.ts";
+import {
+  dividendsByYear,
+  doubtfulNumbers,
+  evaluate,
+  INPUT_KEYS,
+  priceInReportingCurrency,
+  proposeInputs,
+  unadjustedSplit,
+} from "./valuation.ts";
 
 describe("proposeInputs", () => {
   it("leitet Rückfluss, Wachstum und Zahlenfaktoren aus zehn Jahren ab", () => {
@@ -184,6 +192,19 @@ describe("evaluate", () => {
     expect(evaluate(imperial, {}, null).complete).toBe(false);
   });
 
+  it("nimmt mit Gewinnniveau eine steigende Ausschüttungsquote an und weist sie aus", () => {
+    const plain = evaluate(imperial, {}, 30);
+    expect(plain.payoutRatio).toBeNull();
+    // Gewinnniveau 10 bei 3,09 Rückfluss, Wachstum von Hand auf 8 %: Einbehaltenes zählt.
+    const grower = evaluate(imperial, { growth: 0.08 }, 30, 0, 10);
+    expect(grower.payoutRatio!.now).toBeCloseTo(0.309);
+    expect(grower.payoutRatio!.terminal).toBeGreaterThan(0.7);
+    expect(grower.returns!.base!).toBeGreaterThan(evaluate(imperial, { growth: 0.08 }, 30).returns!.base!);
+    // Wer schon mehr als den Gewinn ausschüttet, bleibt wie er ist.
+    expect(evaluate(imperial, {}, 30, 0, 3).payoutRatio).toBeNull();
+    expect(evaluate(imperial, {}, 30, 0, 3).returns).toEqual(plain.returns);
+  });
+
   it("zieht bei Fremdwährung den Inflationsunterschied ab und zeigt die Rendite in Landeswährung", () => {
     const euro = evaluate(imperial, {}, 30);
     const tenge = evaluate(imperial, {}, 30, 0.043);
@@ -335,5 +356,27 @@ describe("Dividendenhistorie und Splits", () => {
     const { notes, details } = proposeInputs(stock, years, 1, 2026, { dividendsByYear: null, splits: split });
     expect(details.unadjustedSplit).toEqual(split[0]);
     expect(notes.some((n) => n.includes("Aktiensplit"))).toBe(true);
+  });
+});
+
+describe("doubtfulNumbers", () => {
+  const years = steadyYears();
+
+  it("begründet, warum Zahlen und Kurs nicht zusammenpassen", () => {
+    const proposals = proposeInputs(stock, years, 1, 2026);
+    expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBeNull();
+    // Kurs beim Doppelten des Gewinnniveaus; kleiner Rückfluss, damit nur diese Regel greift.
+    const earnings = proposals.details.earningsLevel!;
+    const cheap = evaluate(proposals.values, { payoutLevel: earnings * 0.1 }, earnings * 2);
+    expect(doubtfulNumbers(cheap, proposals)).toBe("Kurs ist nur das 2,0-Fache des Gewinnniveaus.");
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 20 }, 40), proposals)).toBe("Rückfluss ist 50 % des Kurses.");
+  });
+
+  it("nennt einen unbereinigten Split zuerst", () => {
+    const shares = steadyYears((y) => (y.shares = y.fiscalYear >= 2025 ? 500 : 100));
+    const proposals = proposeInputs(stock, shares, 1, 2026, { dividendsByYear: null, splits: [{ date: "2025-02-11", ratio: 5 }] });
+    expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBe(
+      "Aktiensplit vom 2025-02-11 ist in den Zahlen nicht bereinigt.",
+    );
   });
 });

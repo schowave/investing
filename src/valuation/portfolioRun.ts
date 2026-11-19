@@ -6,6 +6,7 @@ import type { Database, Portfolio, Stock } from "../data/db.ts";
 import type { PortfolioView } from "./portfolioView.ts";
 import { buildPortfolioView } from "./portfolioView.ts";
 import { computeValuation } from "./run.ts";
+import { doubtfulNumbers } from "./valuation.ts";
 
 /** Schlüssel der Anleiherendite in den Bezugsgrößen. */
 export const BOND_KEY = "bond:EUR10Y";
@@ -17,6 +18,8 @@ export interface LoadedPortfolio {
   /** Watchlist und zusätzlich gehaltene Titel, die nicht mehr darauf stehen. */
   stocks: Stock[];
   view: PortfolioView;
+  /** Titel, deren Zahlen nicht zum Kurs passen, mit Begründung (siehe `doubtfulNumbers`). */
+  doubtful: Map<string, string>;
 }
 
 export function loadPortfolio(db: Database, portfolio: Portfolio, date: string): LoadedPortfolio {
@@ -26,11 +29,14 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
   const extra = [...holdings.keys()].filter((id) => !watchlist.some((s) => s.id === id)).map((id) => db.stock(id)!);
   const stocks = [...watchlist, ...extra];
 
+  const doubtful = new Map<string, string>();
   const view = buildPortfolioView(
     profile,
     portfolio.cashEur,
     stocks.map((stock) => {
-      const { valuation } = computeValuation(db, stock, date);
+      const { valuation, proposals } = computeValuation(db, stock, date);
+      const reason = doubtfulNumbers(valuation, proposals);
+      if (reason) doubtful.set(stock.id, reason);
       const price = db.latestPrice(stock.id);
       const perEur = db.latestFxRate(stock.priceCurrency);
       return {
@@ -38,7 +44,6 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
         sector: stock.sector,
         region: stock.region,
         innerReturn: valuation.returns?.base ?? null,
-        cautiousReturn: valuation.returns?.cautious ?? null,
         riskScore: valuation.riskScore,
         complete: valuation.complete,
         shares: holdings.get(stock.id) ?? 0,
@@ -47,5 +52,5 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
     }),
     portfolio.otherEur,
   );
-  return { profile, holdings, stocks, view };
+  return { profile, holdings, stocks, view, doubtful };
 }

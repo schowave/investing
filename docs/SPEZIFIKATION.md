@@ -13,11 +13,12 @@ Anlageberatung; alle Bewertungen beruhen auf den Annahmen der Nutzer.
 
 ## 2. Quellen und ihr Gewicht
 
-| Quelle                                                                                                                    | Inhalt                                                                                            | Verwendung                                           |
-| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Folien „Yield Investing" (15.11.2026)                                                                                     | Innere Rendite per invertiertem DCF, Ausfallwahrscheinlichkeit, Ranking, Beispiel Imperial Brands | Maßgeblich für Kennzahl und Auswahl                  |
-| Buch, Stefan Meißner, „Langfristige Vermögensvermehrung mit wertorientierten Investments" (PDF, Stand 2012), Kap. 5 und 6 | Gewinn- und Dividendenniveau, Wachstum, Risikoraster, Positionslimit, Streuung, Umschichtung      | Maßgeblich für Eingaben, Risiko und Portfolio-Regeln |
-| Wikifolio-Handelsideen (FocusedYieldInvesting, Global Yield Investing)                                                    | Zwei Portfolio-Profile, Risiko bestimmt Abschlag und Positionsgröße                               | Bestätigung, Grundlage der Profile                   |
+| Quelle                                                                                                                    | Inhalt                                                                                                                   | Verwendung                                           |
+| ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| Folien „Yield Investing" (15.11.2026)                                                                                     | Innere Rendite per invertiertem DCF, Ausfallwahrscheinlichkeit, Ranking, Beispiel Imperial Brands                        | Maßgeblich für Kennzahl und Auswahl                  |
+| Buch, Stefan Meißner, „Langfristige Vermögensvermehrung mit wertorientierten Investments" (PDF, Stand 2012), Kap. 5 und 6 | Gewinn- und Dividendenniveau, Wachstum, Risikoraster, Positionslimit, Streuung, Umschichtung                             | Maßgeblich für Eingaben, Risiko und Portfolio-Regeln |
+| Wikifolio-Handelsideen (FocusedYieldInvesting, Global Yield Investing)                                                    | Zwei Portfolio-Profile, Risiko bestimmt Abschlag und Positionsgröße                                                      | Bestätigung, Grundlage der Profile                   |
+| Interview mit dem Autor (Podcast „Bulle & Mensch“, Mitschrift in `docs/Interview.md`)                                     | Rückflüsse in zwei Phasen, Auswahl nach Rang ohne Renditeziel, kein Bargeld, Größenordnung der Ausfallwahrscheinlichkeit | Maßgeblich für Abschnitt 4.3 und 7.1                 |
 
 Wo die Quellen keine Zahl nennen, steht eine eigene Annahme. Alle eigenen Annahmen sind in
 Abschnitt 12 gesammelt und in der Anwendung als Einstellungen änderbar.
@@ -65,12 +66,13 @@ Sonderfall `g0 ≤ 3 %`: einstufig, geschlossen lösbar:
 `r = R0 · (1 − p) / P + q − 1`.
 
 Zusätzlich angezeigt wird die innere Rendite bei alternativen Kursen (wie auf Folie 7), damit
-sichtbar ist, ab welchem Kurs ein Titel die Mindestrendite erreicht.
+sichtbar ist, wie stark die Rendite am Kurs hängt.
 
 ### 4.1 Bandbreite
 
-Jede Aktie wird in drei Fällen gerechnet. Rangfolge, Mindestrendite und Zielportfolio
-verwenden den Basisfall; die Rangliste zeigt zusätzlich die Spanne.
+Jede Aktie wird in drei Fällen gerechnet. Rangfolge, Untergrenze und Zielportfolio
+verwenden den Basisfall; die Rangliste zeigt zusätzlich die Spanne. Rückfluss und Gewinnniveau
+verschieben sich gemeinsam, die Ausschüttungsquote bleibt.
 
 | Fall         | Rückflussniveau | Wachstum                              |
 | ------------ | --------------- | ------------------------------------- |
@@ -85,6 +87,34 @@ in allen drei Fällen gleich.
 
 - Manuell gesetztes Rückflussniveau liegt über dem Gewinnniveau oder über dem freien Cashflow je Aktie (nicht dauerhaft tragbar).
 - Manuell gesetztes `g0` liegt über 8,5 % oder über der Obergrenze aus Einbehaltung (Abschnitt 5).
+
+### 4.3 Steigende Ausschüttungsquote
+
+Wer wächst, behält Gewinn ein. Flacht das Wachstum ab, wird dieser Gewinn frei und fließt zurück. Der Autor rechnet
+so (Interview): in der Wachstumsphase nur den ausgeschütteten Teil, danach eine höhere Quote auf den bis dahin
+gewachsenen Gewinn. Ohne diese Annahme zählt ein einbehaltener Gewinn nie, und Titel mit niedriger Ausschüttung
+(3i, TBC, Adobe) kommen auf Renditen weit unter dem, was ihr Gewinn hergibt.
+
+Mit Gewinnniveau `G0` und `a0 = R0 / G0` (nur wenn `a0 < 1`):
+
+```
+a_Ziel = 1 − max(0, g∞ − 2 %) / 10 %         (auch das Dauerwachstum braucht noch Kapital; bei 3 % also 90 %)
+e      = (g0 − 2 %) / (1 − a0)               (Rendite der einbehaltenen Gewinne)
+w      = min(1, max(0, e / 10 %))            (Anrechnung)
+a∞     = a0 + w · (a_Ziel − a0)              (nie unter a0)
+
+a_t = a0 + (a∞ − a0) · (t − 1) / n           für t = 1 … n
+R_t = G_t · a_t,   G_1 = G0,   G_t = G_(t−1) · (1 + g_t)
+Endwert auf G_n · a∞
+```
+
+- Im ersten Jahr gilt die heutige Ausschüttung; ohne Gewinnniveau oder bei `a0 ≥ 1` bleibt die Rechnung aus Abschnitt 4.
+- Angerechnet wird nur, was nachweislich Wachstum bringt: Ein Unternehmen, das einbehält und nicht über die
+  Preissteigerung hinaus wächst (`g0 ≤ 2 %`), bleibt bei seiner Quote. Das ist die Wertfalle, die der Autor meidet.
+  Volle Anrechnung gibt es ab 10 % Rendite auf das Einbehaltene (Buch Kap. 5.5: mindestens 10 % auf einbehaltenes Kapital).
+- Das Gewinnniveau kommt aus dem Vorschlag (Abschnitt 5) und lässt sich noch nicht von Hand setzen. Titel ohne
+  Gewinnniveau (weniger als zehn Geschäftsjahre) rechnen mit fester Quote.
+- Die Aktienseite nennt die angenommene Quote („steigt von 9 % auf 67 %“).
 
 ## 5. Eingaben: Vorschlag und Übersteuerung
 
@@ -201,7 +231,8 @@ Für die Faktoren 5, 7, 10, 11, 13 und 15 kann auf der Aktienseite oder mit `pnp
 Vorschlag geholt werden.
 
 1. **Recherche (optional):** Claude (`claude-opus-5-5` mit Websuche) sammelt datierte Belege zu den
-   sechs Faktoren, ohne sie zu bewerten. Ohne `ANTHROPIC_API_KEY` entfällt dieser Schritt.
+   sechs Faktoren, ohne sie zu bewerten. Ohne `ANTHROPIC_API_KEY` bricht `pnpm run judge` ab; ohne Recherche
+   einstufen ist eine bewusste Wahl (`--ohne-recherche`).
 2. **Mitteilungen an die SEC:** Bei Titeln mit CIK (US-Werte, aus den Rohdaten von EODHD) holt
    `src/judgement/edgar.ts` die Mitteilungen der letzten zwölf Monate von EDGAR, kostenlos und
    ohne Sprachmodell (User-Agent `SEC_USER_AGENT`). Genommen werden 8-Ks mit ausgeschriebenen
@@ -209,10 +240,10 @@ Vorschlag geholt werden.
    13D, Übernahmeangebote, Delisting). Von bis zu acht 8-Ks mit gewichtigen Punkten (z. B. 1.02,
    4.02, 5.02, 8.01) geht der Anfang des Textes mit. Fällt EDGAR aus, wird ohne eingestuft.
 3. **Einstufung:** Jev von TypeSafe AI (`jev-latest`, Schlüssel `TYPESAFE_API_KEY`) bekommt
-   Stammdaten und Beschreibung, zehn Geschäftsjahre, die Gewinnüberraschungen der letzten zwölf
-   Quartale, die Insidergeschäfte der letzten drei Jahre, die Mitteilungen an die SEC und die
-   Recherche. Je Faktor wählt Jev
-   unter festen Stufen (`src/judgement/factors.ts`) und nennt für jede eine Wahrscheinlichkeit.
+   Stammdaten und Beschreibung, zehn Geschäftsjahre, die Insidergeschäfte der letzten drei Jahre,
+   die Mitteilungen an die SEC und die Recherche. Die Gewinnüberraschungen des Anbieters gehen nicht
+   mit: Außerhalb der USA mischen sie Einheiten und sehen dann wie grobe Verfehlungen aus. Je Faktor
+   wählt Jev unter festen Stufen (`src/judgement/factors.ts`) und nennt für jede eine Wahrscheinlichkeit.
 4. **Vorschlag:** der mit diesen Wahrscheinlichkeiten gewichtete Abzug, gerundet auf 0,5
    Prozentpunkte, dazu die Sicherheit laut Jev.
 
@@ -220,6 +251,18 @@ Regeln:
 
 - Ein Jev-Vorschlag ist kein Urteil. Er füllt das Eingabefeld vor, die Bewertung bleibt aber
   unvollständig, bis gespeichert wird. Ein unverändert übernommener Vorschlag wird in der Notiz vermerkt.
+- Maßstab der Stufen ist das Buch (Kap. 5.8): Wer die Anforderung erfüllt, bekommt 0 %. Ein Abzug braucht einen
+  benannten Befund; fehlende Information ist keiner. Was andere Faktoren schon messen, zählt nicht noch einmal:
+  Die Branche (Faktor 5) bewertet nur Wandel und Subventionen, nicht Regulierung, Zyklik oder Verschuldung. Die
+  Prognosen (Faktor 11) meinen, wie gut sich Gewinnniveau und Wachstum bestimmen lassen (Buch: bei Wal-Mart leichter
+  als bei BASF; Patentabläufe), nicht die Treffsicherheit von Analysten. Das Interview des Autors
+  (`docs/Interview.md`) stützt beides: Planbarkeit trennt für ihn Coca-Cola von SpaceX, und ein Wechsel im Vorstand
+  ist für sich kein Befund (Adobe).
+- Geeicht sind die Stufen an Titeln, die das Buch selbst einstuft, und an Qualitätswerten: Die sechs Faktoren
+  ergeben zusammen bei Wal-Mart, Coca-Cola und Nestlé etwa 0 % (Buch für Wal-Mart: 5 % Bonus), bei BASF 22 %
+  (Buch: 5 %). Der gewichtete Abzug liegt über der wahrscheinlichsten Stufe, weil die Abzüge größer sind als die Boni.
+- Die Stufen haben eine Fassung (`LEVELS_VERSION`). Nach einer Änderung gelten gespeicherte Vorschläge der alten
+  Fassung nicht mehr; die Aktienseite bittet um eine neue Einstufung, `pnpm run judge --offen` holt sie nach.
 - Ob der Nutzer die Branche versteht (Faktor 5), beurteilt Jev nicht.
 - Je Aktie gilt die jüngste Einstufung; Recherche und Quellen bleiben gespeichert.
 - Für die Faktoren 2, 8 und 9 bei Finanzwerten gibt es keinen Jev-Vorschlag.
@@ -236,9 +279,11 @@ Eine Aktie ist Kandidat, wenn alle Punkte gelten:
 
 - Bewertung vollständig (alle Eingaben und alle 15 Risikofaktoren gesetzt),
 - Risikowert unter 75 %,
-- innere Rendite auch im vorsichtigen Fall der Bandbreite mindestens die Mindestrendite (Sicherheitsmarge).
+- innere Rendite im Basisfall über der Untergrenze.
 
-Die Mindestrendite folgt dem Zinsniveau: Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität (EZB-Zinsstrukturkurve) plus 5 Prozentpunkte, mindestens 7 %. Ohne geladene Anleiherendite gelten 8,5 %.
+Es gibt kein Renditeziel (Interview: „Ich habe nicht so eine klare Zielrendite“). Ausgewählt wird nach Rang, bis das Portfolio voll ist; Bargeld bleibt nur, wenn die Kandidaten ausgehen. Die Untergrenze ist die Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität (EZB-Zinsstrukturkurve): Was sie nicht schlägt, lohnt das Risiko nicht. Ohne geladene Anleiherendite gelten 3 %. Aufschlag und Mindestwert der Untergrenze sind Parameter und stehen auf 0.
+
+Die frühere Regel (Anleiherendite plus 5 Punkte, mindestens 7 %, und das schon im vorsichtigen Fall) ist gestrichen: Sie ließ im Depot des Autors nur einen von 18 Titeln zu und hielt drei Viertel bar. Das Risiko steckt bereits zweimal in der Rechnung, in der Ausfallwahrscheinlichkeit und im Positionslimit.
 
 Renditen in Fremdwährung werden vor dem Vergleich um den Unterschied zwischen der erwarteten Inflation der Berichtswährung und der des Euro gekürzt (`(1 + r) / (1 + Abstand) − 1`). Grundlage ist das Mittel der IWF-Prognosen für die vier Folgejahre. Fehlt die Prognose, bleibt die Rendite unverändert und die Bewertung weist darauf hin.
 
@@ -255,16 +300,16 @@ Renditen in Fremdwährung werden vor dem Vergleich um den Unterschied zwischen d
 
 Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 
-| Parameter                                  | Fokussiert      | Global          |
-| ------------------------------------------ | --------------- | --------------- |
-| Basislimit                                 | 15 %            | 6,5 %           |
-| Erwartete Positionszahl                    | etwa 6 bis 12   | etwa 20 bis 25  |
-| Mindestposition                            | 3 %             | 2 %             |
-| Höchstens 2 Titel je Branche und Kontinent | aus             | an              |
-| Höchstanteil je Branche                    | –               | 20 %            |
-| Höchstanteil je Region                     | –               | 40 %            |
-| Tauschschwelle                             | 1 Prozentpunkt  | 2 Prozentpunkte |
-| Mindestrendite                             | nach Zinsniveau | nach Zinsniveau |
+| Parameter                                  | Fokussiert     | Global          |
+| ------------------------------------------ | -------------- | --------------- |
+| Basislimit                                 | 15 %           | 6,5 %           |
+| Erwartete Positionszahl                    | etwa 6 bis 12  | etwa 20 bis 25  |
+| Mindestposition                            | 3 %            | 2 %             |
+| Höchstens 2 Titel je Branche und Kontinent | aus            | an              |
+| Höchstanteil je Branche                    | –              | 20 %            |
+| Höchstanteil je Region                     | –              | 40 %            |
+| Tauschschwelle                             | 1 Prozentpunkt | 2 Prozentpunkte |
+| Untergrenze                                | Anleiherendite | Anleiherendite  |
 
 ### 7.4 Vorschläge zum Ist-Bestand
 
@@ -285,7 +330,8 @@ Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 
 Der tägliche Abgleich läuft mit `mise run sync`. Er holt Kurse ab dem letzten gespeicherten Tag
 (höchstens ein Jahr zurück), sodass nach einer Pause keine Lücke bleibt, und richtet sich nach dem
-Tagesbudget des Tarifs (Abschnitt 9.1). Scheitert der Abruf für einen Titel, läuft der Abgleich
+Tagesbudget des Tarifs (Abschnitt 9.1). Auf der Seite „Abgleich“ lässt sich der nächtliche Lauf ausschalten, etwa um das
+Tagesbudget für Arbeit an einer lokalen Kopie freizuhalten; von Hand startet er dort weiterhin. Scheitert der Abruf für einen Titel, läuft der Abgleich
 weiter und rechnet mit dem letzten bekannten Kurs; die Rangliste zeigt, ob der letzte Lauf
 vollständig war. Titel der Watchlist und gehaltene Titel bekommen einen Tagesstand mit Verlauf,
 der Datenvorrat nur eine Momentaufnahme für das Screening. Lokal richtet `mise run schedule an`
@@ -314,7 +360,7 @@ Backtest gibt es nicht.
 - Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
 
 - Einzelne Titel außerhalb der Indizes werden über ihre ISIN geladen (`pnpm run import:isin`) und kommen auf die Watchlist. Die Positionen der Wikifolios stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht automatisch abrufen; die Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
-- Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle.
+- Screening des Datenvorrats: nur Stammaktien. Ausgeblendet werden Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt. Das fängt Hinterlegungsscheine, deren Zahlen sich auf eine andere Stückelung oder Währung beziehen, trifft aber auch echte Sonderfälle. Dieselbe Prüfung markiert Titel der Watchlist und gehaltene Titel: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen den Grund.
 
 - Mit einem Tarif, der Kursdaten enthält, kommen dazu (`pnpm run import:history`, drei Abrufe je Aktie): die Dividendenhistorie je Aktie, Aktiensplits und Monatsschlusskurse seit 1990. Die Bewertung nimmt die Dividenden dann aus der Historie (ohne Sonderzahlungen, nach Kalenderjahr des Ex-Tags), sofern sie zur Rechnung aus gezahlter Summe und Aktienzahl passt (Abstand höchstens Faktor 2). Passt sie nicht und entspricht der Abstand einem Aktiensplit, gelten die Zahlen je Aktie als nicht bereinigt und der Titel wird im Screening ausgeblendet. Die Monatskurse sind für einen späteren Rückblick gespeichert und werden noch nicht ausgewertet.
 - Mit großem Tagesbudget holt der Abgleich die Schlusskurse je Börse in einem Sammelabruf (zählt als 100 Abrufe), sobald dort mindestens 150 Titel anstehen.
@@ -325,6 +371,7 @@ Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Ta
 
 - **Vor der Kündigung:** `pnpm run import:index --auffrischen` lädt alle gespeicherten Titel noch einmal, damit die jüngsten Abschlüsse enthalten sind. Danach die Datenbankdatei sichern.
 - **Kurse:** Der tägliche Abgleich fragt das Tagesbudget des Kontos ab und hält zwei Abrufe in Reserve. Reicht es nicht für alle Titel, kommen zuerst gehaltene Aktien, dann die Watchlist, jeweils die mit dem ältesten Kurs zuerst. Der Rest folgt am nächsten Tag; die Rangliste meldet das. Bei 18 Abrufen am Tag sind bis zu 18 Titel täglich aktuell, 36 Titel jeden zweiten Tag.
+- **Splits:** Für beobachtete Titel mit manuellem Rückflussniveau holt der Abgleich aus dem verbleibenden Budget die Splits (ein Abruf je Titel). Ein Rückflussniveau, das vor einem Split gesetzt wurde, wird durch dessen Verhältnis geteilt; die Aktienseite nennt die Bereinigung.
 - **Datenvorrat:** Er bekommt nur Kurse, wenn das Budget über 500 Abrufen liegt, also in einem bezahlten Tarif. Danach altern seine Kurse; das Screening zeigt das Kursdatum. Für einen einzelnen Titel lässt sich der Kurs von Hand eintragen oder der Titel auf die Watchlist nehmen.
 - **Neue Geschäftsjahre:** einmal im Jahr den Tarif für einen Monat buchen und auffrischen, oder die Zahlen einzelner Titel per CSV eintragen (`pnpm run import:fundamentals`). Die Bewertung meldet, wenn der letzte Abschluss älter als zwei Jahre ist.
 - **Neue Titel**, die nicht im Datenvorrat liegen, brauchen den bezahlten Tarif oder die CSV-Eingabe.
@@ -359,44 +406,49 @@ Reihenfolge der Umsetzung: Rechenmodul mit Tests, Datenanbindung, Oberfläche.
 
 ## 11. Abnahmetests für das Rechenmodul
 
-| Fall                                      | Eingaben                                                                   | Erwartet                                   | Toleranz            |
-| ----------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------ | ------------------- |
-| Imperial Brands, Kurs 30,00 GBP (Folie 7) | R0 = 3,09 (1,59 + 1,50), g0 = 2,3 %, p = 1,8 %                             | 10,6 % (Modell: 10,57 %)                   | ± 0,2 Prozentpunkte |
-| Imperial Brands, Kurs 25,00 GBP (Folie 7) | wie oben                                                                   | 12,7 % (Modell: 12,60 %)                   | ± 0,2 Prozentpunkte |
-| BASF, Wachstum (Buch Kap. 5.2)            | Gewinn je Aktie 2002 bis 2011                                              | 15,5 %                                     | ± 0,1 Prozentpunkte |
-| BASF, Gewinnniveau aus 10 Jahren          | wie oben                                                                   | 5,42 EUR (Modell: 5,415)                   | ± 0,01              |
-| BASF, Gewinnniveau aus 5 Jahren           | wie oben                                                                   | 5,38 EUR                                   | ± 0,01              |
-| Wal-Mart, Gewinnniveau aus 10 Jahren      | Gewinn je Aktie 2002/03 bis 2011/12                                        | 4,60 USD (Modell: 4,58)                    | ± 0,05              |
-| Positionslimit                            | Basislimit 12,5 %, Risikowert 40 %                                         | 7,5 %                                      | exakt               |
-| Deckelung Rückfluss                       | Dividendenniveau 2,00, Netto-Rückkäufe 3,00, freier Cashflow je Aktie 4,00 | R0 = 4,00                                  | exakt               |
-| Obergrenze Wachstum                       | historisch 7 %, R0 = 3,00, Gewinnniveau 4,00, Eigenkapital je Aktie 20,00  | g0 = 7 % (Grenze: 0,25 · 20 % + 2 % = 7 %) | exakt               |
-| Obergrenze Wachstum bei Vollausschüttung  | historisch 7 %, R0 = 4,00, Gewinnniveau 4,00                               | g0 = 2 %                                   | exakt               |
-| Bandbreite                                | Imperial Brands, Kurs 30,00 GBP                                            | vorsichtig < Basis < optimistisch          | –                   |
+| Fall                                              | Eingaben                                                                   | Erwartet                                                       | Toleranz            |
+| ------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------- |
+| Imperial Brands, Kurs 30,00 GBP (Folie 7)         | R0 = 3,09 (1,59 + 1,50), g0 = 2,3 %, p = 1,8 %                             | 10,6 % (Modell: 10,57 %)                                       | ± 0,2 Prozentpunkte |
+| Imperial Brands, Kurs 25,00 GBP (Folie 7)         | wie oben                                                                   | 12,7 % (Modell: 12,60 %)                                       | ± 0,2 Prozentpunkte |
+| BASF, Wachstum (Buch Kap. 5.2)                    | Gewinn je Aktie 2002 bis 2011                                              | 15,5 %                                                         | ± 0,1 Prozentpunkte |
+| BASF, Gewinnniveau aus 10 Jahren                  | wie oben                                                                   | 5,42 EUR (Modell: 5,415)                                       | ± 0,01              |
+| BASF, Gewinnniveau aus 5 Jahren                   | wie oben                                                                   | 5,38 EUR                                                       | ± 0,01              |
+| Wal-Mart, Gewinnniveau aus 10 Jahren              | Gewinn je Aktie 2002/03 bis 2011/12                                        | 4,60 USD (Modell: 4,58)                                        | ± 0,05              |
+| Positionslimit                                    | Basislimit 12,5 %, Risikowert 40 %                                         | 7,5 %                                                          | exakt               |
+| Deckelung Rückfluss                               | Dividendenniveau 2,00, Netto-Rückkäufe 3,00, freier Cashflow je Aktie 4,00 | R0 = 4,00                                                      | exakt               |
+| Obergrenze Wachstum                               | historisch 7 %, R0 = 3,00, Gewinnniveau 4,00, Eigenkapital je Aktie 20,00  | g0 = 7 % (Grenze: 0,25 · 20 % + 2 % = 7 %)                     | exakt               |
+| Obergrenze Wachstum bei Vollausschüttung          | historisch 7 %, R0 = 4,00, Gewinnniveau 4,00                               | g0 = 2 %                                                       | exakt               |
+| Ausschüttungsquote am Ende, teilweise angerechnet | R0 = 2,00, Gewinnniveau 10,00, g0 = 8,5 %                                  | 76,9 % (Rendite des Einbehaltenen 8,125 %, Anrechnung 81,25 %) | ± 0,1 Prozentpunkte |
+| Ausschüttungsquote am Ende, voll angerechnet      | R0 = 4,00, Gewinnniveau 10,00, g0 = 8,5 %                                  | 90 %                                                           | exakt               |
+| Wertfalle                                         | R0 = 2,00, Gewinnniveau 10,00, g0 = 2 %                                    | Quote bleibt 20 %, Rendite wie ohne Gewinnniveau               | exakt               |
+| Bandbreite                                        | Imperial Brands, Kurs 30,00 GBP                                            | vorsichtig < Basis < optimistisch                              | –                   |
 
 Die Folienwerte lassen sich nicht exakt treffen, weil die Zahlungskonvention des Autors nicht
 veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerten im Buch.
 
 ## 12. Eigene Annahmen (nicht aus den Quellen)
 
-| Annahme                                                                         | Wert                                                                     | Grund                                                                                     |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Zuordnung Risikowert zu Ausfallwahrscheinlichkeit                               | 0,5 % + 5 % · Risikowert                                                 | Quellen nennen keine Zahl; Imperial Brands (1,8 %) läge bei 26 % Risikowert               |
-| Zahlungskonvention                                                              | Rückflussniveau gilt für das kommende Jahr, Wachstum ab dem zweiten Jahr | trifft Folie 7 auf 0,1 Prozentpunkte                                                      |
-| Abschmelzen des Wachstums                                                       | linear über 15 Jahre auf höchstens 3 %                                   | Buch: höchstens 15 Jahre überdurchschnittliches Wachstum; einfache DCF-Formel nur bis 3 % |
-| Obergrenze für den Wachstumsvorschlag                                           | 8,5 %                                                                    | Buch setzt bei BASF und Wal-Mart 8,5 % statt der historischen Werte an                    |
-| Netto-Rückkäufe als Fünfjahresdurchschnitt, abzüglich aktienbasierter Vergütung | –                                                                        | Folien zählen Rückkäufe als Rückfluss, ohne Methode                                       |
-| Deckelung des Rückflussniveaus auf den freien Cashflow je Aktie                 | Fünfjahresdurchschnitt                                                   | schuldenfinanzierte Rückkäufe sind nicht dauerhaft tragbar                                |
-| Obergrenze Wachstum aus Einbehaltung                                            | Einbehaltungsquote · Eigenkapitalrendite + 2 %                           | hohe Ausschüttung und hohes Wachstum schließen sich aus                                   |
-| Bandbreite                                                                      | ± 10 % Rückfluss, ± 1 Prozentpunkt Wachstum                              | macht die Unsicherheit der Annahmen sichtbar                                              |
-| Rückkäufe gelten in Faktor 12 wie Dividenden                                    | –                                                                        | Folgerung aus den Folien                                                                  |
-| Vorschlagsregeln in Abschnitt 6.2                                               | –                                                                        | Buch gibt Höchstabzüge und Beispiele, keine vollständigen Stufen                          |
-| Größe gemessen an der Bilanzsumme                                               | 20 Mio. € bis 20 Mrd. €                                                  | Auslegung von „GK" in Abb. 32 als Gesamtkapital                                           |
-| Basislimits der Profile                                                         | 15 % und 6,5 %                                                           | Buch nennt 12,5 % und 15 %; Wikifolios nennen nur Positionszahlen                         |
-| Höchstanteil je Region                                                          | 40 %                                                                     | Buch nennt nur „ausgewogen"                                                               |
-| Tauschschwelle                                                                  | 1 und 2 Prozentpunkte                                                    | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"                                  |
-| Mindestposition                                                                 | 3 % und 2 %                                                              | Buch nennt einen Mindestanteil ohne Zahl                                                  |
-| Überfällige Bewertungen bleiben zulässig                                        | –                                                                        | Buch verlangt die jährliche Prüfung, nennt keine Folge                                    |
-| Stufen der Urteilsfaktoren für Jev                                              | Abschnitt 6.4                                                            | Buch nennt nur Höchstabzug und Anforderung                                                |
+| Annahme                                                                         | Wert                                                                                                                      | Grund                                                                                     |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Zuordnung Risikowert zu Ausfallwahrscheinlichkeit                               | 0,5 % + 5 % · Risikowert                                                                                                  | Quellen nennen keine Zahl; Imperial Brands (1,8 %) läge bei 26 % Risikowert               |
+| Zahlungskonvention                                                              | Rückflussniveau gilt für das kommende Jahr, Wachstum ab dem zweiten Jahr                                                  | trifft Folie 7 auf 0,1 Prozentpunkte                                                      |
+| Abschmelzen des Wachstums                                                       | linear über 15 Jahre auf höchstens 3 %                                                                                    | Buch: höchstens 15 Jahre überdurchschnittliches Wachstum; einfache DCF-Formel nur bis 3 % |
+| Steigende Ausschüttungsquote                                                    | linear über 15 Jahre bis auf den Bedarf des Dauerwachstums, angerechnet nach der Rendite des Einbehaltenen (voll ab 10 %) | Interview nennt das Prinzip (zwei Phasen), keine Zahlen; 10 % nach Buch Kap. 5.5          |
+| Untergrenze der inneren Rendite                                                 | Anleiherendite ohne Aufschlag, Basisfall                                                                                  | Interview: kein Renditeziel, aber Aktien müssen Anleihen schlagen                         |
+| Obergrenze für den Wachstumsvorschlag                                           | 8,5 %                                                                                                                     | Buch setzt bei BASF und Wal-Mart 8,5 % statt der historischen Werte an                    |
+| Netto-Rückkäufe als Fünfjahresdurchschnitt, abzüglich aktienbasierter Vergütung | –                                                                                                                         | Folien zählen Rückkäufe als Rückfluss, ohne Methode                                       |
+| Deckelung des Rückflussniveaus auf den freien Cashflow je Aktie                 | Fünfjahresdurchschnitt                                                                                                    | schuldenfinanzierte Rückkäufe sind nicht dauerhaft tragbar                                |
+| Obergrenze Wachstum aus Einbehaltung                                            | Einbehaltungsquote · Eigenkapitalrendite + 2 %                                                                            | hohe Ausschüttung und hohes Wachstum schließen sich aus                                   |
+| Bandbreite                                                                      | ± 10 % Rückfluss, ± 1 Prozentpunkt Wachstum                                                                               | macht die Unsicherheit der Annahmen sichtbar                                              |
+| Rückkäufe gelten in Faktor 12 wie Dividenden                                    | –                                                                                                                         | Folgerung aus den Folien                                                                  |
+| Vorschlagsregeln in Abschnitt 6.2                                               | –                                                                                                                         | Buch gibt Höchstabzüge und Beispiele, keine vollständigen Stufen                          |
+| Größe gemessen an der Bilanzsumme                                               | 20 Mio. € bis 20 Mrd. €                                                                                                   | Auslegung von „GK" in Abb. 32 als Gesamtkapital                                           |
+| Basislimits der Profile                                                         | 15 % und 6,5 %                                                                                                            | Buch nennt 12,5 % und 15 %; Wikifolios nennen nur Positionszahlen                         |
+| Höchstanteil je Region                                                          | 40 %                                                                                                                      | Buch nennt nur „ausgewogen"                                                               |
+| Tauschschwelle                                                                  | 1 und 2 Prozentpunkte                                                                                                     | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"                                  |
+| Mindestposition                                                                 | 3 % und 2 %                                                                                                               | Buch nennt einen Mindestanteil ohne Zahl                                                  |
+| Überfällige Bewertungen bleiben zulässig                                        | –                                                                                                                         | Buch verlangt die jährliche Prüfung, nennt keine Folge                                    |
+| Stufen der Urteilsfaktoren für Jev                                              | Abschnitt 6.4                                                                                                             | Buch nennt nur Höchstabzug und Anforderung; geeicht an seinen Beispielen                  |
 
 ## 13. Offen
 

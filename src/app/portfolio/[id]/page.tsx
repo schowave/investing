@@ -75,7 +75,7 @@ export default async function PortfolioPage(props: {
   const portfolio = Number.isInteger(id) ? db.portfolio(id) : null;
   if (!portfolio) notFound();
 
-  const { profile, holdings, stocks, view } = loadPortfolio(db, portfolio, today());
+  const { profile, holdings, stocks, view, doubtful } = loadPortfolio(db, portfolio, today());
   const names = new Map(stocks.map((s) => [s.id, s.name]));
   const history = db.portfolioSnapshots(portfolio.id, 12);
   const targetCount = view.rows.filter((r) => r.targetWeight > 0).length;
@@ -115,7 +115,7 @@ export default async function PortfolioPage(props: {
           <p className="finding">{finding}</p>
           <p className="meta">
             Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} ·
-            Mindestrendite {percent(profile.minReturn)} · Tauschschwelle {profile.swapThreshold * 100} Punkte
+            Untergrenze {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte
           </p>
         </div>
         <div className="title-actions">
@@ -156,8 +156,8 @@ export default async function PortfolioPage(props: {
         <div className="card-head">
           <h2>Ist gegen Ziel</h2>
           <span className="meta">
-            Kandidat wird ein Titel mit vollständiger Bewertung, Risikowert unter 75 % und mindestens {percent(profile.minReturn)} im
-            vorsichtigen Fall
+            Kandidat wird ein Titel mit vollständiger Bewertung, Risikowert unter 75 % und mehr als {percent(profile.minReturn)} innerer
+            Rendite; aufgenommen werden die besten zuerst
           </span>
         </div>
         {view.rows.length === 0 ? (
@@ -208,7 +208,10 @@ export default async function PortfolioPage(props: {
                         </Link>
                       )}
                     </td>
-                    <td>{row.reason ?? ""}</td>
+                    <td>
+                      {row.reason ?? ""}
+                      {doubtful.has(row.id) && <small className="unsure">Zahlen prüfen: {doubtful.get(row.id)}</small>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

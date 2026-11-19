@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
+import { currentProposals } from "../judgement/factors.ts";
 import { judgeStock } from "../judgement/judge.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
 import { database, today } from "./server.ts";
@@ -36,7 +37,7 @@ export async function saveInputs(stockId: string, form: FormData): Promise<void>
     }
     const before = previous.get(key);
     // Ein unverändert übernommener Jev-Vorschlag wird als solcher vermerkt.
-    const proposal = jev?.proposals[key.replace(/^risk\./, "")];
+    const proposal = currentProposals(jev)[key.replace(/^risk\./, "")];
     const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
     db.setManualInput(stockId, key, value, fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : (before?.note ?? ""));
   }
@@ -156,6 +157,17 @@ function requireConfirmation(form: FormData, returnTo: string): void {
 
 export async function startSync(returnTo: string): Promise<void> {
   enqueue("sync", {}, returnTo);
+}
+
+const AutoSyncForm = z.enum(["an", "aus"]);
+
+/** Schaltet den nächtlichen Abgleich ein oder aus; von Hand lässt er sich immer starten. */
+export async function setAutoSync(form: FormData): Promise<void> {
+  const parsed = AutoSyncForm.safeParse(form.get("automatisch"));
+  if (!parsed.success) redirect(`/abgleich?fehler=${encodeURIComponent("Unbekannte Einstellung für den Abgleich.")}`);
+  database().setAutoSync(parsed.data === "an");
+  revalidatePath("/abgleich");
+  redirect("/abgleich");
 }
 
 export async function refreshStockData(stockId: string): Promise<void> {

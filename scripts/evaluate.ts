@@ -18,7 +18,9 @@ const today = new Date().toISOString().slice(0, 10);
 const results = db.stocks().map((stock) => valueStock(db, stock, today));
 results.sort((a, b) => (b.valuation.returns?.base ?? -1) - (a.valuation.returns?.base ?? -1));
 
-console.log("Aktie        Kurs      Rückfluss  Wachstum  Risiko  Rendite (vorsichtig bis optimistisch)  Stand");
+// Die Legende gehört zur Ausgabe: Wer die Zahlen weiterrechnet, muss wissen, dass der Inflationsabgleich schon drin ist.
+console.log("Kurs und Rückfluss je Aktie in Berichtswährung; Rendite schon um den Inflationsabstand zum Euro gekürzt.");
+console.log("Aktie        Kurs      Rückfluss  Wachstum  Risiko  Rendite in EUR (vorsichtig bis optimistisch)  Stand");
 for (const { stock, valuation: v } of results) {
   const r = v.returns;
   const state = v.complete ? "vollständig" : `vorläufig, ${v.missing.length} Eingaben offen`;
