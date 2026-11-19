@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Fragment, type ReactNode } from "react";
 import type { RiskFactorId } from "../../../calc/index.ts";
 import {
   EXCLUSION_SCORE,
@@ -137,11 +138,36 @@ export default async function StockPage(props: {
   const cautious = v.returns?.cautious ?? null;
   const base = v.returns?.base ?? null;
 
-  let finding: string;
+  let finding: ReactNode;
   if (excluded)
     finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskScore, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
-  else if (base === null) finding = "Die innere Rendite lässt sich noch nicht rechnen. Unten steht, welche Eingabe fehlt.";
-  else if (!v.complete) {
+  else if (base === null) {
+    // Die Rendite braucht Kurs, einen Rückfluss über 0 und Wachstum; die Urteile (Risiko) sind dafür nicht nötig.
+    const reasons: { key: string; text: string; anchor?: string }[] = [];
+    if (v.price === null) reasons.push({ key: "price", text: "kein Kurs" });
+    if (v.inputs.payoutLevel === undefined) {
+      reasons.push({ key: "payout", text: "Rückfluss je Aktie fehlt", anchor: "#payoutLevel" });
+    } else if (v.inputs.payoutLevel <= 0) {
+      reasons.push({
+        key: "payout",
+        text: "Rückfluss je Aktie ist 0",
+        anchor: "#payoutLevel",
+      });
+    }
+    if (v.inputs.growth === undefined) reasons.push({ key: "growth", text: "Wachstum zu Beginn fehlt", anchor: "#growth" });
+    finding = (
+      <>
+        Keine Rendite rechenbar:{" "}
+        {reasons.map((reason, index) => (
+          <Fragment key={reason.key}>
+            {index > 0 && "; "}
+            {reason.anchor ? <a href={reason.anchor}>{reason.text}</a> : reason.text}
+          </Fragment>
+        ))}
+        {reasons.length === 0 && "Eingaben ohne Lösung"}
+      </>
+    );
+  } else if (!v.complete) {
     finding = `Vorläufig ${percent(base)}. ${v.missing.length === 1 ? "Eine Eingabe fehlt" : `${v.missing.length} Eingaben fehlen`}, bevor der Titel Kandidat fürs Portfolio werden kann.`;
   } else if (base >= hurdle)
     finding = `Kandidat mit ${percent(base)} innerer Rendite (vorsichtig ${percent(cautious)}). Ob er ins Portfolio kommt, entscheidet sein Rang.`;
@@ -156,11 +182,14 @@ export default async function StockPage(props: {
     const show = opts.asPercent ? percent : amount;
     const isManual = v.manual.includes(key);
     const isOpen = v.inputs[key] === undefined;
+    // Pflicht: ohne diesen Wert gibt es keine innere Rendite (Rückfluss über 0, Wachstum). Urteile sind keine Pflicht dafür.
+    const required =
+      base === null && ((key === "payoutLevel" && (isOpen || (v.inputs.payoutLevel ?? 0) <= 0)) || (key === "growth" && isOpen));
     // Jev-Vorschläge gibt es nur für Urteilsfaktoren; sie füllen das leere Feld vor, gelten aber erst nach dem Speichern.
     const jev = isOpen ? jevFor(key) : undefined;
     const prefill = isManual ? fieldNumber(v.inputs[key], opts.asPercent) : jev ? fieldNumber(jev.value, true) : "";
     return (
-      <tr key={key} className={isOpen ? "open" : isManual ? "manual" : ""}>
+      <tr key={key} className={required ? "required" : isOpen ? "open" : isManual ? "manual" : ""}>
         <td>
           <label htmlFor={key} className="factor">
             {label}
@@ -199,7 +228,16 @@ export default async function StockPage(props: {
             <span className="unit">{opts.unit}</span>
           </span>
         </td>
-        <td className="num">{isOpen ? <span className="tag warn">offen</span> : <strong>{show(v.inputs[key])}</strong>}</td>
+        <td className="num">
+          {isOpen ? (
+            <span className={`tag ${required ? "bad" : "warn"}`}>{required ? "Pflicht" : "offen"}</span>
+          ) : (
+            <>
+              <strong>{show(v.inputs[key])}</strong>
+              {required && <span className="tag bad">über 0 nötig</span>}
+            </>
+          )}
+        </td>
       </tr>
     );
   };

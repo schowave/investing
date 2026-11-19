@@ -77,6 +77,19 @@ export interface StockSearchHit {
 }
 
 /** Vorläufige Bewertung eines Titels aus den Vorschlägen, ohne Verlauf. */
+export interface ScreeningFilter {
+  region?: string;
+  /** Risikowert höchstens. */
+  maxRisk?: number;
+  maxReturn?: number;
+  /** Suche in Name und Symbol. */
+  query?: string;
+  includeImplausible?: boolean;
+}
+
+/** Warum für einen Titel keine innere Rendite gerechnet werden kann. */
+export type RatingGap = "kurs-nicht-abrufbar" | "kein-kurs" | "rueckfluss-fehlt" | "rueckfluss-null" | "wachstum-fehlt" | "keine-loesung";
+
 export interface ScreeningRow {
   stockId: string;
   date: string;
@@ -319,6 +332,7 @@ export class Database {
   saveRawCloses(stockId: string, closes: readonly { date: string; close: number }[]): void {
     if (closes.length === 0) return;
     this.#db.transaction((tx) => {
+      tx.delete(t.priceFailures).where(eq(t.priceFailures.stockId, stockId)).run();
       for (const c of closes) {
         tx.insert(t.prices)
           .values({ stockId, date: c.date, close: c.close })
@@ -326,6 +340,29 @@ export class Database {
           .run();
       }
     });
+  }
+
+  /** Merkt, dass ein Kursabruf scheiterte; `attempts` zählt die Fehlschläge in Folge. */
+  recordPriceFailure(stockId: string, error: string, at: string): void {
+    this.#db
+      .insert(t.priceFailures)
+      .values({ stockId, failedAt: at, attempts: 1, error })
+      .onConflictDoUpdate({
+        target: t.priceFailures.stockId,
+        set: { failedAt: at, error, attempts: sql`${t.priceFailures.attempts} + 1` },
+      })
+      .run();
+  }
+
+  /** Titel mit gescheitertem Kursabruf: wann zuletzt und wie oft. */
+  priceFailures(): Map<string, { failedAt: string; attempts: number }> {
+    return new Map(
+      this.#db
+        .select()
+        .from(t.priceFailures)
+        .all()
+        .map((r) => [r.stockId, { failedAt: r.failedAt, attempts: r.attempts }] as const),
+    );
   }
 
   latestPrice(stockId: string): Price | null {
@@ -672,35 +709,102 @@ export class Database {
     });
   }
 
+  /** Bedingungen der Titelsuche im Datenvorrat. Nur Stammaktien: Vorzugspapiere und Anleihen tragen die Zahlen des Mutterkonzerns. */
+  #screeningWhere(filter: ScreeningFilter, ...extra: (SQL | undefined)[]): SQL | undefined {
+    const pattern = filter.query ? containing(filter.query) : null;
+    return and(
+      or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")),
+      filter.region ? eq(t.stocks.region, filter.region) : undefined,
+      pattern ? or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern)) : undefined,
+      ...extra,
+    );
+  }
+
+  #rated(filter: ScreeningFilter): SQL | undefined {
+    return this.#screeningWhere(
+      filter,
+      sql`${t.screening.innerReturn} IS NOT NULL`,
+      filter.includeImplausible ? undefined : eq(t.screening.implausible, false),
+      filter.maxRisk !== undefined ? lte(t.screening.riskScore, filter.maxRisk) : undefined,
+      filter.maxReturn !== undefined ? lte(t.screening.innerReturn, filter.maxReturn) : undefined,
+    );
+  }
+
   /**
    * Titel mit berechenbarer innerer Rendite, höchste zuerst.
    * @param filter `region` und `maxRisk` (Risikowert höchstens) sind optional; `query` sucht in Name und Symbol.
+   * @param offset Wie viele Treffer übersprungen werden (Blättern).
    */
-  screening(
-    filter: { region?: string; maxRisk?: number; maxReturn?: number; query?: string; includeImplausible?: boolean },
-    limit: number,
-  ): { stock: Stock; row: ScreeningRow }[] {
-    const pattern = filter.query ? containing(filter.query) : null;
-    const rows = this.#db
+  screening(filter: ScreeningFilter, limit: number, offset = 0): { stock: Stock; row: ScreeningRow }[] {
+    return this.#db
       .select({ stock: t.stocks, row: t.screening })
       .from(t.screening)
       .innerJoin(t.stocks, eq(t.stocks.id, t.screening.stockId))
-      .where(
-        and(
-          sql`${t.screening.innerReturn} IS NOT NULL`,
-          // Nur Stammaktien: Vorzugspapiere und Anleihen tragen die Zahlen des Mutterkonzerns.
-          or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")),
-          filter.includeImplausible ? undefined : eq(t.screening.implausible, false),
-          filter.region ? eq(t.stocks.region, filter.region) : undefined,
-          filter.maxRisk !== undefined ? lte(t.screening.riskScore, filter.maxRisk) : undefined,
-          filter.maxReturn !== undefined ? lte(t.screening.innerReturn, filter.maxReturn) : undefined,
-          pattern ? or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern)) : undefined,
-        ),
-      )
-      .orderBy(desc(t.screening.innerReturn))
+      .where(this.#rated(filter))
+      .orderBy(desc(t.screening.innerReturn), asc(t.stocks.id))
       .limit(limit)
+      .offset(offset)
+      .all()
+      .map((r) => ({ stock: toStock(r.stock), row: r.row }));
+  }
+
+  /** Anzahl der Titel, die `screening` ohne Begrenzung liefern würde. */
+  countScreening(filter: ScreeningFilter): number {
+    return this.#db
+      .select({ n: count() })
+      .from(t.screening)
+      .innerJoin(t.stocks, eq(t.stocks.id, t.screening.stockId))
+      .where(this.#rated(filter))
+      .get()!.n;
+  }
+
+  /** Warum eine Rendite fehlt, in der Reihenfolge der Prüfung. */
+  static readonly #gapSql = sql<RatingGap>`CASE
+    WHEN ${t.screening.price} IS NULL AND EXISTS (SELECT 1 FROM ${t.priceFailures} WHERE ${t.priceFailures.stockId} = ${t.screening.stockId}) THEN 'kurs-nicht-abrufbar'
+    WHEN ${t.screening.price} IS NULL THEN 'kein-kurs'
+    WHEN ${t.screening.payoutLevel} IS NULL THEN 'rueckfluss-fehlt'
+    WHEN ${t.screening.payoutLevel} <= 0 THEN 'rueckfluss-null'
+    WHEN ${t.screening.growth} IS NULL THEN 'wachstum-fehlt'
+    ELSE 'keine-loesung' END`;
+
+  /** Titel ohne berechenbare Rendite je Grund, soweit Region und Suche passen. */
+  ratingGaps(filter: Pick<ScreeningFilter, "region" | "query">): Record<RatingGap, number> {
+    const rows = this.#db
+      .select({ gap: Database.#gapSql, n: count() })
+      .from(t.screening)
+      .innerJoin(t.stocks, eq(t.stocks.id, t.screening.stockId))
+      .where(this.#screeningWhere(filter, sql`${t.screening.innerReturn} IS NULL`))
+      .groupBy(Database.#gapSql)
       .all();
-    return rows.map((r) => ({ stock: toStock(r.stock), row: r.row }));
+    const result: Record<RatingGap, number> = {
+      "kurs-nicht-abrufbar": 0,
+      "kein-kurs": 0,
+      "rueckfluss-fehlt": 0,
+      "rueckfluss-null": 0,
+      "wachstum-fehlt": 0,
+      "keine-loesung": 0,
+    };
+    for (const row of rows) result[row.gap] = row.n;
+    return result;
+  }
+
+  /** Titel ohne berechenbare Rendite aus einem Grund, nach Name. */
+  unrated(
+    gap: RatingGap,
+    filter: Pick<ScreeningFilter, "region" | "query">,
+    limit: number,
+    offset = 0,
+  ): { stock: Stock; row: ScreeningRow }[] {
+    return this.#db
+      .select({ stock: t.stocks, row: t.screening })
+      .from(t.screening)
+      .innerJoin(t.stocks, eq(t.stocks.id, t.screening.stockId))
+      .where(this.#screeningWhere(filter, sql`${t.screening.innerReturn} IS NULL`, sql`${Database.#gapSql} = ${gap}`))
+      .orderBy(asc(t.stocks.name))
+      .limit(limit)
+      .offset(offset)
+      .all()
+      .map((r) => ({ stock: toStock(r.stock), row: r.row }));
   }
 
   /** Regionen, für die es Titel gibt. */

@@ -28,6 +28,9 @@ const PARALLEL = 4;
 /** Ein Sammelabruf zählt beim Anbieter als 100 Abrufe. */
 const BULK_COST = 100;
 const BULK_MIN_STOCKS = 150;
+/** Ein Titel im Datenvorrat, dessen Kurs dreimal in Folge nicht kam, wird erst nach so vielen Tagen wieder versucht. */
+const RETRY_AFTER_DAYS = 30;
+const FAILURES_BEFORE_PAUSE = 3;
 
 export interface SyncReport {
   date: string;
@@ -129,8 +132,17 @@ export async function runDailySync(
   for (const portfolio of db.portfolios()) for (const id of db.holdings(portfolio.id).keys()) held.add(id);
   const priceDates = db.latestPriceDates();
   const group = (s: Stock) => (held.has(s.id) ? 0 : s.watched ? 1 : 2);
+  // Titel im Datenvorrat, deren Kurs wiederholt nicht kam (eingestellt, Symbol unbekannt), kosten sonst jeden Tag Budget.
+  const failures = db.priceFailures();
+  const retryFrom = isoDay(now.getTime() - RETRY_AFTER_DAYS * 86_400_000);
+  const paused = (s: Stock) => {
+    const failure = failures.get(s.id);
+    return (
+      group(s) === 2 && failure !== undefined && failure.attempts >= FAILURES_BEFORE_PAUSE && failure.failedAt.slice(0, 10) > retryFrom
+    );
+  };
   let queue = all
-    .filter((s) => (priceDates.get(s.id) ?? "") < yesterday)
+    .filter((s) => (priceDates.get(s.id) ?? "") < yesterday && !paused(s))
     .sort(
       (a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id),
     );
@@ -199,10 +211,14 @@ export async function runDailySync(
   async function loadNext(): Promise<void> {
     const stock = planned[next++]!;
     try {
-      db.saveRawCloses(stock.id, await closesFor(stock));
+      const closes = await closesFor(stock);
+      // Im Datenvorrat gilt eine leere Antwort als Fehlschlag; bei beobachteten Titeln kann ein Feiertag dahinterstecken.
+      if (closes.length === 0 && group(stock) === 2) throw new Error("keine Kurse geliefert");
+      db.saveRawCloses(stock.id, closes);
       report.pricesLoaded++;
     } catch (error) {
       if (error instanceof EodhdError && error.status === 402) limitReached = true;
+      else db.recordPriceFailure(stock.id, describe(error), date);
       // Fehler im Datenvorrat sind erwartbar (eingestellte Titel) und füllen den Bericht nicht.
       if (group(stock) < 2) report.priceErrors.push({ id: stock.id, error: describe(error) });
     }

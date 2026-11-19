@@ -205,6 +205,14 @@ export const monthlyPrices = sqliteTable(
   (t) => [primaryKey({ columns: [t.stockId, t.month] })],
 );
 
+/** Titel, deren Kurs sich nicht abrufen ließ (eingestellt, Symbol unbekannt). Der Abgleich versucht sie seltener erneut. */
+export const priceFailures = sqliteTable("price_failures", {
+  stockId: stockId().primaryKey(),
+  failedAt: text("failed_at").notNull(),
+  attempts: integer("attempts").notNull(),
+  error: text("error").notNull(),
+});
+
 export const historyLoaded = sqliteTable(
   "history_loaded",
   {

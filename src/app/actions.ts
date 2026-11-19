@@ -15,7 +15,6 @@ import { database, today } from "./server.ts";
 export async function saveInputs(stockId: string, form: FormData): Promise<void> {
   const db = database();
   const von = safeOrigin(form.get("von"));
-  const page = stockPath(stockId, von);
   const stock = db.stock(stockId);
   if (!stock) redirect("/");
 

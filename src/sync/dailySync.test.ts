@@ -192,6 +192,37 @@ describe("runDailySync", () => {
     db.close();
   });
 
+  it("pausiert Titel im Datenvorrat, deren Kurs dreimal nicht kam, und versucht sie nach 30 Tagen erneut", async () => {
+    const db = setup();
+    const day = (offset: number) => new Date(NOW.getTime() + offset * 86_400_000);
+    const tried = (calls: string[]) => calls.filter((c) => c.startsWith("VORRAT.US ")).length;
+    const dead = fakeFetch({ closes: { "A.XETRA": [], "B.US": [], "VORRAT.US": 404 } });
+
+    for (const offset of [0, 1, 2]) {
+      await runDailySync(db, "geheim", day(offset), dead.fetchFn);
+    }
+    expect(tried(dead.calls)).toBe(3);
+    expect(db.priceFailures().get("VORRAT.US")).toMatchObject({ attempts: 3 });
+
+    const paused = fakeFetch({ closes: { "A.XETRA": [], "B.US": [], "VORRAT.US": 404 } });
+    await runDailySync(db, "geheim", day(3), paused.fetchFn);
+    expect(tried(paused.calls)).toBe(0);
+
+    const later = fakeFetch({ closes: { "A.XETRA": [], "B.US": [], "VORRAT.US": [{ date: "2026-12-20", close: 9 }] } });
+    await runDailySync(db, "geheim", day(33), later.fetchFn);
+    expect(tried(later.calls)).toBe(1);
+    expect(db.priceFailures().has("VORRAT.US")).toBe(false);
+    db.close();
+  });
+
+  it("zählt eine leere Antwort im Datenvorrat als Fehlschlag, bei beobachteten Titeln nicht", async () => {
+    const db = setup();
+    const { fetchFn } = fakeFetch({ closes: { "A.XETRA": [], "B.US": [], "VORRAT.US": [] } });
+    await runDailySync(db, "geheim", NOW, fetchFn);
+    expect([...db.priceFailures().keys()]).toEqual(["VORRAT.US"]);
+    db.close();
+  });
+
   it("holt Splits für Titel mit manuellem Rückfluss und bereinigt den Betrag je Aktie", async () => {
     const db = setup();
     db.setManualInput("A.XETRA", "payoutLevel", 8);
@@ -294,7 +325,9 @@ describe("Sammelabruf", () => {
         .sort(),
     ).toEqual(["A.XETRA", "B.US", "VORRAT.US"]);
     expect(db.latestPrice("T7.US")).toEqual({ date: "2026-11-18", close: 17 });
-    expect(report.pricesLoaded).toBe(163);
+    // VORRAT.US liefert eine leere Antwort: im Datenvorrat ein Fehlschlag, kein geladener Kurs.
+    expect(report.pricesLoaded).toBe(162);
+    expect(db.priceFailures().has("VORRAT.US")).toBe(true);
     expect(report.budget).toBe(100000 - 2 - 100);
     db.close();
   });

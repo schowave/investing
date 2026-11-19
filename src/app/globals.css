@@ -226,6 +226,27 @@ h1 {
   gap: 4px 16px;
   padding: 16px var(--pad) 0;
 }
+/* Aufklappbare Karte: eingeklappt ist die Kopfzeile die ganze Karte und braucht unten Luft. */
+details.card > summary.card-head {
+  padding-bottom: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+details.card > summary.card-head::-webkit-details-marker {
+  display: none;
+}
+details.card > summary.card-head h2::before {
+  content: "▸";
+  display: inline-block;
+  width: 1.1em;
+  color: var(--muted);
+}
+details.card[open] > summary.card-head h2::before {
+  content: "▾";
+}
+details.card[open] > summary.card-head {
+  padding-bottom: 4px;
+}
 .card-head h2 {
   font-size: 16px;
   font-weight: 600;
@@ -575,6 +596,15 @@ summary:focus-visible {
 tr.open td:first-child {
   box-shadow: inset 3px 0 0 #d9a514;
 }
+tr.required td {
+  background: var(--pill-negative-bg);
+}
+tr.required input {
+  border-color: var(--negative);
+}
+tr.required td .tag {
+  margin-left: 6px;
+}
 tr.manual input {
   border-color: var(--text);
 }
@@ -869,4 +899,35 @@ details.card > summary.card-head {
 }
 details.card > summary.card-head::-webkit-details-marker {
   display: none;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
+.gap-list {
+  margin: 0;
+  padding: 8px var(--pad) 16px;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.gap-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 16px;
+}
+.gap-list a {
+  min-width: 190px;
+}
+.gap-list a[aria-current="true"] {
+  text-decoration: underline;
+}
+.gap-list .num {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
 }

@@ -90,4 +90,46 @@ describe("Rohantworten", () => {
     expect(db.rawDocument("BAS.XETRA", "eodhd-fundamentals")!.body).toBe('{"a":2}');
     expect(db.rawDocument("IMB.LSE", "eodhd-fundamentals")).toBeNull();
   });
+
+  it("blättert im Datenvorrat und zählt, warum Renditen fehlen", () => {
+    const db = emptyDatabase();
+    const ids = START_WATCHLIST.map((stock) => stock.id);
+    const row = (stockId: string, values: Partial<Parameters<Database["saveScreening"]>[0][number]>) => ({
+      stockId,
+      date: "2026-11-18",
+      priceDate: "2026-11-18",
+      price: 10,
+      payoutLevel: 1,
+      growth: 0.05,
+      riskScore: 0.1,
+      innerReturn: null,
+      implausible: false,
+      ...values,
+    });
+    db.saveScreening([
+      row(ids[0]!, { innerReturn: 0.12 }),
+      row(ids[1]!, { innerReturn: 0.08 }),
+      row(ids[2]!, { innerReturn: 0.05 }),
+      row(ids[3]!, { price: null }),
+      row(ids[4]!, { payoutLevel: 0 }),
+      row(ids[5]!, { growth: null }),
+    ]);
+
+    expect(db.countScreening({})).toBe(3);
+    expect(db.screening({}, 2).map((r) => r.stock.id)).toEqual([ids[0], ids[1]]);
+    expect(db.screening({}, 2, 2).map((r) => r.stock.id)).toEqual([ids[2]]);
+
+    db.recordPriceFailure(ids[3]!, "HTTP 404", "2026-11-18");
+    expect(db.ratingGaps({})).toEqual({
+      "kurs-nicht-abrufbar": 1,
+      "kein-kurs": 0,
+      "rueckfluss-fehlt": 0,
+      "rueckfluss-null": 1,
+      "wachstum-fehlt": 1,
+      "keine-loesung": 0,
+    });
+    expect(db.unrated("rueckfluss-null", {}, 10).map((r) => r.stock.id)).toEqual([ids[4]]);
+    expect(db.unrated("kurs-nicht-abrufbar", {}, 10).map((r) => r.stock.id)).toEqual([ids[3]]);
+    expect(db.unrated("kein-kurs", {}, 10)).toEqual([]);
+  });
 });
