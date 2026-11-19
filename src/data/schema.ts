@@ -237,8 +237,32 @@ export const judgements = sqliteTable("judgements", {
   jevModel: text("jev_model").notNull(),
   researchModel: text("research_model"),
   research: text("research"),
-  sources: text("sources", { mode: "json" }).notNull().$type<{ url: string; title: string; pageAge: string | null }[]>(),
+  sources: text("sources", { mode: "json" }).notNull().$type<{ url: string; title: string; pageAge: string | null; kind?: "sec" }[]>(),
   proposals: text("proposals", { mode: "json" })
     .notNull()
     .$type<Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>>(),
 });
+
+/** Warteschlange der Hintergrundläufe (Abgleich, Importe). Der Worker arbeitet sie nacheinander ab. */
+export const jobs = sqliteTable(
+  "jobs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    kind: text("kind").notNull(),
+    args: text("args", { mode: "json" }).notNull().$type<unknown>(),
+    /** queued, running, done, failed, cancelled */
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    startedAt: text("started_at"),
+    finishedAt: text("finished_at"),
+    /** Gesetzt, wenn jemand den Lauf abbrechen will; der Lauf prüft das zwischen zwei Titeln. */
+    cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+    progressDone: integer("progress_done"),
+    progressTotal: integer("progress_total"),
+    /** Die letzten Zeilen des Protokolls. */
+    log: text("log").notNull().default(""),
+    /** Kurze Zusammenfassung oder Fehlermeldung. */
+    summary: text("summary"),
+  },
+  (t) => [index("jobs_status").on(t.status)],
+);

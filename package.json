@@ -21,7 +21,9 @@
     "import:history": "node --env-file-if-exists=.env.local scripts/import-history.ts",
     "migrate": "node scripts/migrate.ts",
     "backup": "node scripts/backup.ts",
-    "judge": "node --env-file-if-exists=.env.local scripts/judge.ts"
+    "judge": "node --env-file-if-exists=.env.local scripts/judge.ts",
+    "worker": "node --env-file-if-exists=.env.local scripts/worker.ts",
+    "enqueue": "node scripts/enqueue.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",

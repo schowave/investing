@@ -59,6 +59,8 @@ COPY package.json next.config.ts tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 COPY db ./db
+# Betriebsdateien für den LXC; investing-update.sh übernimmt sie von hier.
+COPY deploy/lxc ./deploy/lxc
 ENV PATH="/opt/node/bin:$PATH" \
     NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

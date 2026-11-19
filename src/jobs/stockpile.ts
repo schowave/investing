@@ -1,0 +1,200 @@
+// Datenvorrat: Fundamentaldaten ganzer Indizes, Börsen oder einzelner Symbole laden, alles auffrischen,
+// Titel über ISIN aufnehmen (pnpm run import:index, import:isin; Seiten Datenvorrat und Abgleich).
+
+import { EodhdError } from "../data/eodhd.ts";
+import { fetchEodhdFundamentalsRaw, parseEodhdFundamentals, searchEodhd, stockFromEodhd } from "../data/eodhdFundamentals.ts";
+import { eachParallel, isDailyLimit, type JobContext, type JobResult, reason, requireToken } from "./context.ts";
+import { RAW_KIND } from "./fundamentals.ts";
+
+const PARALLEL = 4;
+/** Ersatzbörsen für Titel, deren Heimatbörse der Anbieter nicht führt (Mailand). */
+const FALLBACK_EXCHANGES = ["XETRA", "F", "STU", "MU"];
+const ISIN = /\b[A-Z]{2}[A-Z0-9]{9}[0-9]\b/g;
+
+export interface StockpileRequest {
+  /** Indizes wie GSPC.INDX: alle Bestandteile. */
+  indices: string[];
+  /** Einzelne Symbole wie KAP.IL. */
+  symbols: string[];
+  /** Börsen wie IL: alle Stammaktien. */
+  exchanges: string[];
+  /** Alle gespeicherten Titel neu laden (vor einer Kündigung des Tarifs). */
+  refreshAll: boolean;
+  /** Geladene Titel auf die Watchlist nehmen. */
+  watch: boolean;
+}
+
+/** Wertet eine Rohantwort aus und speichert Stammdaten, Abschlüsse und auf Wunsch die Antwort selbst. */
+function storeFundamentals(ctx: Pick<JobContext, "db">, symbol: string, raw: string, keepRaw: boolean): void {
+  const parsed = parseEodhdFundamentals(JSON.parse(raw));
+  if (parsed.years.length === 0) throw new Error("keine Jahresabschlüsse");
+  const derived = stockFromEodhd(symbol, parsed);
+  ctx.db.addStockIfMissing(derived);
+  ctx.db.setSeatInStockpile(symbol, derived.country, derived.region);
+  if (parsed.foundedYear !== null) ctx.db.setFoundedYearIfMissing(symbol, parsed.foundedYear);
+  if (parsed.securityType !== null) ctx.db.setSecurityType(symbol, parsed.securityType);
+  if (keepRaw) ctx.db.saveRawDocument(symbol, RAW_KIND, raw);
+  ctx.db.saveFundamentals(symbol, parsed.years, "eodhd");
+}
+
+/** Alle gespeicherten Rohantworten ohne Abruf neu auswerten (nach einer Änderung an der Auswertung). */
+export function reparseArchive(ctx: JobContext): JobResult {
+  let done = 0;
+  for (const id of ctx.db.stockIdsWithRawDocument(RAW_KIND)) {
+    storeFundamentals(ctx, id, ctx.db.rawDocument(id, RAW_KIND)!.body, false);
+    done++;
+  }
+  return { summary: `${done} Aktien aus dem Archiv neu ausgewertet`, ok: true };
+}
+
+async function fetchWithRetry(ctx: JobContext, symbol: string, token: string): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetchEodhdFundamentalsRaw(symbol, token, ctx.fetchFn);
+    } catch (error) {
+      const permanent = error instanceof EodhdError && [401, 402, 403, 404].includes(error.status);
+      if (permanent || attempt === 4) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 5000));
+    }
+  }
+}
+
+/** Sucht dieselbe Aktie an einer deutschen Börse, wenn die Heimatbörse fehlt. */
+async function fallbackSymbol(ctx: JobContext, name: string | undefined, token: string): Promise<string | null> {
+  if (!name) return null;
+  const firstWord = name.split(/\s+/)[0]!.toLowerCase();
+  const hits = (await searchEodhd(name, token, ctx.fetchFn)).filter(
+    (h) => h.type === "Common Stock" && FALLBACK_EXCHANGES.includes(h.exchange) && h.name.toLowerCase().startsWith(firstWord),
+  );
+  hits.sort((a, b) => FALLBACK_EXCHANGES.indexOf(a.exchange) - FALLBACK_EXCHANGES.indexOf(b.exchange));
+  return hits[0]?.symbol ?? null;
+}
+
+/** Symbole mit Namen aus Indizes, Börsen und Einzelangaben. */
+async function collectSymbols(ctx: JobContext, request: StockpileRequest, token: string): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  for (const index of request.indices) {
+    const data = JSON.parse(await fetchEodhdFundamentalsRaw(index, token, ctx.fetchFn)) as {
+      Components?: Record<string, { Code: string; Exchange: string; Name: string }>;
+    };
+    const components = Object.values(data.Components ?? {}).filter((c) => c.Code && c.Exchange);
+    for (const c of components) names.set(`${c.Code}.${c.Exchange}`, c.Name);
+    ctx.log(`${index}: ${components.length} Bestandteile`);
+  }
+  for (const symbol of request.symbols) names.set(symbol, "");
+  for (const exchange of request.exchanges) {
+    const url = new URL(`https://eodhd.com/api/exchange-symbol-list/${encodeURIComponent(exchange)}`);
+    url.searchParams.set("api_token", token);
+    url.searchParams.set("fmt", "json");
+    const response = await ctx.fetchFn(url);
+    if (!response.ok) throw new EodhdError(response.status, `exchange-symbol-list/${exchange}`);
+    const list = ((await response.json()) as { Code: string; Name: string; Type: string }[]).filter((x) => x.Type === "Common Stock");
+    for (const x of list) names.set(`${x.Code}.${exchange}`, x.Name);
+    ctx.log(`Börse ${exchange}: ${list.length} Stammaktien`);
+  }
+  return names;
+}
+
+/** Lädt die Fundamentaldaten neuer Titel (10 Abrufe je Titel); mit `refreshAll` auch alle schon gespeicherten. */
+export async function importStockpile(ctx: JobContext, request: StockpileRequest): Promise<JobResult> {
+  const token = requireToken(ctx);
+  const names = await collectSymbols(ctx, request, token);
+  const known = ctx.db.stockIdsWithRawDocument(RAW_KIND);
+  const todo = request.refreshAll
+    ? [...new Set([...known, ...names.keys()])].sort()
+    : [...names.keys()].filter((s) => !known.has(s) || request.watch).sort();
+  ctx.log(`${todo.length} Aktien zu laden${request.refreshAll ? " (Auffrischen)" : `, ${names.size - todo.length} schon vorhanden`}`);
+
+  const stored: string[] = [];
+  const result = await eachParallel(ctx, todo, PARALLEL, async (symbol) => {
+    if (request.watch && known.has(symbol)) {
+      stored.push(symbol);
+      return;
+    }
+    let target = symbol;
+    let raw: string;
+    try {
+      raw = await fetchWithRetry(ctx, symbol, token);
+    } catch (error) {
+      if (!(error instanceof EodhdError && error.status === 404)) throw error;
+      const alternative = await fallbackSymbol(ctx, names.get(symbol), token);
+      if (!alternative) throw error;
+      if (known.has(alternative)) {
+        stored.push(alternative);
+        return;
+      }
+      raw = await fetchWithRetry(ctx, alternative, token);
+      target = alternative;
+      ctx.log(`ersatz ${symbol.padEnd(12)} als ${alternative}`);
+    }
+    storeFundamentals(ctx, target, raw, true);
+    stored.push(target);
+  });
+  if (request.watch) {
+    for (const id of stored) {
+      ctx.db.setWatched(id, true);
+      ctx.log(`ok     ${id.padEnd(12)} ${ctx.db.stock(id)?.name ?? ""} auf der Watchlist`);
+    }
+  }
+  const rest = result.limitReached || result.stopped ? ", Rest offen" : "";
+  return {
+    summary: `${result.done} Aktien geladen, ${result.failed} fehlgeschlagen${rest}`,
+    ok: result.failed === 0 && !result.limitReached && !result.stopped,
+  };
+}
+
+/** ISINs aus beliebigem Text (eine Depotliste, kopierte Tabelle). */
+export const isinsIn = (text: string) => [...new Set(text.toUpperCase().match(ISIN) ?? [])];
+
+/** Lädt Titel über ihre ISIN (Suche plus 10 Abrufe) und nimmt sie auf die Watchlist. */
+export async function addByIsin(ctx: JobContext, isins: readonly string[]): Promise<JobResult> {
+  const token = requireToken(ctx);
+  const known = ctx.db.stockIdsWithRawDocument(RAW_KIND);
+  let failed = 0;
+  ctx.progress(0, isins.length);
+  for (const [index, isin] of isins.entries()) {
+    if (ctx.shouldStop()) return { summary: `abgebrochen nach ${index} von ${isins.length} ISINs`, ok: false };
+    try {
+      const hits = (await searchEodhd(isin, token, ctx.fetchFn)).filter((h) => h.isin === isin && h.type === "Common Stock");
+      if (hits.length === 0) throw new Error("beim Anbieter nicht gefunden");
+      // Zuerst eine Notiz, die schon gespeichert ist, dann die Hauptnotiz, dann die übrigen.
+      hits.sort((a, b) => Number(known.has(b.symbol)) - Number(known.has(a.symbol)) || Number(b.isPrimary) - Number(a.isPrimary));
+      let stored: string | null = null;
+      for (const hit of hits) {
+        if (known.has(hit.symbol)) {
+          stored = hit.symbol;
+          break;
+        }
+        try {
+          const raw = await fetchEodhdFundamentalsRaw(hit.symbol, token, ctx.fetchFn);
+          const parsed = parseEodhdFundamentals(JSON.parse(raw));
+          if (parsed.years.length === 0) continue;
+          ctx.db.addStockIfMissing(stockFromEodhd(hit.symbol, parsed));
+          if (parsed.securityType !== null) ctx.db.setSecurityType(hit.symbol, parsed.securityType);
+          ctx.db.saveRawDocument(hit.symbol, RAW_KIND, raw);
+          ctx.db.saveFundamentals(hit.symbol, parsed.years, "eodhd");
+          if (hit.previousClose !== null && hit.previousCloseDate !== null) {
+            ctx.db.saveRawCloses(hit.symbol, [{ date: hit.previousCloseDate, close: hit.previousClose }]);
+          }
+          known.add(hit.symbol);
+          stored = hit.symbol;
+          break;
+        } catch (error) {
+          if (!(error instanceof EodhdError && error.status === 404)) throw error;
+        }
+      }
+      if (!stored) throw new Error("keine Notiz mit Jahresabschlüssen");
+      ctx.db.setWatched(stored, true);
+      ctx.log(`ok     ${isin}  ${stored.padEnd(12)} ${ctx.db.stock(stored)!.name} (${ctx.db.fundamentals(stored).length} Jahre)`);
+    } catch (error) {
+      if (isDailyLimit(error)) return { summary: `Tageslimit erreicht nach ${index} von ${isins.length} ISINs`, ok: false };
+      failed++;
+      ctx.log(`fehlt  ${isin}  ${reason(error)}`);
+    }
+    ctx.progress(index + 1, isins.length);
+  }
+  return {
+    summary: `${isins.length - failed} von ${isins.length} Titeln aufgenommen${failed ? `, ${failed} fehlgeschlagen` : ""}`,
+    ok: failed === 0,
+  };
+}

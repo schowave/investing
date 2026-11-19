@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { setWatched } from "../actions.ts";
+import { addStocks, setWatched } from "../actions.ts";
 import { amount, isoDate, percent } from "../format.ts";
+import { PendingButton } from "../pendingButton.tsx";
 import { database } from "../server.ts";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const RETURN_OPTIONS = [
 ];
 
 export default async function Stockpile(props: {
-  searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string; alle?: string }>;
+  searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string; alle?: string; lauf?: string; fehler?: string }>;
 }) {
   const params = await props.searchParams;
   const query = (params.q ?? "").trim();
@@ -45,6 +46,27 @@ export default async function Stockpile(props: {
           </p>
         </div>
       </div>
+      {params.fehler && <div className="notice error">{params.fehler}</div>}
+      {params.lauf && (
+        <div className="notice ok">
+          Die Titel werden im Hintergrund geladen und kommen auf die Watchlist. Stand auf der Seite <Link href="/abgleich">Abgleich</Link>.
+        </div>
+      )}
+      <details className="card">
+        <summary className="card-head">
+          <h2>Titel aufnehmen</h2>
+          <span className="meta">über ISIN oder Symbol mit Börse, je Titel rund 11 Abrufe</span>
+        </summary>
+        <form className="card-body stack" action={addStocks}>
+          <textarea
+            name="titel"
+            rows={4}
+            aria-label="ISINs oder Symbole"
+            placeholder={"GB0004544929 US16119P1084\noder KAP.IL KSPI.US – eine kopierte Depotliste geht auch"}
+          />
+          <PendingButton label="Laden und auf die Watchlist" pendingLabel="Wird eingestellt …" />
+        </form>
+      </details>
       <form className="card card-body row" action="/vorrat" style={{ paddingTop: 16 }}>
         <input type="search" name="q" defaultValue={query} placeholder="Name oder Symbol" aria-label="Suche" />
         <select name="region" defaultValue={region} aria-label="Region">

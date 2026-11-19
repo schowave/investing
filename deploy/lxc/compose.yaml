@@ -1,17 +1,29 @@
 # investing im LXC auf dem Proxmox. Liegt unter /opt/investing, Daten in /opt/investing/data.
-# Das Image baut GitHub bei jedem grünen Push auf main (ghcr.io); investing-update.timer holt neue Versionen.
+# Das Image baut GitHub bei jedem grünen Push auf main (ghcr.io); investing-update.timer holt neue Versionen
+# und übernimmt diese Datei aus dem Image, wenn sie sich geändert hat.
+x-investing: &investing
+  image: ghcr.io/schowave/investing:latest
+  restart: unless-stopped
+  env_file:
+    - path: .env # EODHD_API_TOKEN, optional TYPESAFE_API_KEY, ANTHROPIC_API_KEY, SEC_USER_AGENT
+      required: false
+  environment:
+    # Die Proxmox-Sicherung hält ältere Stände; im LXC genügen drei tägliche Sicherungen.
+    INVESTING_BACKUP_KEEP: "3"
+  volumes:
+    - ./data:/data # gehört UID 10001 (Benutzer im Container)
+
 services:
   investing:
-    image: ghcr.io/schowave/investing:latest
+    <<: *investing
     container_name: investing
-    restart: unless-stopped
     ports:
       - "3000:3000"
-    env_file:
-      - path: .env # EODHD_API_TOKEN, optional TYPESAFE_API_KEY, ANTHROPIC_API_KEY, SEC_USER_AGENT
-        required: false
-    environment:
-      # Die Proxmox-Sicherung hält ältere Stände; im LXC genügen drei tägliche Sicherungen.
-      INVESTING_BACKUP_KEEP: "3"
-    volumes:
-      - ./data:/data # gehört UID 10001 (Benutzer im Container)
+
+  # Arbeitet die Warteschlange ab: Abgleich, Importe (Seite „Abgleich“), immer nur einen Lauf zur Zeit.
+  worker:
+    <<: *investing
+    container_name: investing-worker
+    command: ["node", "scripts/worker.ts"]
+    healthcheck:
+      disable: true

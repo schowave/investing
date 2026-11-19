@@ -29,6 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     { href: "/", label: "Rangliste", count: open, countLabel: "offene Bewertungen" },
     { href: "/portfolio", label: "Portfolios" },
     { href: "/vorrat", label: "Datenvorrat" },
+    { href: "/abgleich", label: "Abgleich", count: db.activeJobs().length, countLabel: "laufende oder wartende Läufe" },
     { href: "/strategie", label: "Strategie" },
   ];
   const scope = `Watchlist mit ${watchlist.length} ${watchlist.length === 1 ? "Titel" : "Titeln"}`;

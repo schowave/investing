@@ -15,9 +15,22 @@ vi.mock("./server.ts", () => ({ database: () => db, today: () => "2026-11-19" })
 const judgeStock = vi.fn();
 vi.mock("../judgement/judge.ts", () => ({ judgeStock: (...args: unknown[]) => judgeStock(...args) }));
 
-const { createPortfolio, deletePortfolio, requestJudgement, saveHoldings, saveInputs, saveManualPrice, setWatched } = await import(
-  "./actions.ts"
-);
+const {
+  addStocks,
+  cancelJob,
+  createPortfolio,
+  deletePortfolio,
+  refreshStockData,
+  requestJudgement,
+  saveHoldings,
+  saveInputs,
+  saveManualPrice,
+  setWatched,
+  startHistory,
+  startIndexImport,
+  startRefreshAll,
+  startSync,
+} = await import("./actions.ts");
 
 const form = (fields: Record<string, string>) => {
   const data = new FormData();
@@ -114,5 +127,36 @@ describe("Server Actions", () => {
       ["risk.management", ""],
       ["risk.moat", "Jev-Vorschlag vom 2026-11-18 übernommen"],
     ]);
+  });
+
+  it("stellt Läufe ein, fasst Doppelklicks zusammen und bricht sie ab", async () => {
+    await expect(startSync("/abgleich")).rejects.toThrow("redirect:/abgleich?lauf=1");
+    await expect(startSync("https://example.com")).rejects.toThrow("redirect:/abgleich?lauf=1");
+    await expect(refreshStockData("IMB.LSE")).rejects.toThrow("redirect:/aktie/IMB.LSE?lauf=2");
+    await expect(refreshStockData("FEHLT")).rejects.toThrow(/^redirect:\/$/);
+    expect(db.activeJobs().map((j) => [j.kind, j.args])).toEqual([
+      ["sync", {}],
+      ["stock-refresh", { id: "IMB.LSE" }],
+    ]);
+    await expect(cancelJob(1)).rejects.toThrow("redirect:/abgleich");
+    expect(db.job(1)!.status).toBe("cancelled");
+  });
+
+  it("liest ISINs und Symbole aus dem Textfeld", async () => {
+    await expect(addStocks(form({ titel: "Depot: GB0004544929 5 Stück; kap.il, KSPI.US" }))).rejects.toThrow("redirect:/vorrat?lauf=1");
+    expect(db.job(1)!.args).toEqual({ isins: ["GB0004544929"], symbols: ["KAP.IL", "KSPI.US"] });
+    await expect(addStocks(form({ titel: "nichts Brauchbares" }))).rejects.toThrow(/redirect:\/vorrat\?fehler=Bitte%20mindestens/);
+  });
+
+  it("startet große Läufe nur mit Bestätigung", async () => {
+    await expect(startRefreshAll(form({}))).rejects.toThrow(/fehler=Bitte%20best%C3%A4tigen/);
+    await expect(startRefreshAll(form({ bestaetigt: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=1");
+    await expect(startHistory(form({ bestaetigt: "on", neu: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=2");
+    expect(db.job(2)!.args).toEqual({ refresh: true });
+    await expect(startIndexImport(form({ bestaetigt: "on", indizes: "gspc.indx, STOXX.INDX", boersen: "il" }))).rejects.toThrow(
+      "redirect:/abgleich?lauf=3",
+    );
+    expect(db.job(3)!.args).toEqual({ indices: ["GSPC.INDX", "STOXX.INDX"], exchanges: ["IL"] });
+    await expect(startIndexImport(form({ bestaetigt: "on", indizes: "GSPC" }))).rejects.toThrow(/fehler=/);
   });
 });

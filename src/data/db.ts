@@ -118,10 +118,31 @@ export interface StoredJudgement {
   /** `null`, wenn ohne Recherche im Netz eingestuft wurde. */
   researchModel: string | null;
   research: string | null;
-  sources: { url: string; title: string; pageAge: string | null }[];
+  /** Quellen der Recherche und, mit `kind: "sec"`, die Mitteilungen an die SEC (`pageAge` ist dann das Datum). */
+  sources: { url: string; title: string; pageAge: string | null; kind?: "sec" }[];
   /** Je Faktor (z. B. "moat"): Abzug, Sicherheit und Wahrscheinlichkeit je Stufe. */
   proposals: Record<string, { value: number; confidence: number; probabilities: Record<string, number> }>;
 }
+
+type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** Ein Hintergrundlauf aus der Warteschlange (src/jobs/). */
+export interface Job {
+  id: number;
+  kind: string;
+  args: unknown;
+  status: JobStatus;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  cancelRequested: boolean;
+  progressDone: number | null;
+  progressTotal: number | null;
+  log: string;
+  summary: string | null;
+}
+
+const toJob = (row: typeof t.jobs.$inferSelect): Job => ({ ...row, status: row.status as JobStatus });
 
 export const toColumn = (field: string) => field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 
@@ -655,6 +676,97 @@ export class Database {
       .values({ stockId, kind, ...values })
       .onConflictDoUpdate({ target: [t.rawDocuments.stockId, t.rawDocuments.kind], set: values })
       .run();
+  }
+
+  /**
+   * Stellt einen Lauf in die Warteschlange. Wartet oder läuft schon einer derselben Art mit denselben Parametern,
+   * bleibt es bei diesem (kein doppelter Verbrauch des Tagesbudgets durch zweimal Klicken).
+   */
+  enqueueJob(kind: string, args: unknown): { id: number; existing: boolean } {
+    const serialized = JSON.stringify(args);
+    return this.#db.transaction((tx) => {
+      const same = tx
+        .select()
+        .from(t.jobs)
+        .where(and(eq(t.jobs.kind, kind), or(eq(t.jobs.status, "queued"), eq(t.jobs.status, "running"))))
+        .all()
+        .find((job) => JSON.stringify(job.args) === serialized);
+      if (same) return { id: same.id, existing: true };
+      const { id } = tx
+        .insert(t.jobs)
+        .values({ kind, args, status: "queued", createdAt: new Date().toISOString() })
+        .returning({ id: t.jobs.id })
+        .get();
+      return { id, existing: false };
+    });
+  }
+
+  job(id: number): Job | null {
+    const row = this.#db.select().from(t.jobs).where(eq(t.jobs.id, id)).get();
+    return row ? toJob(row) : null;
+  }
+
+  /** Jüngste Läufe zuerst. */
+  jobs(limit: number): Job[] {
+    return this.#db.select().from(t.jobs).orderBy(desc(t.jobs.id)).limit(limit).all().map(toJob);
+  }
+
+  /** Laufende und wartende Läufe in der Reihenfolge, in der der Worker sie abarbeitet. */
+  activeJobs(): Job[] {
+    return this.#db
+      .select()
+      .from(t.jobs)
+      .where(or(eq(t.jobs.status, "running"), eq(t.jobs.status, "queued")))
+      .orderBy(asc(t.jobs.id))
+      .all()
+      .map(toJob);
+  }
+
+  /** Nimmt den ältesten wartenden Lauf und markiert ihn als laufend; `null`, wenn keiner wartet. */
+  claimNextJob(): Job | null {
+    return this.#db.transaction((tx) => {
+      const next = tx.select().from(t.jobs).where(eq(t.jobs.status, "queued")).orderBy(asc(t.jobs.id)).limit(1).get();
+      if (!next) return null;
+      const startedAt = new Date().toISOString();
+      tx.update(t.jobs).set({ status: "running", startedAt }).where(eq(t.jobs.id, next.id)).run();
+      return toJob({ ...next, status: "running", startedAt });
+    });
+  }
+
+  updateJobProgress(id: number, progress: { done: number | null; total: number | null; log: string }): void {
+    this.#db
+      .update(t.jobs)
+      .set({ progressDone: progress.done, progressTotal: progress.total, log: progress.log })
+      .where(eq(t.jobs.id, id))
+      .run();
+  }
+
+  finishJob(id: number, status: "done" | "failed" | "cancelled", summary: string, log: string): void {
+    this.#db.update(t.jobs).set({ status, summary, log, finishedAt: new Date().toISOString() }).where(eq(t.jobs.id, id)).run();
+  }
+
+  /** Ein wartender Lauf entfällt sofort; ein laufender hört beim nächsten Titel auf. */
+  requestJobCancel(id: number): void {
+    const job = this.job(id);
+    if (job?.status === "queued") this.finishJob(id, "cancelled", "abgebrochen, bevor er begann", "");
+    else if (job?.status === "running") this.#db.update(t.jobs).set({ cancelRequested: true }).where(eq(t.jobs.id, id)).run();
+  }
+
+  isJobCancelRequested(id: number): boolean {
+    return this.#db.select({ c: t.jobs.cancelRequested }).from(t.jobs).where(eq(t.jobs.id, id)).get()?.c === true;
+  }
+
+  /** Läufe, die bei einem Neustart des Workers mittendrin abbrachen, als gescheitert markieren. Liefert die Anzahl. */
+  failOrphanedJobs(): number {
+    const orphans = this.#db.select({ id: t.jobs.id }).from(t.jobs).where(eq(t.jobs.status, "running")).all();
+    for (const { id } of orphans) {
+      this.#db
+        .update(t.jobs)
+        .set({ status: "failed", summary: "abgebrochen: der Worker wurde neu gestartet", finishedAt: new Date().toISOString() })
+        .where(eq(t.jobs.id, id))
+        .run();
+    }
+    return orphans.length;
   }
 
   /** Speichert die jüngsten Jev-Vorschläge einer Aktie; ältere werden ersetzt. */

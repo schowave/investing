@@ -1,11 +1,10 @@
 [Unit]
-Description=investing: täglicher Abgleich (Sicherung, Kurse, Wechselkurse, Bewertungen)
+Description=investing: täglichen Abgleich in die Warteschlange stellen
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/investing
-# Im laufenden Container: gleiche Datenbank, gleiche Umgebung (.env) wie die Oberfläche.
-ExecStart=/usr/bin/docker compose exec -T investing node scripts/sync.ts
-TimeoutStartSec=3h
+# Der Worker arbeitet ihn ab, nach einem eventuell laufenden Lauf von Hand (Seite „Abgleich“).
+ExecStart=/usr/bin/docker compose exec -T worker node scripts/enqueue.ts sync

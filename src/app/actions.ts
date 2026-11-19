@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { JOB_KINDS, type JobKind } from "../jobs/registry.ts";
+import { isinsIn } from "../jobs/stockpile.ts";
 import { judgeStock } from "../judgement/judge.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
 import { database, today } from "./server.ts";
@@ -128,4 +130,69 @@ export async function saveHoldings(id: number, form: FormData): Promise<void> {
   db.setOtherAssets(id, other);
   for (const entry of entries) db.setHolding(id, entry.id, entry.shares);
   redirect(`${page}?gespeichert=1`);
+}
+
+// --- Hintergrundläufe (Seite „Abgleich“, Aktienseite, Datenvorrat) ---------------------------------------------
+
+/** Stellt einen Lauf ein und kehrt mit seiner Nummer zurück; ungültige Parameter landen als Fehler auf der Seite. */
+function enqueue(kind: JobKind, args: unknown, returnTo: string): never {
+  const back = LocalPath.safeParse(returnTo).success ? returnTo : "/abgleich";
+  const separator = back.includes("?") ? "&" : "?";
+  const parsed = JOB_KINDS[kind].args.safeParse(args);
+  if (!parsed.success) {
+    redirect(`${back}${separator}fehler=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ungültige Angaben.")}`);
+  }
+  const { id } = database().enqueueJob(kind, parsed.data);
+  revalidatePath("/abgleich");
+  redirect(`${back}${separator}lauf=${id}`);
+}
+
+/** Läufe mit tausenden Abrufen brauchen ein Häkchen, damit niemand sie versehentlich startet. */
+function requireConfirmation(form: FormData, returnTo: string): void {
+  if (form.get("bestaetigt") !== "on") {
+    redirect(`${returnTo}?fehler=${encodeURIComponent("Bitte bestätigen, dass der Lauf viele Abrufe kostet.")}`);
+  }
+}
+
+export async function startSync(returnTo: string): Promise<void> {
+  enqueue("sync", {}, returnTo);
+}
+
+export async function refreshStockData(stockId: string): Promise<void> {
+  if (!database().stock(stockId)) redirect("/");
+  enqueue("stock-refresh", { id: stockId }, `/aktie/${encodeURIComponent(stockId)}`);
+}
+
+/** ISINs und Symbole (mit Börse, z. B. KAP.IL) aus einem Textfeld; eine kopierte Depotliste geht auch. */
+export async function addStocks(form: FormData): Promise<void> {
+  const text = field(form.get("titel"));
+  const isins = isinsIn(text);
+  const symbols = [...new Set(text.toUpperCase().split(/[\s,;]+/))].filter((token) => token.includes(".") && !isins.includes(token));
+  enqueue("add-stocks", { isins, symbols }, "/vorrat");
+}
+
+export async function startHistory(form: FormData): Promise<void> {
+  requireConfirmation(form, "/abgleich");
+  enqueue("history", { refresh: form.get("neu") === "on" }, "/abgleich");
+}
+
+export async function startIndexImport(form: FormData): Promise<void> {
+  requireConfirmation(form, "/abgleich");
+  const words = (name: string) =>
+    field(form.get(name))
+      .toUpperCase()
+      .split(/[\s,;]+/)
+      .filter(Boolean);
+  enqueue("index-import", { indices: words("indizes"), exchanges: words("boersen") }, "/abgleich");
+}
+
+export async function startRefreshAll(form: FormData): Promise<void> {
+  requireConfirmation(form, "/abgleich");
+  enqueue("refresh-all", {}, "/abgleich");
+}
+
+export async function cancelJob(id: number): Promise<void> {
+  database().requestJobCancel(id);
+  revalidatePath("/abgleich");
+  redirect("/abgleich");
 }

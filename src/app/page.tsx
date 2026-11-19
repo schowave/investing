@@ -4,8 +4,10 @@ import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { looksImplausible } from "../valuation/valuation.ts";
+import { startSync } from "./actions.ts";
 import { amount, isoDate, percent } from "./format.ts";
 import { RangeLegend, ReturnRange, scaleFor } from "./parts.tsx";
+import { PendingButton } from "./pendingButton.tsx";
 import { database, today } from "./server.ts";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +77,9 @@ export default function Ranking() {
           <Link className="button quiet" href="/vorrat">
             Titel aufnehmen
           </Link>
+          <form action={startSync.bind(null, "/abgleich")}>
+            <PendingButton className="quiet" label="Jetzt abgleichen" pendingLabel="Wird eingestellt …" />
+          </form>
         </div>
       </div>
 

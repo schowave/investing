@@ -820,3 +820,33 @@ details.more[open] > summary {
   white-space: nowrap;
   border: 0;
 }
+
+/* Hintergrundläufe (Seite Abgleich, Titel aufnehmen im Datenvorrat). */
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--control);
+  border-radius: var(--radius-control);
+  resize: vertical;
+}
+textarea:focus-visible {
+  outline: 2px solid var(--data);
+  outline-offset: 2px;
+}
+progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: 8px;
+  accent-color: var(--data);
+}
+details.card > summary.card-head {
+  cursor: pointer;
+  list-style: none;
+}
+details.card > summary.card-head::-webkit-details-marker {
+  display: none;
+}

@@ -18,7 +18,7 @@ import { researchAvailable } from "../../../judgement/research.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
+import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { PendingButton } from "../../pendingButton.tsx";
@@ -78,7 +78,7 @@ const allowed = (id: RiskFactorId) => {
 
 export default async function StockPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; lauf?: string }>;
 }) {
   const id = decodeURIComponent((await props.params).id);
   const query = await props.searchParams;
@@ -98,6 +98,8 @@ export default async function StockPage(props: {
   const judgement = db.judgement(stock.id);
   const jevFor = (key: InputKey) => judgement?.proposals[key.replace(/^risk\./, "")];
   const canResearch = researchAvailable();
+  const secFilings = judgement?.sources.filter((source) => source.kind === "sec") ?? [];
+  const webSources = judgement?.sources.filter((source) => source.kind !== "sec") ?? [];
 
   // Urteil: Faktoren ohne Vorschlag aus Zahlen. Bei Finanzwerten gehören drei weitere dazu.
   const isJudgement = (factorId: RiskFactorId) =>
@@ -219,15 +221,26 @@ export default async function StockPage(props: {
             {stock.watched ? "" : " · im Datenvorrat, nicht auf der Watchlist"}
           </p>
         </div>
-        <form className="title-actions" action={setWatched.bind(null, stock.id, !stock.watched, self)}>
-          <button className={stock.watched ? "quiet" : ""} type="submit">
-            {stock.watched ? "Von der Watchlist nehmen" : "Auf die Watchlist"}
-          </button>
-        </form>
+        <div className="title-actions">
+          <form action={refreshStockData.bind(null, stock.id)}>
+            <PendingButton className="quiet" label="Daten aktualisieren" pendingLabel="Wird eingestellt …" />
+          </form>
+          <form action={setWatched.bind(null, stock.id, !stock.watched, self)}>
+            <button className={stock.watched ? "quiet" : ""} type="submit">
+              {stock.watched ? "Von der Watchlist nehmen" : "Auf die Watchlist"}
+            </button>
+          </form>
+        </div>
       </div>
 
       {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
       {query.gespeichert && <div className="notice ok">Gespeichert.</div>}
+      {query.lauf && (
+        <div className="notice ok">
+          Abschlüsse und Historie werden im Hintergrund neu geladen (13 Abrufe), danach neu bewertet. Stand auf der Seite{" "}
+          <Link href="/abgleich">Abgleich</Link>; diese Seite zeigt die neuen Zahlen nach dem Neuladen.
+        </div>
+      )}
 
       <dl className="card figures">
         <div className="figure">
@@ -358,8 +371,8 @@ export default async function StockPage(props: {
               <p className="meta">
                 {judgement
                   ? judgement.research
-                    ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz (${judgement.researchModel}, ${judgement.sources.length} Quellen).`
-                    : `Eingestuft von ${judgement.jevModel} nur aus den gespeicherten Daten, ohne Recherche im Netz.`
+                    ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz (${judgement.researchModel}, ${webSources.length} Quellen)${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}.`
+                    : `Eingestuft von ${judgement.jevModel} aus den gespeicherten Daten${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}, ohne Recherche im Netz.`
                   : "Jev stuft die sechs Urteilsfaktoren ein. Vorher sucht Claude im Netz nach Belegen zu Management, Prognosen und aktueller Lage."}
                 {!canResearch && " Für die Recherche fehlt ANTHROPIC_API_KEY in .env.local."}
               </p>
@@ -375,9 +388,9 @@ export default async function StockPage(props: {
                 <details className="research-details">
                   <summary>Recherche lesen</summary>
                   <p className="research">{judgement.research}</p>
-                  {judgement.sources.length > 0 && (
+                  {webSources.length > 0 && (
                     <ul className="notes">
-                      {judgement.sources.map((source) => (
+                      {webSources.map((source) => (
                         <li key={source.url}>
                           <a href={source.url} target="_blank" rel="noreferrer">
                             {source.title || source.url}
@@ -387,6 +400,21 @@ export default async function StockPage(props: {
                       ))}
                     </ul>
                   )}
+                </details>
+              )}
+              {secFilings.length > 0 && (
+                <details className="research-details">
+                  <summary>Mitteilungen an die SEC lesen</summary>
+                  <ul className="notes">
+                    {secFilings.map((filing) => (
+                      <li key={filing.url}>
+                        {filing.pageAge && <span className="meta">{isoDate(filing.pageAge)} · </span>}
+                        <a href={filing.url} target="_blank" rel="noreferrer">
+                          {filing.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </details>
               )}
             </div>
