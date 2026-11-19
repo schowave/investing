@@ -15,6 +15,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav>
             <Link href="/">Rangliste</Link>
+            <Link href="/portfolio">Portfolios</Link>
+            <Link href="/vorrat">Datenvorrat</Link>
           </nav>
         </header>
         <main>{children}</main>

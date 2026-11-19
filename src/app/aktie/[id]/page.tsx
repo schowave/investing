@@ -5,7 +5,7 @@ import type { FundamentalsYear } from "../../../data/db.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import { INPUT_KEYS } from "../../../valuation/valuation.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { saveInputs } from "../../actions.ts";
+import { saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, fieldValue, isoDate, percent } from "../../format.ts";
 import { database, today } from "../../server.ts";
 
@@ -45,7 +45,7 @@ export default async function StockPage(props: {
   const id = decodeURIComponent((await props.params).id);
   const query = await props.searchParams;
   const db = database();
-  const stock = db.stocks({ includeStockpile: true }).find((s) => s.id === id);
+  const stock = db.stock(id);
   if (!stock) notFound();
 
   const { proposals, valuation: v, priceDate } = computeValuation(db, stock, today());
@@ -63,6 +63,23 @@ export default async function StockPage(props: {
         {stock.isFinancial ? " · Finanzwert" : ""}
         {stock.watched ? "" : " · Datenvorrat, nicht auf der Watchlist"}
       </p>
+
+      <div className="row">
+        <form action={setWatched.bind(null, stock.id, !stock.watched, `/aktie/${encodeURIComponent(stock.id)}`)}>
+          <button className="quiet" type="submit">
+            {stock.watched ? "Von der Watchlist nehmen" : "Auf die Watchlist"}
+          </button>
+        </form>
+        <form className="row" action={saveManualPrice.bind(null, stock.id)}>
+          <label htmlFor="price" className="meta">
+            Kurs von Hand in {stock.priceCurrency}
+          </label>
+          <input id="price" name="price" type="text" inputMode="decimal" autoComplete="off" />
+          <button className="quiet" type="submit">
+            Kurs eintragen
+          </button>
+        </form>
+      </div>
 
       <dl className="figures">
         <div className="figure">

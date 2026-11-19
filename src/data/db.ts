@@ -50,6 +50,22 @@ export interface Price {
   close: number;
 }
 
+export type ProfileName = "fokussiert" | "global";
+
+export interface Portfolio {
+  id: number;
+  name: string;
+  profile: ProfileName;
+  /** Barbestand in Euro. */
+  cashEur: number;
+}
+
+export interface StockSearchHit {
+  stock: Stock;
+  /** Anzahl gespeicherter Geschäftsjahre. */
+  fiscalYears: number;
+}
+
 export interface ManualInput {
   key: string;
   value: number;
@@ -125,6 +141,18 @@ CREATE TABLE IF NOT EXISTS valuations (
   details TEXT NOT NULL,
   PRIMARY KEY (stock_id, date)
 );
+CREATE TABLE IF NOT EXISTS portfolios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  profile TEXT NOT NULL,
+  cash_eur REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS holdings (
+  portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  stock_id TEXT NOT NULL REFERENCES stocks(id),
+  shares REAL NOT NULL,
+  PRIMARY KEY (portfolio_id, stock_id)
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -133,6 +161,31 @@ CREATE TABLE IF NOT EXISTS raw_documents (
   PRIMARY KEY (stock_id, kind)
 );
 `;
+
+function toStock(r: Record<string, unknown>): Stock {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    sector: String(r.sector),
+    region: String(r.region),
+    country: String(r.country),
+    reportingCurrency: String(r.reporting_currency),
+    priceCurrency: String(r.price_currency),
+    priceDivisor: Number(r.price_divisor),
+    foundedYear: r.founded_year === null ? null : Number(r.founded_year),
+    isFinancial: r.is_financial === 1,
+    watched: r.watched === 1,
+  };
+}
+
+function toPortfolio(r: Record<string, unknown>): Portfolio {
+  return {
+    id: Number(r.id),
+    name: String(r.name),
+    profile: r.profile === "global" ? "global" : "fokussiert",
+    cashEur: Number(r.cash_eur),
+  };
+}
 
 export class Database {
   readonly #db: DatabaseSync;
@@ -183,19 +236,82 @@ export class Database {
   stocks(options: { includeStockpile?: boolean } = {}): Stock[] {
     const filter = options.includeStockpile ? "" : "WHERE watched = 1";
     const rows = this.#db.prepare(`SELECT * FROM stocks ${filter} ORDER BY id`).all() as Record<string, unknown>[];
-    return rows.map((r) => ({
-      id: String(r.id),
-      name: String(r.name),
-      sector: String(r.sector),
-      region: String(r.region),
-      country: String(r.country),
-      reportingCurrency: String(r.reporting_currency),
-      priceCurrency: String(r.price_currency),
-      priceDivisor: Number(r.price_divisor),
-      foundedYear: r.founded_year === null ? null : Number(r.founded_year),
-      isFinancial: r.is_financial === 1,
-      watched: r.watched === 1,
-    }));
+    return rows.map(toStock);
+  }
+
+  stock(id: string): Stock | null {
+    const row = this.#db.prepare("SELECT * FROM stocks WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? toStock(row) : null;
+  }
+
+  /** Nimmt eine Aktie auf die Watchlist oder legt sie zurück in den Datenvorrat. */
+  setWatched(id: string, watched: boolean): void {
+    this.#db.prepare("UPDATE stocks SET watched = ? WHERE id = ?").run(watched ? 1 : 0, id);
+  }
+
+  /** Sucht in Watchlist und Datenvorrat nach Name oder Symbol (Teilwort, Groß- und Kleinschreibung egal). */
+  searchStocks(query: string, limit: number): StockSearchHit[] {
+    const pattern = `%${query.trim().replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const rows = this.#db
+      .prepare(
+        `SELECT s.*, (SELECT COUNT(*) FROM fundamentals f WHERE f.stock_id = s.id) AS fiscal_years
+         FROM stocks s WHERE s.name LIKE ? ESCAPE '\\' OR s.id LIKE ? ESCAPE '\\'
+         ORDER BY s.watched DESC, s.name LIMIT ?`,
+      )
+      .all(pattern, pattern, limit) as Record<string, unknown>[];
+    return rows.map((r) => ({ stock: toStock(r), fiscalYears: Number(r.fiscal_years) }));
+  }
+
+  createPortfolio(name: string, profile: ProfileName): number {
+    const result = this.#db.prepare("INSERT INTO portfolios (name, profile) VALUES (?, ?)").run(name, profile);
+    return Number(result.lastInsertRowid);
+  }
+
+  portfolios(): Portfolio[] {
+    const rows = this.#db.prepare("SELECT * FROM portfolios ORDER BY name").all() as Record<string, unknown>[];
+    return rows.map(toPortfolio);
+  }
+
+  portfolio(id: number): Portfolio | null {
+    const row = this.#db.prepare("SELECT * FROM portfolios WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? toPortfolio(row) : null;
+  }
+
+  deletePortfolio(id: number): void {
+    this.#db.prepare("DELETE FROM portfolios WHERE id = ?").run(id);
+  }
+
+  setCash(portfolioId: number, cashEur: number): void {
+    this.#db.prepare("UPDATE portfolios SET cash_eur = ? WHERE id = ?").run(cashEur, portfolioId);
+  }
+
+  /** Setzt die Stückzahl einer Position; 0 entfernt sie. */
+  setHolding(portfolioId: number, stockId: string, shares: number): void {
+    if (shares === 0) {
+      this.#db.prepare("DELETE FROM holdings WHERE portfolio_id = ? AND stock_id = ?").run(portfolioId, stockId);
+      return;
+    }
+    this.#db
+      .prepare(
+        `INSERT INTO holdings (portfolio_id, stock_id, shares) VALUES (?, ?, ?)
+         ON CONFLICT (portfolio_id, stock_id) DO UPDATE SET shares = excluded.shares`,
+      )
+      .run(portfolioId, stockId, shares);
+  }
+
+  /** Stückzahlen je Aktie. */
+  holdings(portfolioId: number): Map<string, number> {
+    const rows = this.#db
+      .prepare("SELECT stock_id, shares FROM holdings WHERE portfolio_id = ?")
+      .all(portfolioId) as { stock_id: string; shares: number }[];
+    return new Map(rows.map((r) => [r.stock_id, r.shares]));
+  }
+
+  /** Trägt einen Kurs in der Hauptwährung von Hand ein (z. B. Pfund, nicht Pence). */
+  saveManualPrice(stockId: string, date: string, close: number): void {
+    const stock = this.stock(stockId);
+    if (!stock) throw new Error(`Unbekannte Aktie ${stockId}`);
+    this.saveRawCloses(stockId, [{ date, close: close * stock.priceDivisor }]);
   }
 
   /** Speichert Rohkurse, wie der Anbieter sie liefert (bei London in Pence). */

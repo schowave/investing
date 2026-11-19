@@ -38,6 +38,7 @@ a { color: inherit; }
   padding: 20px 32px 14px; border-bottom: 2px solid var(--ink);
 }
 .brand { font-size: 22px; font-weight: 700; letter-spacing: 0.01em; text-decoration: none; }
+nav { display: flex; gap: 24px; }
 nav a { font: 13px/1 ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; color: var(--muted); }
 nav a:hover { color: var(--ink); }
 main { padding: 28px 32px 48px; max-width: 1240px; }
@@ -92,3 +93,20 @@ button:hover { background: var(--accent); }
   .masthead, main, footer { padding-left: 16px; padding-right: 16px; }
   h1 { font-size: 24px; }
 }
+
+input[type="text"].wide, input[type="search"] { width: min(360px, 100%); text-align: left; padding: 8px 10px; font: 15px/1.2 ui-sans-serif, system-ui, sans-serif; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 3px; }
+select { padding: 8px 10px; font: 15px/1.2 ui-sans-serif, system-ui, sans-serif; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 3px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+button.quiet { color: var(--ink); background: transparent; border: 1px solid var(--ink); padding: 7px 12px; font-weight: 500; font-size: 13px; }
+button.quiet:hover { background: var(--ink); color: var(--paper); }
+button.danger { color: var(--bad); border-color: var(--bad); }
+button.danger:hover { background: var(--bad); color: var(--paper); }
+.buy { color: var(--accent); font-weight: 600; }
+.sell { color: var(--bad); font-weight: 600; }
+.bars { display: grid; gap: 3px; min-width: 140px; }
+.bar { height: 6px; border-radius: 1px; background: var(--muted); }
+.bar.target { background: var(--accent); }
+.legend { display: flex; gap: 18px; margin: 6px 0 0; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 6px; margin-right: 6px; background: var(--muted); vertical-align: middle; }
+.legend span.target::before { background: var(--accent); }
+.columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0 40px; }

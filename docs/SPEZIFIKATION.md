@@ -258,7 +258,8 @@ Backtest gibt es nicht.
 - Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr. Im Datenvorrat kommen sie ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse) und das Gründungsjahr fehlt; reichen die Abschlüsse 20 Jahre zurück, gilt die Existenzdauer als erfüllt.
 - Kapitalrendite und EBIT-Marge (Faktoren 8 und 9) werden als Durchschnitt der letzten fünf Jahre bewertet.
 - Jede Kennzahl kann per CSV eingetragen und korrigiert werden (bereinigte Gewinne, Titel ohne Anbieterdaten).
-- Ist-Positionen: manuell oder per CSV, keine Broker-Anbindung.
+- Ist-Positionen: manuell, keine Broker-Anbindung.
+- Ein Kurs kann je Aktie von Hand eingetragen werden, solange der Anbieter keinen liefert.
 - Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
 
 ## 10. Anwendung
@@ -275,7 +276,8 @@ Seiten:
 |---|---|
 | Rangliste | Watchlist nach innerer Rendite, mit Risikoklasse, Limit und Status der Bewertung |
 | Aktie | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen |
-| Portfolio | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region |
+| Portfolio | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
+| Datenvorrat | Suche über alle gespeicherten Titel, Aufnahme in die Watchlist |
 | Aufgaben | überfällige und unvollständige Bewertungen, geänderte Vorschläge |
 | Einstellungen | Profile und alle Parameter aus Abschnitt 12 |
 
