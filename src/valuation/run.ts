@@ -11,8 +11,8 @@ export interface StockValuation {
   valuation: Valuation;
 }
 
-/** @param date ISO-Datum der Bewertung, z. B. 2026-11-19. */
-export function valueStock(db: Database, stock: Stock, date: string): StockValuation {
+/** Rechnet die Bewertung, ohne etwas zu speichern. @param date ISO-Datum der Bewertung, z. B. 2026-11-19. */
+export function computeValuation(db: Database, stock: Stock, date: string): StockValuation {
   const reportingPerEur = db.latestFxRate(stock.reportingCurrency);
   const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)));
 
@@ -25,14 +25,21 @@ export function valueStock(db: Database, stock: Stock, date: string): StockValua
   const price = latest ? priceInReportingCurrency(latest.close, db.latestFxRate(stock.priceCurrency), reportingPerEur) : null;
   const valuation = evaluate(proposals.values, manual, price);
 
+  return { stock, priceDate: latest?.date ?? null, proposals, valuation };
+}
+
+/** Rechnet die Bewertung und speichert sie als Tagesstand. */
+export function valueStock(db: Database, stock: Stock, date: string): StockValuation {
+  const result = computeValuation(db, stock, date);
+  const { valuation, proposals, priceDate } = result;
   db.saveValuation(stock.id, date, {
     complete: valuation.complete,
-    price,
+    price: valuation.price,
     riskScore: valuation.riskScore,
     innerReturn: valuation.returns?.base ?? null,
     innerReturnCautious: valuation.returns?.cautious ?? null,
     innerReturnOptimistic: valuation.returns?.optimistic ?? null,
-    details: { priceDate: latest?.date ?? null, inputs: valuation.inputs, manual: valuation.manual, missing: valuation.missing, proposals },
+    details: { priceDate, inputs: valuation.inputs, manual: valuation.manual, missing: valuation.missing, proposals },
   });
-  return { stock, priceDate: latest?.date ?? null, proposals, valuation };
+  return result;
 }

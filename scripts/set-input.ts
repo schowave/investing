@@ -4,10 +4,8 @@
 //         npm run set -- IMB.LSE payoutLevel 3.09   Rückfluss je Aktie in Berichtswährung
 //         npm run set -- IMB.LSE risk.moat -        manuellen Wert löschen, es gilt wieder der Vorschlag
 
-import { RISK_FACTORS } from "../src/calc/index.ts";
-import type { RiskFactorId } from "../src/calc/index.ts";
 import { Database } from "../src/data/db.ts";
-import { INPUT_KEYS } from "../src/valuation/valuation.ts";
+import { INPUT_KEYS, parseManualInput } from "../src/valuation/valuation.ts";
 import type { InputKey } from "../src/valuation/valuation.ts";
 
 const [stockId, key, rawValue, ...noteParts] = process.argv.slice(2);
@@ -25,18 +23,11 @@ if (rawValue === "-") {
   db.clearManualInput(stockId!, key!);
   console.log(`${stockId} ${key}: manueller Wert gelöscht.`);
 } else {
-  const entered = Number(rawValue!.replace(",", "."));
-  if (!Number.isFinite(entered)) fail(`"${rawValue}" ist keine Zahl.`);
   const inputKey = key as InputKey;
-  const value = inputKey === "payoutLevel" ? entered : entered / 100;
-  if (inputKey === "payoutLevel" && value < 0) fail("Der Rückfluss darf nicht negativ sein.");
-  if (inputKey.startsWith("risk.")) {
-    const factor = RISK_FACTORS[inputKey.slice(5) as RiskFactorId];
-    if (value > factor.maxDeduction || value < -factor.bonus) {
-      fail(`${factor.label}: erlaubt sind ${-factor.bonus * 100} bis ${factor.maxDeduction * 100} %.`);
-    }
-  }
+  const parsed = parseManualInput(inputKey, rawValue!);
+  if ("error" in parsed) fail(parsed.error);
+  const value = (parsed as { value: number }).value;
   db.setManualInput(stockId!, key!, value, noteParts.join(" "));
-  console.log(`${stockId} ${key} = ${inputKey === "payoutLevel" ? value : `${entered} %`}`);
+  console.log(`${stockId} ${key} = ${inputKey === "payoutLevel" ? value : `${(value * 100).toFixed(2)} %`}`);
 }
 db.close();

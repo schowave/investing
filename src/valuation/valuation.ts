@@ -4,7 +4,8 @@
 import {
   assessRisk, defaultProbability, dividendLevel, dividendWasCut, earningsLevel, growthProposal, historicalGrowth,
   MANUAL_FOR_FINANCIALS, netBuybacksPerShare, payoutLevelProposal, proposeAge, proposeCashFlow, proposeCountry,
-  proposeCurrency, proposeEarnings, proposeFinancing, proposeProfitability, proposeSize, RISK_FACTOR_IDS, riskClass,
+  proposeCurrency, proposeEarnings, proposeFinancing, proposeProfitability, proposeSize, RISK_FACTOR_IDS, RISK_FACTORS,
+  riskClass,
   scenarioReturns,
 } from "../calc/index.ts";
 import type { Region, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
@@ -219,4 +220,23 @@ export function evaluate(proposals: InputValues, manualValues: InputValues, pric
 export function priceInReportingCurrency(price: number, pricePerEur: number | null, reportingPerEur: number | null): number | null {
   if (pricePerEur === null || reportingPerEur === null) return null;
   return (price / pricePerEur) * reportingPerEur;
+}
+
+/**
+ * Prüft eine Eingabe von Hand. Rückfluss als Betrag je Aktie, alles andere in Prozent (5 = 5 %, Komma erlaubt).
+ * Liefert den Wert als Anteil oder eine Fehlermeldung.
+ */
+export function parseManualInput(key: InputKey, text: string): { value: number } | { error: string } {
+  const entered = Number(text.trim().replace(",", "."));
+  if (text.trim() === "" || !Number.isFinite(entered)) return { error: `"${text}" ist keine Zahl.` };
+  if (key === "payoutLevel") return entered < 0 ? { error: "Der Rückfluss darf nicht negativ sein." } : { value: entered };
+  const value = entered / 100;
+  if (key === "growth") {
+    return value < -0.2 || value > 0.3 ? { error: "Wachstum: erlaubt sind −20 bis 30 %." } : { value };
+  }
+  const factor = RISK_FACTORS[key.slice(5) as RiskFactorId];
+  if (value > factor.maxDeduction + 1e-9 || value < -factor.bonus - 1e-9) {
+    return { error: `${factor.label}: erlaubt sind ${-factor.bonus * 100} bis ${factor.maxDeduction * 100} %.` };
+  }
+  return { value };
 }
