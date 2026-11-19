@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dividendLevel, dividendWasCut } from "../calc/index.ts";
 import { Database } from "../data/db.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
-import { parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
+import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
 import { valueStock } from "./run.ts";
 import { evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
 import type { InputValues } from "./valuation.ts";
@@ -176,5 +176,36 @@ describe("stockFromEodhd", () => {
       name: "Beispiel PLC", region: "Europa", reportingCurrency: "GBP", priceCurrency: "GBP", priceDivisor: 100,
       isFinancial: true, watched: false, foundedYear: null,
     });
+  });
+});
+
+describe("Rohantworten und Gründungsjahr", () => {
+  it("speichert Rohantworten gepackt und liest auch alte ungepackte", () => {
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    const body = JSON.stringify({ General: { Name: "Tést" }, text: "x".repeat(5000) });
+    db.saveRawDocument(stock.id, "eodhd-fundamentals", body);
+    expect(db.rawDocument(stock.id, "eodhd-fundamentals")!.body).toBe(body);
+    expect(db.compressRawDocuments()).toBe(0);
+    expect([...db.stockIdsWithRawDocument("eodhd-fundamentals")]).toEqual([stock.id]);
+    db.close();
+  });
+
+  it("liest das Gründungsjahr aus dem Beschreibungstext", () => {
+    expect(foundedYearFrom("Imperial Brands PLC was founded in 1901 and is headquartered in Bristol.")).toBe(1901);
+    expect(foundedYearFrom("The company was incorporated in 1996. It was founded in 1865.")).toBe(1865);
+    expect(foundedYearFrom("Founded in 3021 by nobody.")).toBeNull();
+    expect(foundedYearFrom(null)).toBeNull();
+  });
+
+  it("trägt das Gründungsjahr nur nach, wenn keines gesetzt ist", () => {
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.addStockIfMissing({ ...stock, id: "NEU.US", foundedYear: null });
+    db.setFoundedYearIfMissing(stock.id, 1800);
+    db.setFoundedYearIfMissing("NEU.US", 1990);
+    expect(db.stock(stock.id)!.foundedYear).toBe(1950);
+    expect(db.stock("NEU.US")!.foundedYear).toBe(1990);
+    db.close();
   });
 });

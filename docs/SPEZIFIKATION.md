@@ -240,12 +240,13 @@ Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 | Bewertung älter als 12 Monate | Aufgabe „Bewertung überfällig" |
 | Fehlender manueller Faktor oder fehlende Eingabe | Aufgabe „Bewertung unvollständig" |
 
-Der tägliche Abgleich läuft mit `npm run sync`. Er holt Kurse für die Watchlist und alle gehaltenen
-Titel ab dem letzten gespeicherten Tag (höchstens ein Jahr zurück), sodass nach einer Pause keine
-Lücke bleibt. Scheitert der Abruf für einen Titel, läuft der Abgleich weiter und rechnet mit dem
-letzten bekannten Kurs; die Rangliste zeigt, ob der letzte Lauf vollständig war. Lokal richtet
-`npm run schedule -- an` einen macOS-Dienst ein, der täglich um 23:15 Uhr läuft. Der kostenlose
-Tarif des Anbieters erlaubt 20 Abrufe am Tag, also höchstens 20 Titel.
+Der tägliche Abgleich läuft mit `npm run sync`. Er holt Kurse ab dem letzten gespeicherten Tag
+(höchstens ein Jahr zurück), sodass nach einer Pause keine Lücke bleibt, und richtet sich nach dem
+Tagesbudget des Tarifs (Abschnitt 9.1). Scheitert der Abruf für einen Titel, läuft der Abgleich
+weiter und rechnet mit dem letzten bekannten Kurs; die Rangliste zeigt, ob der letzte Lauf
+vollständig war. Titel der Watchlist und gehaltene Titel bekommen einen Tagesstand mit Verlauf,
+der Datenvorrat nur eine Momentaufnahme für das Screening. Lokal richtet `npm run schedule -- an`
+einen macOS-Dienst ein, der täglich um 23:15 Uhr läuft.
 
 Der tägliche Stand (Annahmen, Risikowert, innere Rendite, Zielportfolio) wird dauerhaft
 gespeichert, um die Risikoeinstufung später an der tatsächlichen Entwicklung zu prüfen. Einen
@@ -254,20 +255,31 @@ Backtest gibt es nicht.
 ## 9. Daten
 
 - Fundamentaldaten: EODHD, Tarif „Fundamentals", für einen Monat gebucht. Geladen werden alle verfügbaren Geschäftsjahre; die vollständige Antwort des Anbieters wird je Aktie unverändert aufbewahrt, damit sich weitere Kennzahlen später ohne neuen Abruf gewinnen lassen. Von Hand gepflegt wird nichts.
-- Datenvorrat: Neben der Watchlist liegen die Fundamentaldaten der Bestandteile von S&P 500, STOXX Europe 600 und FTSE 100 in der Datenbank (rund 1.000 Titel, ohne Kursabgleich). Titel der Mailänder Börse liefert der Anbieter nicht.
-- Nach Ablauf des Monats gibt es keine neuen Fundamentaldaten. Die Datenbankdatei ist dann die einzige Kopie. Für neue Geschäftsjahre wird der Tarif erneut für einen Monat gebucht oder die Zahlen kommen per CSV.
-- Kurse: Tagesschlusskurse von EODHD. Der kostenlose Tarif reicht für die Watchlist (20 Abrufe am Tag); der Tarif „Fundamentals" enthält keine Kurse.
+- Datenvorrat: Neben der Watchlist liegen die Fundamentaldaten der Bestandteile von rund 30 Indizes in der Datenbank (USA mit Russell 1000 und 2000 und NYSE Composite, Europa mit STOXX 600, FTSE All-Share, HDAX, SDAX, CAC All Shares und den nordischen und polnischen Gesamtindizes, dazu Kanada, Australien, Korea, Brasilien, Mexiko, Israel). Die Börsen in Mailand, Tokio und Hongkong führt der Anbieter nicht; Mailänder Titel werden über ihre deutsche Notiz geladen. Die Rohantworten sind gepackt gespeichert.
+- Nach Ablauf des Monats gibt es keine neuen Fundamentaldaten und keine neuen Titel. Die Datenbankdatei ist dann die einzige Kopie. Siehe 9.1.
+- Kurse: Tagesschlusskurse von EODHD. Sperrt der Tarif die Kurshistorie (Tarif „Fundamentals"), liefert die Symbolsuche den letzten Schlusskurs; das kostet ebenfalls einen Abruf je Aktie.
 - Gewinn je Aktie wird aus Jahresüberschuss und Aktienzahl gerechnet, die Dividende je Aktie aus gezahlter Dividendensumme und Aktienzahl. Die fertigen Felder des Anbieters mischen außerhalb der USA Einheiten. Die so gerechnete Dividende schwankt leicht; ein Rückgang bis 3 % gilt nicht als Kürzung.
 - Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und aktienbasierte Vergütung zählen als 0. Fehlen Gewinn oder Aktienzahl in einem der zehn Jahre, gibt es keinen Vorschlag.
 - Titel mit weniger als zehn Geschäftsjahren werden markiert und nicht stillschweigend bewertet.
-- Wechselkurse: EZB-Referenzkurse. Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose. Für Währungen ohne EZB-Kurs (Tenge bei Halyk) bleibt die Bewertung unvollständig.
+- Wechselkurse: EZB-Referenzkurse. Währungen, die die EZB nicht führt (Tenge bei Halyk), kommen von open.er-api.com (frei mit Quellenangabe). Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose.
 - Fundamentaldaten je Aktie und Geschäftsjahr: Gewinn je Aktie, Dividende je Aktie, Aktienzahl, Rückkäufe und Ausgabe von Aktien, aktienbasierte Vergütung, Umsatz, EBIT, Bilanzsumme, Eigenkapital, Umlaufvermögen, kurzfristige Verbindlichkeiten, langfristiges Fremdkapital, Zahlungsmittel, operativer Cashflow, freier Cashflow.
-- Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr. Im Datenvorrat kommen sie ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse) und das Gründungsjahr fehlt; reichen die Abschlüsse 20 Jahre zurück, gilt die Existenzdauer als erfüllt.
+- Stammdaten: Branche, Land und Kontinent des Sitzes, Berichts- und Kurswährung, Gründungsjahr. Im Datenvorrat kommen sie ungeprüft vom Anbieter (das Land ist bei Hinterlegungsscheinen das der Börse). Das Gründungsjahr wird aus dem Beschreibungstext gelesen; fehlt es dort und reichen die Abschlüsse 20 Jahre zurück, gilt die Existenzdauer als erfüllt.
 - Kapitalrendite und EBIT-Marge (Faktoren 8 und 9) werden als Durchschnitt der letzten fünf Jahre bewertet.
 - Jede Kennzahl kann per CSV eingetragen und korrigiert werden (bereinigte Gewinne, Titel ohne Anbieterdaten).
 - Ist-Positionen: manuell, keine Broker-Anbindung.
 - Ein Kurs kann je Aktie von Hand eingetragen werden, solange der Anbieter keinen liefert.
 - Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für andere angezeigt werden.
+
+### 9.1 Betrieb nach der Kündigung des Tarifs
+
+Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Tag) weiterläuft:
+
+- **Vor der Kündigung:** `npm run import:index -- --auffrischen` lädt alle gespeicherten Titel noch einmal, damit die jüngsten Abschlüsse enthalten sind. Danach die Datenbankdatei sichern.
+- **Kurse:** Der tägliche Abgleich fragt das Tagesbudget des Kontos ab und hält zwei Abrufe in Reserve. Reicht es nicht für alle Titel, kommen zuerst gehaltene Aktien, dann die Watchlist, jeweils die mit dem ältesten Kurs zuerst. Der Rest folgt am nächsten Tag; die Rangliste meldet das. Bei 18 Abrufen am Tag sind bis zu 18 Titel täglich aktuell, 36 Titel jeden zweiten Tag.
+- **Datenvorrat:** Er bekommt nur Kurse, wenn das Budget über 500 Abrufen liegt, also in einem bezahlten Tarif. Danach altern seine Kurse; das Screening zeigt das Kursdatum. Für einen einzelnen Titel lässt sich der Kurs von Hand eintragen oder der Titel auf die Watchlist nehmen.
+- **Neue Geschäftsjahre:** einmal im Jahr den Tarif für einen Monat buchen und auffrischen, oder die Zahlen einzelner Titel per CSV eintragen (`npm run import:fundamentals`). Die Bewertung meldet, wenn der letzte Abschluss älter als zwei Jahre ist.
+- **Neue Titel**, die nicht im Datenvorrat liegen, brauchen den bezahlten Tarif oder die CSV-Eingabe.
+- **Mehr als etwa 20 Titel mit täglichem Kurs:** Tarif „EOD Historical Data" für rund 20 € im Monat (100.000 Abrufe am Tag).
 
 ## 10. Anwendung
 
@@ -284,7 +296,7 @@ Seiten:
 | Rangliste | Watchlist nach innerer Rendite, mit Risikoklasse, Limit und Status der Bewertung |
 | Aktie | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen |
 | Portfolio | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
-| Datenvorrat | Suche über alle gespeicherten Titel, Aufnahme in die Watchlist |
+| Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist |
 | Aufgaben | überfällige und unvollständige Bewertungen, geänderte Vorschläge |
 | Einstellungen | Profile und alle Parameter aus Abschnitt 12 |
 
@@ -336,7 +348,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 ## 13. Offen
 
 - **Lizenz für mehrere Nutzer:** Die Privattarife der Datenanbieter erlauben keine Anzeige für andere Nutzer. Vor dem Freischalten weiterer Nutzer mit EODHD klären.
-- **Halyk Savings Bank:** Die Fundamentaldaten stehen in Tenge, dafür fehlt ein Wechselkurs. Das Verhältnis von Hinterlegungsschein zu Aktie ist ungeprüft.
+- **Halyk Savings Bank:** Die Zahlen des Anbieters sind je Hinterlegungsschein und passen damit zum Londoner Kurs. Das ist aus der Aktienzahl geschlossen, nicht am Geschäftsbericht geprüft.
 - **Gezahlte Dividenden bei Sonderfällen:** Das Feld des Anbieters enthält bei einzelnen Titeln Ausschüttungen an Minderheiten (Charter 2016 und 2020).
 - **Kalibrierung der Ausfallwahrscheinlichkeit** an historischen Ausfallraten nach Bonitätsklasse.
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.

@@ -1,6 +1,7 @@
 // SQLite-Zugriff für Stammdaten, Kurse, Wechselkurse und Fundamentaldaten.
 
 import { DatabaseSync } from "node:sqlite";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 export const FUNDAMENTAL_FIELDS = [
   "epsDiluted",
@@ -64,6 +65,20 @@ export interface StockSearchHit {
   stock: Stock;
   /** Anzahl gespeicherter Geschäftsjahre. */
   fiscalYears: number;
+}
+
+/** Vorläufige Bewertung eines Titels aus den Vorschlägen, ohne Verlauf. */
+export interface ScreeningRow {
+  stockId: string;
+  date: string;
+  priceDate: string | null;
+  /** Kurs in Berichtswährung. */
+  price: number | null;
+  payoutLevel: number | null;
+  growth: number | null;
+  /** Summe der gesetzten Risikofaktoren (Untergrenze). */
+  riskScore: number;
+  innerReturn: number | null;
 }
 
 export interface ManualInput {
@@ -166,6 +181,16 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   ok INTEGER NOT NULL,
   report TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS screening (
+  stock_id TEXT PRIMARY KEY REFERENCES stocks(id),
+  date TEXT NOT NULL,
+  price_date TEXT,
+  price REAL,
+  payout_level REAL,
+  growth REAL,
+  risk_score REAL NOT NULL,
+  inner_return REAL
+);
 CREATE TABLE IF NOT EXISTS raw_documents (
   stock_id TEXT NOT NULL REFERENCES stocks(id),
   kind TEXT NOT NULL,
@@ -207,6 +232,10 @@ export class Database {
   constructor(path: string) {
     this.#db = new DatabaseSync(path);
     this.#db.exec("PRAGMA foreign_keys = ON");
+    // Oberfläche und Abgleich greifen gleichzeitig zu: Schreibsperren abwarten statt abzubrechen, und mit
+    // Schreibprotokoll (WAL) blockiert ein laufender Abgleich das Lesen nicht.
+    this.#db.exec("PRAGMA busy_timeout = 10000");
+    if (path !== ":memory:") this.#db.exec("PRAGMA journal_mode = WAL");
     this.#db.exec(SCHEMA);
     // Datenbanken aus der Zeit vor dem Datenvorrat haben die Spalte noch nicht.
     const columns = this.#db.prepare("PRAGMA table_info(stocks)").all() as { name: string }[];
@@ -469,6 +498,80 @@ export class Database {
     return row ? { finishedAt: row.finished_at, ok: row.ok === 1, report: JSON.parse(row.report) } : null;
   }
 
+  /** Datum des jüngsten Kurses je Aktie. */
+  latestPriceDates(): Map<string, string> {
+    const rows = this.#db.prepare("SELECT stock_id, MAX(date) AS date FROM prices GROUP BY stock_id").all() as { stock_id: string; date: string }[];
+    return new Map(rows.map((r) => [r.stock_id, r.date]));
+  }
+
+  /** Alle Berichts- und Kurswährungen der gespeicherten Aktien. */
+  currencies(): string[] {
+    const rows = this.#db
+      .prepare("SELECT reporting_currency AS c FROM stocks UNION SELECT price_currency FROM stocks")
+      .all() as { c: string }[];
+    return rows.map((r) => r.c).filter((c) => c !== "");
+  }
+
+  saveScreening(rows: readonly ScreeningRow[]): void {
+    const statement = this.#db.prepare(
+      `INSERT INTO screening (stock_id, date, price_date, price, payout_level, growth, risk_score, inner_return)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (stock_id) DO UPDATE SET date = excluded.date, price_date = excluded.price_date, price = excluded.price,
+         payout_level = excluded.payout_level, growth = excluded.growth, risk_score = excluded.risk_score,
+         inner_return = excluded.inner_return`,
+    );
+    this.#transaction(() =>
+      rows.forEach((r) => statement.run(r.stockId, r.date, r.priceDate, r.price, r.payoutLevel, r.growth, r.riskScore, r.innerReturn)),
+    );
+  }
+
+  /**
+   * Titel mit berechenbarer innerer Rendite, höchste zuerst.
+   * @param filter `region` und `maxRisk` (Risikowert höchstens) sind optional; `query` sucht in Name und Symbol.
+   */
+  screening(filter: { region?: string; maxRisk?: number; maxReturn?: number; query?: string }, limit: number): { stock: Stock; row: ScreeningRow }[] {
+    const where = ["c.inner_return IS NOT NULL"];
+    const args: (string | number)[] = [];
+    if (filter.region) {
+      where.push("s.region = ?");
+      args.push(filter.region);
+    }
+    if (filter.maxRisk !== undefined) {
+      where.push("c.risk_score <= ?");
+      args.push(filter.maxRisk);
+    }
+    if (filter.maxReturn !== undefined) {
+      where.push("c.inner_return <= ?");
+      args.push(filter.maxReturn);
+    }
+    if (filter.query) {
+      const pattern = `%${filter.query.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+      where.push("(s.name LIKE ? ESCAPE '\\' OR s.id LIKE ? ESCAPE '\\')");
+      args.push(pattern, pattern);
+    }
+    const rows = this.#db
+      .prepare(
+        `SELECT s.*, c.date AS c_date, c.price_date, c.price, c.payout_level, c.growth, c.risk_score, c.inner_return
+         FROM screening c JOIN stocks s ON s.id = c.stock_id WHERE ${where.join(" AND ")}
+         ORDER BY c.inner_return DESC LIMIT ?`,
+      )
+      .all(...args, limit) as Record<string, unknown>[];
+    const optional = (value: unknown) => (value === null ? null : Number(value));
+    return rows.map((r) => ({
+      stock: toStock(r),
+      row: {
+        stockId: String(r.id), date: String(r.c_date), priceDate: r.price_date === null ? null : String(r.price_date),
+        price: optional(r.price), payoutLevel: optional(r.payout_level), growth: optional(r.growth),
+        riskScore: Number(r.risk_score), innerReturn: optional(r.inner_return),
+      },
+    }));
+  }
+
+  /** Regionen, für die es Titel gibt. */
+  regions(): string[] {
+    return (this.#db.prepare("SELECT DISTINCT region FROM stocks ORDER BY region").all() as { region: string }[]).map((r) => r.region);
+  }
+
   /** Bewahrt die unveränderte Antwort eines Anbieters auf; je Aktie und Art gilt die jüngste. */
   saveRawDocument(stockId: string, kind: string, body: string): void {
     this.#db
@@ -476,7 +579,7 @@ export class Database {
         `INSERT INTO raw_documents (stock_id, kind, fetched_at, body) VALUES (?, ?, ?, ?)
          ON CONFLICT (stock_id, kind) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body`,
       )
-      .run(stockId, kind, new Date().toISOString(), body);
+      .run(stockId, kind, new Date().toISOString(), gzipSync(body));
   }
 
   /** Kennungen aller Aktien, zu denen eine Rohantwort dieser Art vorliegt. */
@@ -488,8 +591,29 @@ export class Database {
   rawDocument(stockId: string, kind: string): { fetchedAt: string; body: string } | null {
     const row = this.#db
       .prepare("SELECT fetched_at, body FROM raw_documents WHERE stock_id = ? AND kind = ?")
-      .get(stockId, kind) as { fetched_at: string; body: string } | undefined;
-    return row ? { fetchedAt: row.fetched_at, body: row.body } : null;
+      .get(stockId, kind) as { fetched_at: string; body: string | Uint8Array } | undefined;
+    if (!row) return null;
+    // Ältere Einträge liegen noch als Text vor, neue gepackt.
+    const body = typeof row.body === "string" ? row.body : gunzipSync(row.body).toString("utf8");
+    return { fetchedAt: row.fetched_at, body };
+  }
+
+  /** Packt Rohantworten, die noch als Text gespeichert sind, und gibt den Platz frei. Liefert die Anzahl. */
+  compressRawDocuments(): number {
+    const pending = this.#db.prepare("SELECT stock_id, kind FROM raw_documents WHERE typeof(body) = 'text'").all() as { stock_id: string; kind: string }[];
+    const read = this.#db.prepare("SELECT body FROM raw_documents WHERE stock_id = ? AND kind = ?");
+    const write = this.#db.prepare("UPDATE raw_documents SET body = ? WHERE stock_id = ? AND kind = ?");
+    for (const { stock_id, kind } of pending) {
+      const { body } = read.get(stock_id, kind) as { body: string };
+      write.run(gzipSync(body), stock_id, kind);
+    }
+    if (pending.length > 0) this.#db.exec("VACUUM");
+    return pending.length;
+  }
+
+  /** Trägt das Gründungsjahr nach, wenn noch keines gesetzt ist. */
+  setFoundedYearIfMissing(id: string, year: number): void {
+    this.#db.prepare("UPDATE stocks SET founded_year = ? WHERE id = ? AND founded_year IS NULL").run(year, id);
   }
 
   /** Geschäftsjahre einer Aktie, ältestes zuerst. */

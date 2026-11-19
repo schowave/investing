@@ -2,7 +2,16 @@ import Link from "next/link";
 import { EXCLUSION_SCORE, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL } from "../calc/index.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { amount, isoDate, percent } from "./format.ts";
+import type { SyncReport } from "../sync/dailySync.ts";
 import { database, today } from "./server.ts";
+
+function syncProblem(report: SyncReport): string {
+  const parts: string[] = [];
+  if (report.fxError) parts.push("Wechselkurse fehlen");
+  if (report.priceErrors?.length) parts.push(`${report.priceErrors.length} Kurse nicht geladen`);
+  if (report.pricesDeferred?.length) parts.push(`${report.pricesDeferred.length} Kurse folgen beim nächsten Lauf (Tagesbudget)`);
+  return parts.length > 0 ? `${parts.join(", ")}.` : "unvollständig.";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +37,7 @@ export default function Ranking() {
       </p>
       <p className="meta">
         {lastSync
-          ? `Letzter Abgleich am ${isoDate(lastSync.finishedAt.slice(0, 10))}${lastSync.ok ? "." : ", nicht alle Kurse oder Wechselkurse wurden geladen."}`
+          ? `Letzter Abgleich am ${isoDate(lastSync.finishedAt.slice(0, 10))}${lastSync.ok ? "." : `: ${syncProblem(lastSync.report as SyncReport)}`}`
           : "Noch kein täglicher Abgleich gelaufen."}
       </p>
       <div className="scroll">

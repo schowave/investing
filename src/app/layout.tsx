@@ -20,7 +20,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </nav>
         </header>
         <main>{children}</main>
-        <footer>Eigene Rechnung auf Basis von Anbieterdaten. Keine Anlageberatung.</footer>
+        <footer>Eigene Rechnung auf Basis von Anbieterdaten. Keine Anlageberatung. Wechselkurse: EZB, ergänzt um{" "}
+          <a href="https://www.exchangerate-api.com">Rates By Exchange Rate API</a>.</footer>
       </body>
     </html>
   );

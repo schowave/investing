@@ -11,6 +11,8 @@ export interface EodhdFundamentals {
   sector: string | null;
   country: string | null;
   name: string | null;
+  /** Aus dem Beschreibungstext gelesen ("founded in 1901"); `null`, wenn dort nichts steht. */
+  foundedYear: number | null;
   /** Währung der Kursnotiz, wie der Anbieter sie nennt (z. B. GBX für Pence). */
   quoteCurrency: string | null;
 }
@@ -78,8 +80,18 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     sector: text(root.General?.Sector),
     country: text(root.General?.CountryISO),
     name: text(root.General?.Name),
+    foundedYear: foundedYearFrom(text(root.General?.Description)),
     quoteCurrency: text(root.General?.CurrencyCode),
   };
+}
+
+/** Frühestes plausibles Jahr hinter "founded in", "incorporated in" oder "established in". */
+export function foundedYearFrom(description: string | null): number | null {
+  if (!description) return null;
+  const years = [...description.matchAll(/\b(?:founded|incorporated|established)\s+in\s+(\d{4})\b/gi)]
+    .map((match) => Number(match[1]))
+    .filter((year) => year >= 1500 && year <= new Date().getFullYear());
+  return years.length > 0 ? Math.min(...years) : null;
 }
 
 /** Notiz in einer Unterwährung: Hauptwährung und Teiler. */
@@ -114,7 +126,7 @@ export function stockFromEodhd(symbol: string, parsed: EodhdFundamentals): Stock
     reportingCurrency: parsed.reportingCurrency ?? minor?.currency ?? quote,
     priceCurrency: minor?.currency ?? quote,
     priceDivisor: minor?.divisor ?? 1,
-    foundedYear: null,
+    foundedYear: parsed.foundedYear,
     isFinancial: parsed.sector === "Financial Services",
     watched: false,
   };
@@ -132,4 +144,33 @@ export async function fetchEodhdFundamentalsRaw(
   const response = await fetchFn(url);
   if (!response.ok) throw new EodhdError(response.status, `fundamentals/${symbol}`);
   return response.text();
+}
+
+export interface SearchHit {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+  /** Letzter Schlusskurs in der Einheit der Kursnotiz (bei London Pence). */
+  previousClose: number | null;
+  previousCloseDate: string | null;
+}
+
+/** Symbolsuche (ein Abruf). Liefert auch den letzten Schlusskurs, in jedem Tarif. */
+export async function searchEodhd(query: string, token: string, fetchFn: typeof fetch = fetch): Promise<SearchHit[]> {
+  const url = new URL(`https://eodhd.com/api/search/${encodeURIComponent(query)}`);
+  url.searchParams.set("api_token", token);
+  url.searchParams.set("fmt", "json");
+  const response = await fetchFn(url);
+  if (!response.ok) throw new EodhdError(response.status, `search/${query}`);
+  const rows = (await response.json()) as Record<string, unknown>[];
+  if (!Array.isArray(rows)) return [];
+  return rows.map((r) => ({
+    symbol: `${String(r.Code)}.${String(r.Exchange)}`,
+    name: String(r.Name ?? ""),
+    exchange: String(r.Exchange),
+    type: String(r.Type ?? ""),
+    previousClose: typeof r.previousClose === "number" && r.previousClose > 0 ? r.previousClose : null,
+    previousCloseDate: typeof r.previousCloseDate === "string" ? r.previousCloseDate : null,
+  }));
 }

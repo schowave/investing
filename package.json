@@ -15,7 +15,8 @@
     "import:index": "node --env-file-if-exists=.env.local scripts/import-index.ts",
     "evaluate": "node scripts/evaluate.ts",
     "set": "node scripts/set-input.ts",
-    "schedule": "node scripts/schedule.ts"
+    "schedule": "node scripts/schedule.ts",
+    "compact": "node scripts/compact.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

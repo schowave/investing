@@ -17,15 +17,37 @@ const years: FundamentalsYear[] = Array.from({ length: 10 }, (_, i) => ({
   currentLiabilities: 1000, longTermDebt: 0, cash: 0, operatingCashFlow: 600, freeCashFlow: 400,
 }));
 
-/** Stellt EZB und EODHD nach und merkt sich die abgefragten Adressen (ohne Token). */
-function fakeFetch(closes: Record<string, { date: string; close: number }[] | number>, ecbOk = true) {
+interface Fake {
+  closes?: Record<string, { date: string; close: number }[] | number>;
+  /** Antworten der Symbolsuche: letzter Schlusskurs je Symbol. */
+  search?: Record<string, number>;
+  ecbOk?: boolean;
+  /** Tageslimit und bisheriger Verbrauch laut Konto. */
+  account?: { limit: number; used: number };
+  extraRates?: Record<string, number>;
+}
+
+/** Stellt EZB, Zusatzkurse und EODHD nach und merkt sich die abgefragten Adressen (ohne Token). */
+function fakeFetch(fake: Fake) {
   const calls: string[] = [];
   const fetchFn = (async (input: string | URL) => {
     const url = new URL(String(input));
-    if (url.hostname.includes("ecb")) return new Response(ECB, { status: ecbOk ? 200 : 500 });
-    const symbol = decodeURIComponent(url.pathname.split("/").at(-1)!);
+    if (url.hostname.includes("ecb")) return new Response(ECB, { status: fake.ecbOk === false ? 500 : 200 });
+    if (url.hostname.includes("er-api")) return Response.json({ result: "success", rates: fake.extraRates ?? {} });
+    const [kind, ...rest] = url.pathname.replace("/api/", "").split("/");
+    const symbol = decodeURIComponent(rest.join("/"));
+    if (kind === "user") {
+      const account = fake.account ?? { limit: 100000, used: 0 };
+      return Response.json({ dailyRateLimit: account.limit, apiRequests: account.used, subscriptionType: "test" });
+    }
+    if (kind === "search") {
+      calls.push(`suche ${symbol}`);
+      const close = fake.search?.[symbol];
+      const [Code, Exchange] = symbol.split(".");
+      return Response.json(close === undefined ? [] : [{ Code, Exchange, Name: symbol, Type: "Common Stock", previousClose: close, previousCloseDate: "2026-11-18" }]);
+    }
     calls.push(`${symbol} ${url.searchParams.get("from")} ${url.searchParams.get("to")}`);
-    const answer = closes[symbol] ?? 404;
+    const answer = fake.closes?.[symbol] ?? 404;
     return typeof answer === "number" ? new Response("", { status: answer }) : Response.json(answer);
   }) as typeof fetch;
   return { fetchFn, calls };
@@ -47,59 +69,106 @@ describe("runDailySync", () => {
     db.setCash(portfolio, 1000);
     db.setHolding(portfolio, "A.XETRA", 10);
     const { fetchFn, calls } = fakeFetch({
-      "A.XETRA": [{ date: "2026-11-18", close: 39 }, { date: "2026-11-19", close: 40 }],
-      "B.US": [{ date: "2026-11-19", close: 125 }],
+      closes: {
+        "A.XETRA": [{ date: "2026-11-18", close: 39 }, { date: "2026-11-19", close: 40 }],
+        "B.US": [{ date: "2026-11-19", close: 125 }],
+        "VORRAT.US": [{ date: "2026-11-19", close: 7 }],
+      },
     });
 
     const report = await runDailySync(db, "geheim", NOW, fetchFn);
 
     expect(syncSucceeded(report)).toBe(true);
-    expect(report).toMatchObject({ date: "2026-11-19", fxDate: "2026-11-19", valuations: 2, portfolios: 1 });
-    // Ohne gespeicherten Kurs wird die längste erlaubte Historie geholt; der Vorratstitel bleibt außen vor.
-    expect(calls).toEqual(["A.XETRA 2025-11-24 2026-11-19", "B.US 2025-11-24 2026-11-19"]);
+    expect(report).toMatchObject({ date: "2026-11-19", fxDate: "2026-11-19", pricesLoaded: 3, valuations: 2, portfolios: 1 });
+    // Gehaltene Titel zuerst, dann die Watchlist, dann der Vorrat. Ohne gespeicherten Kurs die längste erlaubte Historie.
+    expect(calls).toEqual(["A.XETRA 2025-11-24 2026-11-19", "B.US 2025-11-24 2026-11-19", "VORRAT.US 2025-11-24 2026-11-19"]);
     expect(db.latestPrice("A.XETRA")).toEqual({ date: "2026-11-19", close: 40 });
     expect(db.latestFxRate("USD")).toBe(1.25);
     expect(db.latestValuation("A.XETRA")).toMatchObject({ date: "2026-11-19", price: 40 });
+    // Der Vorrat bekommt eine Momentaufnahme, aber keinen Verlauf.
+    expect(db.latestValuation("VORRAT.US")).toBeNull();
+    expect(db.screening({}, 10).map((r) => r.stock.id)).toEqual(["A.XETRA"]);
     expect(db.portfolioSnapshots(portfolio, 5)).toMatchObject([{ date: "2026-11-19", totalEur: 1400 }]);
     expect(db.latestSyncRun()).toMatchObject({ ok: true });
     db.close();
   });
 
-  it("holt nach einer Pause die Kurse ab dem letzten gespeicherten Tag", async () => {
+  it("holt nach einer Pause die Kurse ab dem letzten gespeicherten Tag und überspringt aktuelle", async () => {
     const db = setup();
     db.saveRawCloses("A.XETRA", [{ date: "2026-10-20", close: 38 }]);
     db.saveRawCloses("B.US", [{ date: "2026-11-18", close: 120 }]);
-    const { fetchFn, calls } = fakeFetch({ "A.XETRA": [], "B.US": [] });
-    await runDailySync(db, "geheim", NOW, fetchFn);
-    expect(calls).toEqual(["A.XETRA 2026-10-20 2026-11-19", "B.US 2026-11-09 2026-11-19"]);
+    db.saveRawCloses("VORRAT.US", [{ date: "2026-11-17", close: 7 }]);
+    const { fetchFn, calls } = fakeFetch({ closes: { "A.XETRA": [], "VORRAT.US": [] } });
+    const report = await runDailySync(db, "geheim", NOW, fetchFn);
+    expect(calls).toEqual(["A.XETRA 2026-10-20 2026-11-19", "VORRAT.US 2026-11-09 2026-11-19"]);
+    expect(report.pricesCurrent).toBe(1);
     db.close();
   });
 
-  it("läuft bei gesperrten Kursen weiter und meldet den Lauf als unvollständig", async () => {
+  it("hält das Tagesbudget ein: gehaltene Titel zuerst, der Rest wartet, der Vorrat bleibt außen vor", async () => {
     const db = setup();
-    db.saveRawCloses("A.XETRA", [{ date: "2026-11-18", close: 39 }]);
-    const { fetchFn } = fakeFetch({ "A.XETRA": 403, "B.US": 403 }, false);
+    db.addStockIfMissing(stock("C.US"));
+    const portfolio = db.createPortfolio("Depot", "global");
+    db.setHolding(portfolio, "C.US", 5);
+    db.saveRawCloses("A.XETRA", [{ date: "2026-11-10", close: 38 }]);
+    db.saveRawCloses("B.US", [{ date: "2026-11-12", close: 120 }]);
+    // 20 Abrufe am Tag, 16 verbraucht, 2 bleiben in Reserve: Platz für zwei Kurse.
+    const { fetchFn, calls } = fakeFetch({ closes: { "A.XETRA": [], "C.US": [], "B.US": [] }, account: { limit: 20, used: 16 } });
 
     const report = await runDailySync(db, "geheim", NOW, fetchFn);
 
+    expect(report.budget).toBe(2);
+    expect(calls.map((c) => c.split(" ")[0])).toEqual(["C.US", "A.XETRA"]);
+    expect(report.pricesDeferred).toEqual(["B.US"]);
+    expect(syncSucceeded(report)).toBe(false);
+    db.close();
+  });
+
+  it("nimmt bei gesperrter Kurshistorie den Schlusskurs aus der Symbolsuche", async () => {
+    const db = setup();
+    db.addStockIfMissing(stock("IMB.LSE", { priceCurrency: "GBP", priceDivisor: 100 }));
+    const { fetchFn, calls } = fakeFetch({
+      closes: { "A.XETRA": 403, "B.US": 403, "IMB.LSE": 403, "VORRAT.US": 403 },
+      search: { "A.XETRA": 41, "IMB.LSE": 2849, "VORRAT.US": 7 },
+    });
+
+    const report = await runDailySync(db, "geheim", NOW, fetchFn);
+
+    // Die Sperre wird einmal festgestellt, danach geht es direkt über die Suche.
+    expect(calls.filter((c) => !c.startsWith("suche"))).toHaveLength(1);
+    expect(db.latestPrice("A.XETRA")).toEqual({ date: "2026-11-18", close: 41 });
+    expect(db.latestPrice("IMB.LSE")).toEqual({ date: "2026-11-18", close: 28.49 });
+    expect(report.pricesLoaded).toBe(3);
+    expect(report.priceErrors).toEqual([{ id: "B.US", error: "kein Kurs in der Symbolsuche" }]);
+    expect(JSON.stringify(report)).not.toContain("geheim");
+    db.close();
+  });
+
+  it("läuft ohne Wechselkurse und ohne Token weiter und meldet den Lauf als unvollständig", async () => {
+    const db = setup();
+    db.saveRawCloses("A.XETRA", [{ date: "2026-11-10", close: 39 }]);
+    const { fetchFn, calls } = fakeFetch({ ecbOk: false });
+
+    const report = await runDailySync(db, null, NOW, fetchFn);
+
+    expect(calls).toEqual([]);
     expect(syncSucceeded(report)).toBe(false);
     expect(report.fxError).toContain("500");
-    expect(report.prices[0]).toEqual({ id: "A.XETRA", date: "2026-11-18", error: "HTTP 403 (Tarif enthält keine Kurse)" });
-    expect(JSON.stringify(report)).not.toContain("geheim");
+    expect(report.priceErrors.map((e) => e.id)).toEqual(["B.US", "A.XETRA"]);
     // Die Bewertung wird trotzdem mit dem letzten bekannten Kurs gespeichert.
     expect(db.latestValuation("A.XETRA")).toMatchObject({ date: "2026-11-19", price: 39 });
     expect(db.latestSyncRun()).toMatchObject({ ok: false });
     db.close();
   });
 
-  it("bezieht gehaltene Titel ein, die nicht auf der Watchlist stehen", async () => {
+  it("ergänzt Wechselkurse für Währungen, die die EZB nicht führt", async () => {
     const db = setup();
-    const portfolio = db.createPortfolio("Depot", "global");
-    db.setHolding(portfolio, "VORRAT.US", 5);
-    const { fetchFn, calls } = fakeFetch({ "A.XETRA": [], "B.US": [], "VORRAT.US": [{ date: "2026-11-19", close: 7 }] });
-    const report = await runDailySync(db, "geheim", NOW, fetchFn);
-    expect(calls.map((c) => c.split(" ")[0])).toContain("VORRAT.US");
-    expect(report.valuations).toBe(3);
+    db.addStockIfMissing(stock("HSBK.LSE", { reportingCurrency: "KZT", priceCurrency: "USD" }));
+    const { fetchFn } = fakeFetch({ extraRates: { KZT: 487.5, USD: 9 } });
+    await runDailySync(db, null, NOW, fetchFn);
+    expect(db.latestFxRate("KZT")).toBe(487.5);
+    // Kurse der EZB werden nicht überschrieben.
+    expect(db.latestFxRate("USD")).toBe(1.25);
     db.close();
   });
 });
