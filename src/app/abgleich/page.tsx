@@ -67,7 +67,7 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
           <p className="finding">
             {running
               ? `Läuft gerade: ${label(running)}${running.progressTotal ? ` (${running.progressDone ?? 0} von ${running.progressTotal})` : ""}.`
-              : "Kein Lauf aktiv. Der Abgleich läuft jede Nacht um 23:15 von selbst; hier startest du ihn und größere Läufe von Hand."}
+              : "Kein Lauf aktiv. Der Abgleich läuft jede Nacht um 1:15 Uhr (im Sommer 2:15 Uhr) von selbst, nachdem EODHD das Tageslimit zurückgesetzt hat; hier startest du ihn und größere Läufe von Hand."}
           </p>
         </div>
         <form className="title-actions" action={startSync.bind(null, self)}>

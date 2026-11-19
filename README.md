@@ -133,7 +133,8 @@ Push auf main ──▶ CI: check, Image bauen, Rauchtest ──▶ ghcr.io/scho
                                                                      │
 LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀───────┘ holt latest, startet neu,
                          prüft /healthz, bei Fehler zurück auf die vorherige Version
-                         investing-sync.timer (täglich 23:15): Sicherung und Abgleich im Container
+                         investing-sync.timer (täglich 00:15 UTC, nach dem Zurücksetzen des EODHD-Limits):
+                         Sicherung und Abgleich im Container
 ```
 
 - **Ausrollen passiert von selbst.** Jeder grüne Push auf `main`, auch ein Renovate-Update, landet

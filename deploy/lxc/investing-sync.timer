@@ -1,9 +1,11 @@
 [Unit]
-Description=investing: täglicher Abgleich um 23:15
+Description=investing: täglicher Abgleich um 00:15 UTC
 
 [Timer]
-OnCalendar=*-*-* 23:15:00
-# War der LXC um 23:15 aus, läuft der Abgleich nach dem Start nach.
+# EODHD setzt das Tageslimit um Mitternacht GMT zurück; danach steht dem Abgleich das volle Budget zur Verfügung,
+# auch wenn tagsüber Läufe von Hand das Limit aufgebraucht haben. In Berlin ist das 1:15 Uhr, im Sommer 2:15 Uhr.
+OnCalendar=*-*-* 00:15:00 UTC
+# War der LXC zu der Zeit aus, läuft der Abgleich nach dem Start nach.
 Persistent=true
 
 [Install]
