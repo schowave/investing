@@ -1,30 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { dividendLevel, dividendWasCut } from "../calc/index.ts";
 import { Database } from "../data/db.ts";
-import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
+import { steadyYears, stock } from "../test/fixtures.ts";
 import { valueStock } from "./run.ts";
-import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, unadjustedSplit } from "./valuation.ts";
 import type { InputValues } from "./valuation.ts";
-
-const stock: Stock = {
-  id: "TEST.US", name: "Test", sector: "Chemie", region: "Europa", country: "DE", reportingCurrency: "EUR",
-  priceCurrency: "EUR", priceDivisor: 1, foundedYear: 1950, isFinancial: false, watched: true,
-};
-
-/** Zehn ruhige Jahre: 100 Aktien, Gewinn je Aktie steigt von 5,0 um 0,1 pro Jahr, Dividende 2, freier Cashflow 4 je Aktie. */
-function steadyYears(change: (year: FundamentalsYear, index: number) => void = () => {}): FundamentalsYear[] {
-  return Array.from({ length: 10 }, (_, i) => {
-    const year: FundamentalsYear = {
-      fiscalYear: 2016 + i, epsDiluted: 5 + i * 0.1, dividendPerShare: 2, shares: 100, repurchases: 100, issuance: 0,
-      stockBasedCompensation: null, revenue: 5000 * 1.03 ** i, ebit: 750 * 1.03 ** i, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
-      currentLiabilities: 1000, longTermDebt: null, cash: 0, operatingCashFlow: 600, freeCashFlow: 400,
-      netDebt: 0, interestExpense: 0, ebitda: 900 * 1.03 ** i,
-    };
-    change(year, i);
-    return year;
-  });
-}
+import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, unadjustedSplit } from "./valuation.ts";
 
 describe("proposeInputs", () => {
   it("leitet Rückfluss, Wachstum und Zahlenfaktoren aus zehn Jahren ab", () => {
@@ -46,7 +27,12 @@ describe("proposeInputs", () => {
   });
 
   it("deckelt den Rückfluss auf den freien Cashflow und meldet das", () => {
-    const { values, notes } = proposeInputs(stock, steadyYears((y) => (y.freeCashFlow = 250)), 1, 2026);
+    const { values, notes } = proposeInputs(
+      stock,
+      steadyYears((y) => (y.freeCashFlow = 250)),
+      1,
+      2026,
+    );
     expect(values.payoutLevel).toBeCloseTo(2.5);
     expect(notes.some((n) => n.includes("gedeckelt"))).toBe(true);
   });
@@ -60,7 +46,12 @@ describe("proposeInputs", () => {
   });
 
   it("schlägt bei Finanzwerten Finanzierung, Kapitalrendite und Marge nicht vor und nimmt das Gewinnniveau als Deckel", () => {
-    const { values, details } = proposeInputs({ ...stock, isFinancial: true }, steadyYears((y) => (y.freeCashFlow = null)), 1, 2026);
+    const { values, details } = proposeInputs(
+      { ...stock, isFinancial: true },
+      steadyYears((y) => (y.freeCashFlow = null)),
+      1,
+      2026,
+    );
     expect(values["risk.financing"]).toBeUndefined();
     expect(values["risk.returnOnCapital"]).toBeUndefined();
     expect(values["risk.ebitMargin"]).toBeUndefined();
@@ -69,21 +60,41 @@ describe("proposeInputs", () => {
   });
 
   it("gibt bei fallendem Gewinn keinen Wachstumsvorschlag", () => {
-    const { values, notes } = proposeInputs(stock, steadyYears((y, i) => (y.epsDiluted = 5 - i * 0.3)), 1, 2026);
+    const { values, notes } = proposeInputs(
+      stock,
+      steadyYears((y, i) => (y.epsDiluted = 5 - i * 0.3)),
+      1,
+      2026,
+    );
     expect(values.growth).toBeUndefined();
     expect(notes.some((n) => n.includes("von Hand"))).toBe(true);
   });
 
   it("begrenzt das Wachstum auf das Umsatzwachstum je Aktie", () => {
-    const flat = proposeInputs(stock, steadyYears((y) => (y.revenue = 5000)), 1, 2026);
+    const flat = proposeInputs(
+      stock,
+      steadyYears((y) => (y.revenue = 5000)),
+      1,
+      2026,
+    );
     expect(flat.values.growth).toBe(0);
-    const slow = proposeInputs(stock, steadyYears((y, i) => (y.revenue = 5000 * 1.01 ** i)), 1, 2026);
+    const slow = proposeInputs(
+      stock,
+      steadyYears((y, i) => (y.revenue = 5000 * 1.01 ** i)),
+      1,
+      2026,
+    );
     expect(slow.values.growth).toBeCloseTo(0.01);
   });
 
   it("deckelt das Gewinnniveau auf den höchsten Gewinn der letzten drei Jahre", () => {
     const eps = [0.7, 1.5, 1.4, 1.1, 1.6, 3.0, 1.7, 2.5, 3.0, 2.5];
-    const { details } = proposeInputs(stock, steadyYears((y, i) => (y.epsDiluted = eps[i]!)), 1, 2026);
+    const { details } = proposeInputs(
+      stock,
+      steadyYears((y, i) => (y.epsDiluted = eps[i]!)),
+      1,
+      2026,
+    );
     expect(details.earningsLevel).toBe(3.0);
   });
 
@@ -219,8 +230,14 @@ describe("stockFromEodhd", () => {
       Financials: { Income_Statement: { currency_symbol: "GBP", yearly: {} } },
     });
     expect(stockFromEodhd("BSP.LSE", parsed)).toMatchObject({
-      name: "Beispiel PLC", region: "Europa", reportingCurrency: "GBP", priceCurrency: "GBP", priceDivisor: 100,
-      isFinancial: true, watched: false, foundedYear: null,
+      name: "Beispiel PLC",
+      region: "Europa",
+      reportingCurrency: "GBP",
+      priceCurrency: "GBP",
+      priceDivisor: 100,
+      isFinancial: true,
+      watched: false,
+      foundedYear: null,
     });
   });
 });
@@ -261,11 +278,20 @@ describe("Dividendenhistorie und Splits", () => {
 
   it("summiert regelmäßige Dividenden je Jahr, ohne Sonderzahlungen und ohne angekündigte", () => {
     const byYear = dividendsByYear(
-      [pay("2024-03-01", 0.5), pay("2024-09-01", 0.6), pay("2025-03-01", 0.7), pay("2025-06-01", 3, "GBP", "Special"), pay("2027-02-18", 0.9)],
+      [
+        pay("2024-03-01", 0.5),
+        pay("2024-09-01", 0.6),
+        pay("2025-03-01", 0.7),
+        pay("2025-06-01", 3, "GBP", "Special"),
+        pay("2027-02-18", 0.9),
+      ],
       "GBP",
       "2026-11-19",
     )!;
-    expect([...byYear]).toEqual([[2024, 1.1], [2025, 0.7]]);
+    expect([...byYear]).toEqual([
+      [2024, 1.1],
+      [2025, 0.7],
+    ]);
   });
 
   it("rechnet Pence in Pfund und gibt bei fremder Währung auf", () => {

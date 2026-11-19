@@ -6,8 +6,8 @@
 
 import type { Database, ScreeningRow, Stock } from "../data/db.ts";
 import { fetchEcbRates } from "../data/ecb.ts";
-import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
 import type { DailyClose } from "../data/eodhd.ts";
+import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
 import { searchEodhd } from "../data/eodhdFundamentals.ts";
 import { fetchBulkLastDay } from "../data/eodhdHistory.ts";
 import { fetchSupplementRates } from "../data/fxSupplement.ts";
@@ -78,9 +78,18 @@ export async function runDailySync(
   const date = isoDay(now.getTime());
   const yesterday = isoDay(now.getTime() - 86_400_000);
   const report: SyncReport = {
-    date, fxDate: null, fxError: null, budget: 0, pricesLoaded: 0, pricesCurrent: 0, pricesDeferred: [], priceErrors: [],
+    date,
+    fxDate: null,
+    fxError: null,
+    budget: 0,
+    pricesLoaded: 0,
+    pricesCurrent: 0,
+    pricesDeferred: [],
+    priceErrors: [],
     referenceErrors: [],
-    valuations: 0, screened: 0, portfolios: 0,
+    valuations: 0,
+    screened: 0,
+    portfolios: 0,
   };
 
   // --- Wechselkurse: EZB, dazu eine zweite Quelle für Währungen, die dort fehlen ---
@@ -123,7 +132,9 @@ export async function runDailySync(
   const group = (s: Stock) => (held.has(s.id) ? 0 : s.watched ? 1 : 2);
   let queue = all
     .filter((s) => (priceDates.get(s.id) ?? "") < yesterday)
-    .sort((a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id));
+    .sort(
+      (a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id),
+    );
   report.pricesCurrent = all.length - queue.length;
 
   if (token !== null) {
@@ -215,9 +226,14 @@ export async function runDailySync(
     const { valuation, priceDate, proposals } = trackedStock ? valueStock(db, stock, date) : computeValuation(db, stock, date);
     if (trackedStock) report.valuations++;
     screening.push({
-      stockId: stock.id, date, priceDate, price: valuation.price,
-      payoutLevel: valuation.inputs.payoutLevel ?? null, growth: valuation.inputs.growth ?? null,
-      riskScore: valuation.riskScore, innerReturn: valuation.returns?.base ?? null,
+      stockId: stock.id,
+      date,
+      priceDate,
+      price: valuation.price,
+      payoutLevel: valuation.inputs.payoutLevel ?? null,
+      growth: valuation.inputs.growth ?? null,
+      riskScore: valuation.riskScore,
+      innerReturn: valuation.returns?.base ?? null,
       implausible:
         proposals.details.unadjustedSplit !== null ||
         looksImplausible(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel),
@@ -229,7 +245,10 @@ export async function runDailySync(
   for (const portfolio of db.portfolios()) {
     const { view } = loadPortfolio(db, portfolio, date);
     db.savePortfolioSnapshot(portfolio.id, date, view.totalEur, {
-      profile: portfolio.profile, cashEur: portfolio.cashEur, targetCashWeight: view.targetCashWeight, rows: view.rows,
+      profile: portfolio.profile,
+      cashEur: portfolio.cashEur,
+      targetCashWeight: view.targetCashWeight,
+      rows: view.rows,
     });
     report.portfolios++;
   }

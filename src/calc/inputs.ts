@@ -15,7 +15,7 @@ function requireTenYears(series: readonly number[]): void {
  * Dividenden je Aktie werden aus gezahlter Summe und Aktienzahl gerechnet und schwanken dadurch leicht.
  * Ein Rückgang bis zu diesem Anteil gilt nicht als Kürzung.
  */
-export const DIVIDEND_NOISE = 0.03;
+const DIVIDEND_NOISE = 0.03;
 
 function neverFalls(series: readonly number[], strictly: boolean): boolean {
   return series.every((v, i) => {

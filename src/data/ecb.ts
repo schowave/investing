@@ -5,7 +5,7 @@ export interface EcbRates {
   perEur: Record<string, number>;
 }
 
-export const ECB_DAILY_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
+const ECB_DAILY_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
 export function parseEcbRates(xml: string): EcbRates {
   const date = /time=['"](\d{4}-\d{2}-\d{2})['"]/.exec(xml)?.[1];

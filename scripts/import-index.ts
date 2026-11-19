@@ -1,9 +1,9 @@
 // Legt einen Datenvorrat an: Fundamentaldaten aller Bestandteile eines oder mehrerer Indizes (10 Abrufe je Aktie).
-// Aufruf: npm run import:index -- GSPC.INDX STOXX.INDX     neue Titel laden, vorhandene überspringen
-//         npm run import:index -- KAP.IL KSPI.US           einzelne Symbole
-//         npm run import:index -- --boerse=IL              alle Stammaktien einer Börse
-//         npm run import:index -- --auffrischen            alle gespeicherten Titel neu laden (vor einer Kündigung)
-//         npm run import:index -- --archiv                 ohne Abruf neu aus den gespeicherten Rohantworten auswerten
+// Aufruf: pnpm run import:index GSPC.INDX STOXX.INDX     neue Titel laden, vorhandene überspringen
+//         pnpm run import:index KAP.IL KSPI.US           einzelne Symbole
+//         pnpm run import:index --boerse=IL              alle Stammaktien einer Börse
+//         pnpm run import:index --auffrischen            alle gespeicherten Titel neu laden (vor einer Kündigung)
+//         pnpm run import:index --archiv                 ohne Abruf neu aus den gespeicherten Rohantworten auswerten
 // Ein abgebrochener Lauf lässt sich einfach wiederholen.
 
 import { Database } from "../src/data/db.ts";
@@ -20,7 +20,10 @@ const flags = new Set(process.argv.slice(2).filter((a) => a.startsWith("--")));
 const plain = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 const indices = plain.filter((a) => a.endsWith(".INDX"));
 const symbols = plain.filter((a) => !a.endsWith(".INDX"));
-const exchanges = process.argv.slice(2).filter((a) => a.startsWith("--boerse=")).map((a) => a.slice(9));
+const exchanges = process.argv
+  .slice(2)
+  .filter((a) => a.startsWith("--boerse="))
+  .map((a) => a.slice(9));
 
 function store(symbol: string, raw: string, keepRaw: boolean): void {
   const parsed = parseEodhdFundamentals(JSON.parse(raw));
@@ -57,13 +60,19 @@ if (plain.length === 0 && exchanges.length === 0 && !flags.has("--auffrischen"))
 
 const names = new Map<string, string>();
 for (const index of indices) {
-  const data = JSON.parse(await fetchEodhdFundamentalsRaw(index, token)) as { Components?: Record<string, { Code: string; Exchange: string; Name: string }> };
+  const data = JSON.parse(await fetchEodhdFundamentalsRaw(index, token)) as {
+    Components?: Record<string, { Code: string; Exchange: string; Name: string }>;
+  };
   const components = Object.values(data.Components ?? {}).filter((c) => c.Code && c.Exchange);
-  components.forEach((c) => names.set(`${c.Code}.${c.Exchange}`, c.Name));
+  components.forEach((c) => {
+    names.set(`${c.Code}.${c.Exchange}`, c.Name);
+  });
   console.log(`${index}: ${components.length} Bestandteile`);
 }
 
-symbols.forEach((symbol) => names.set(symbol, ""));
+symbols.forEach((symbol) => {
+  names.set(symbol, "");
+});
 for (const exchange of exchanges) {
   const url = new URL(`https://eodhd.com/api/exchange-symbol-list/${encodeURIComponent(exchange)}`);
   url.searchParams.set("api_token", token);
@@ -71,13 +80,19 @@ for (const exchange of exchanges) {
   const response = await fetch(url);
   if (!response.ok) throw new EodhdError(response.status, `exchange-symbol-list/${exchange}`);
   const list = ((await response.json()) as { Code: string; Name: string; Type: string }[]).filter((x) => x.Type === "Common Stock");
-  list.forEach((x) => names.set(`${x.Code}.${exchange}`, x.Name));
+  list.forEach((x) => {
+    names.set(`${x.Code}.${exchange}`, x.Name);
+  });
   console.log(`Börse ${exchange}: ${list.length} Stammaktien`);
 }
 
 const known = db.stockIdsWithRawDocument(KIND);
-const todo = flags.has("--auffrischen") ? [...new Set([...known, ...names.keys()])].sort() : [...names.keys()].filter((s) => !known.has(s)).sort();
-console.log(`${todo.length} Aktien zu laden${flags.has("--auffrischen") ? " (Auffrischen)" : `, ${names.size - todo.length} schon vorhanden`}`);
+const todo = flags.has("--auffrischen")
+  ? [...new Set([...known, ...names.keys()])].sort()
+  : [...names.keys()].filter((s) => !known.has(s)).sort();
+console.log(
+  `${todo.length} Aktien zu laden${flags.has("--auffrischen") ? " (Auffrischen)" : `, ${names.size - todo.length} schon vorhanden`}`,
+);
 
 async function fetchWithRetry(symbol: string): Promise<string> {
   for (let attempt = 1; ; attempt++) {

@@ -1,5 +1,5 @@
 // Prüft, ob der EODHD-Token Kurse für die Start-Watchlist liefert.
-// Aufruf: npm run check:eodhd   (Token in .env.local als EODHD_API_TOKEN)
+// Aufruf: pnpm run check:eodhd   (Token in .env.local als EODHD_API_TOKEN)
 
 import { EodhdError, fetchAccount, fetchDailyCloses } from "../src/data/eodhd.ts";
 

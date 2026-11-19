@@ -73,10 +73,7 @@ export interface DefaultProbabilityParams {
 export const DEFAULT_PROBABILITY_PARAMS: DefaultProbabilityParams = { base: 0.005, perScore: 0.05 };
 
 /** Ausfallwahrscheinlichkeit pro Jahr aus dem Risikowert. */
-export function defaultProbability(
-  score: number,
-  params: DefaultProbabilityParams = DEFAULT_PROBABILITY_PARAMS,
-): number {
+export function defaultProbability(score: number, params: DefaultProbabilityParams = DEFAULT_PROBABILITY_PARAMS): number {
   return params.base + params.perScore * score;
 }
 

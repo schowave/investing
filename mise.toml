@@ -1,0 +1,132 @@
+# Werkzeuge und Abläufe für dieses Repo – eine Quelle für lokal und CI. Renovate hält die Versionen aktuell.
+#   mise trust && mise run setup   # einmalig: Node, pnpm, lefthook, Pakete, Git-Hooks, Datenbank auf Stand
+#   mise run check                 # alles, was vor einem Push grün sein muss (läuft genauso im CI und vor jedem Commit)
+#   mise tasks                     # Überblick über alle Tasks
+min_version = "2026.11.5"
+
+[settings]
+# mise.lock hält die exakten Versionen und Prüfsummen fest (für lokal und CI).
+lockfile = true
+
+[tools]
+node = "26.13.1"
+pnpm = "12.22.0"
+lefthook = "2.2.2"
+actionlint = "1.7.12"
+
+[env]
+INVESTING_DB = "data/investing.sqlite"
+
+# --- Workspace-Standard ---------------------------------------------------------
+
+[tasks.setup]
+description = "Frischer Klon -> lauffähig: Werkzeuge, Pakete, Git-Hooks, Datenbank auf den neuesten Stand"
+run = ["mise install", "pnpm install --frozen-lockfile", "lefthook install", "mise run db:migrate"]
+
+[tasks.check]
+description = "Alles, was vor einem Push grün sein muss: Lint/Format, Typen, Tests mit Abdeckung, toter Code, Schema (läuft genauso im CI)"
+depends = ["lint", "typecheck", "test:coverage", "knip", "db:check"]
+
+[tasks.lint]
+description = "Biome (Lint und Format, ohne zu ändern) und actionlint für die Workflows"
+run = ["pnpm exec biome ci .", "actionlint"]
+
+[tasks.fmt]
+description = "Formatieren und sichere Lint-Korrekturen anwenden (Biome)"
+run = "pnpm exec biome check --write ."
+
+[tasks.typecheck]
+description = "TypeScript-Typprüfung"
+run = "pnpm run typecheck"
+
+[tasks.test]
+description = "Unit-Tests (vitest)"
+run = "pnpm run test"
+
+[tasks."test:coverage"]
+description = "Unit-Tests mit Abdeckung; bricht unter den Schwellen in vitest.config.ts (Bericht: coverage/index.html)"
+run = "pnpm exec vitest run --coverage"
+
+[tasks.knip]
+description = "Ungenutzte Dateien, Exporte und Abhängigkeiten (knip)"
+run = "pnpm exec knip"
+
+[tasks.build]
+description = "Produktions-Build der Oberfläche (next build)"
+run = "pnpm run build"
+
+[tasks.dev]
+description = "Oberfläche lokal starten (http://localhost:3000), Datenbank vorher auf Stand bringen"
+depends = ["db:migrate"]
+run = "pnpm run dev"
+
+[tasks.start]
+description = "Gebaute Oberfläche starten (nach mise run build)"
+depends = ["db:migrate"]
+run = "pnpm run start"
+
+# --- Datenbank (Drizzle) -------------------------------------------------------
+
+[tasks."db:migrate"]
+description = "Offene Migrationen auf data/investing.sqlite anwenden (passiert auch bei jedem Öffnen der Datenbank)"
+run = "pnpm run migrate"
+
+[tasks."db:generate"]
+description = "Migration aus den Änderungen an src/data/schema.ts erzeugen: mise run db:generate <name>"
+usage = 'arg "<name>" help="Kurzer Name in snake_case, z. B. notizen_zu_aktien"'
+run = "pnpm exec drizzle-kit generate --name ${usage_name}"
+
+[tasks."db:check"]
+description = "Prüft, dass db/migrations zu src/data/schema.ts passt (keine Änderung ohne Migration)"
+run = '''
+set -e
+pnpm exec drizzle-kit check >/dev/null
+out="$(pnpm exec drizzle-kit generate --name schema_drift 2>&1)"
+if printf '%s' "$out" | grep -q "No schema changes"; then exit 0; fi
+rm -rf db/migrations/*_schema_drift
+echo "src/data/schema.ts hat Änderungen ohne Migration: mise run db:generate <name>" >&2
+exit 1
+'''
+
+[tasks."db:backup"]
+description = "Sicherung nach data/backups (die letzten 7 bleiben; macht der nächtliche Abgleich auch selbst)"
+run = "pnpm run backup"
+
+[tasks."db:compact"]
+description = "Rohantworten packen und die Datenbankdatei verkleinern"
+run = "pnpm run compact"
+
+[tasks."db:studio"]
+description = "Drizzle Studio: Datenbank im Browser ansehen"
+run = "pnpm exec drizzle-kit studio"
+
+# --- Daten ---------------------------------------------------------------------
+
+[tasks.sync]
+description = "Täglicher Abgleich: Sicherung, Kurse, Wechselkurse, Bewertungen (liest .env.local)"
+run = "pnpm run sync"
+
+[tasks.evaluate]
+description = "Rangliste der Watchlist ausgeben: mise run evaluate [Aktie]"
+run = "pnpm run evaluate"
+
+[tasks.schedule]
+description = "Täglichen Abgleich als launchd-Dienst einrichten: mise run schedule an|aus|status"
+usage = 'arg "<befehl>" help="an, aus oder status"'
+run = "pnpm run schedule ${usage_befehl}"
+
+# --- Worktrees -----------------------------------------------------------------
+
+[tasks."worktree:init"]
+description = "Im Worktree: .env.local und eine konsistente Kopie der Datenbank aus dem Haupt-Checkout holen (was .worktreeinclude für Claude Code tut)"
+run = '''
+set -e
+main="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+if [ "$main" = "$PWD" ]; then echo "Das ist der Haupt-Checkout, nichts zu tun."; exit 0; fi
+mkdir -p data
+if [ ! -f .env.local ] && [ -f "$main/.env.local" ]; then cp "$main/.env.local" .env.local; echo ".env.local kopiert"; fi
+if [ -f data/investing.sqlite ]; then echo "data/investing.sqlite ist schon da, bleibt unverändert."; exit 0; fi
+# .backup statt cp: konsistent, auch wenn im Haupt-Checkout gerade ein Abgleich schreibt.
+sqlite3 "$main/data/investing.sqlite" ".backup data/investing.sqlite"
+echo "Datenbank aus $main kopiert"
+'''

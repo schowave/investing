@@ -1,7 +1,7 @@
 // Ist-Bestand gegen Zielportfolio (Spezifikation Abschnitt 7). Reine Rechnung.
 
-import { EXCLUSION_SCORE, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";
 import type { Profile } from "../calc/index.ts";
+import { EXCLUSION_SCORE, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";
 
 export interface PortfolioItem {
   id: string;
@@ -17,7 +17,7 @@ export interface PortfolioItem {
   priceEur: number | null;
 }
 
-export interface PortfolioRow {
+interface PortfolioRow {
   id: string;
   shares: number;
   /** Wert in Euro; `null`, wenn gehalten, aber ohne Kurs. */
@@ -60,7 +60,8 @@ function reasonFor(item: PortfolioItem, profile: Profile): string {
   if (item.riskScore - (item.complete ? 0 : MAX_JUDGEMENT_BONUS) >= EXCLUSION_SCORE) return "Risikowert ab 75 %";
   if (!item.complete) return "Bewertung unvollständig";
   if (item.innerReturn === null || item.innerReturn < profile.minReturn) return "unter der Mindestrendite";
-  if (item.cautiousReturn === null || item.cautiousReturn < profile.minReturn) return "ohne Sicherheitsmarge: vorsichtiger Fall unter der Mindestrendite";
+  if (item.cautiousReturn === null || item.cautiousReturn < profile.minReturn)
+    return "ohne Sicherheitsmarge: vorsichtiger Fall unter der Mindestrendite";
   return "von Titeln mit höherer Rendite verdrängt oder Regelgrenze erreicht";
 }
 
@@ -87,8 +88,14 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
   const weight = (item: PortfolioItem) => (totalEur > 0 ? value(item) / totalEur : 0);
 
   const stocks = items.map((item) => ({
-    id: item.id, innerReturn: item.innerReturn, cautiousReturn: item.cautiousReturn, riskScore: item.riskScore, complete: item.complete,
-    sector: item.sector, region: item.region, heldWeight: weight(item),
+    id: item.id,
+    innerReturn: item.innerReturn,
+    cautiousReturn: item.cautiousReturn,
+    riskScore: item.riskScore,
+    complete: item.complete,
+    sector: item.sector,
+    region: item.region,
+    heldWeight: weight(item),
   }));
   const target = targetPortfolio(stocks, profile);
   const targetWeight = new Map(target.positions.map((p) => [p.id, p.weight]));

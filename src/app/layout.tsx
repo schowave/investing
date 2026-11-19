@@ -7,8 +7,8 @@ import { computeValuation } from "../valuation/run.ts";
 import { STRATEGY_NAME } from "./brand.ts";
 import { isoDate } from "./format.ts";
 import "./globals.css";
-import { Nav } from "./nav.tsx";
 import type { NavItem } from "./nav.tsx";
+import { Nav } from "./nav.tsx";
 import { database, today } from "./server.ts";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist", weight: ["400", "500", "600", "700"] });

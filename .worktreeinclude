@@ -1,0 +1,11 @@
+# Ignorierte Dateien, die Claude Code beim Anlegen eines Worktrees aus dem Haupt-Checkout kopiert
+# (Syntax wie .gitignore). Ohne Claude Code: `mise run worktree:init` im neuen Worktree.
+# Jeder Worktree bekommt so eine eigene Kopie der Datenbank: Migrationen und Abgleiche dort
+# lassen die Daten im Haupt-Checkout unberührt.
+
+# Zugangsdaten (EODHD-Token, SEC-User-Agent)
+.env.local
+
+# Datenbank samt Schreibprotokoll (WAL), damit die Kopie vollständig ist
+data/investing.sqlite
+data/investing.sqlite-wal

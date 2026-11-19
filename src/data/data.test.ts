@@ -6,7 +6,9 @@ import { START_WATCHLIST } from "./seed.ts";
 
 function emptyDatabase(): Database {
   const db = new Database(":memory:");
-  START_WATCHLIST.forEach((s) => db.addStockIfMissing(s));
+  START_WATCHLIST.forEach((s) => {
+    db.addStockIfMissing(s);
+  });
   return db;
 }
 
@@ -21,7 +23,10 @@ describe("Datenbank", () => {
 
   it("rechnet Londoner Kurse von Pence in Pfund um und liefert den jüngsten Kurs", () => {
     const db = emptyDatabase();
-    db.saveRawCloses("IMB.LSE", [{ date: "2026-11-17", close: 2800 }, { date: "2026-11-18", close: 2849 }]);
+    db.saveRawCloses("IMB.LSE", [
+      { date: "2026-11-17", close: 2800 },
+      { date: "2026-11-18", close: 2849 },
+    ]);
     db.saveRawCloses("IMB.LSE", [{ date: "2026-11-18", close: 2850 }]);
     expect(db.latestPrice("IMB.LSE")).toEqual({ date: "2026-11-18", close: 28.5 });
     expect(db.latestPrice("BAS.XETRA")).toBeNull();
@@ -41,7 +46,10 @@ describe("Datenbank", () => {
     db.saveFundamentals("BAS.XETRA", [y2024!, y2025!], "csv");
     db.saveFundamentals("BAS.XETRA", [{ ...(y2025 as FundamentalsYear), epsDiluted: 5 }], "manuell");
     const stored = db.fundamentals("BAS.XETRA");
-    expect(stored.map((y) => [y.fiscalYear, y.epsDiluted])).toEqual([[2024, 4.96], [2025, 5]]);
+    expect(stored.map((y) => [y.fiscalYear, y.epsDiluted])).toEqual([
+      [2024, 4.96],
+      [2025, 5],
+    ]);
     expect(stored[0]!.revenue).toBeNull();
   });
 });

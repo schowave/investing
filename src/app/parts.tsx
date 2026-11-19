@@ -7,7 +7,13 @@ import { percent } from "./format.ts";
  * als Strich, die Mindestrendite als gestrichelte Linie. Blau ist die Spanne nur, wenn auch der vorsichtige Fall die
  * Mindestrendite erreicht.
  */
-export function ReturnRange(props: { cautious: number | null; base: number | null; optimistic: number | null; hurdle: number; scaleMax: number }) {
+export function ReturnRange(props: {
+  cautious: number | null;
+  base: number | null;
+  optimistic: number | null;
+  hurdle: number;
+  scaleMax: number;
+}) {
   const { cautious, base, optimistic, hurdle, scaleMax } = props;
   if (cautious === null || base === null || optimistic === null) return <span className="meta">nicht berechenbar</span>;
   const at = (value: number) => `${Math.min(100, Math.max(0, (value / scaleMax) * 100))}%`;
@@ -29,9 +35,18 @@ export function ReturnRange(props: { cautious: number | null; base: number | nul
 export function RangeLegend() {
   return (
     <p className="legend">
-      <span><i className="l-span" />vorsichtig bis optimistisch</span>
-      <span><i className="l-base" />Basisfall</span>
-      <span><i className="l-hurdle" />Mindestrendite</span>
+      <span>
+        <i className="l-span" />
+        vorsichtig bis optimistisch
+      </span>
+      <span>
+        <i className="l-base" />
+        Basisfall
+      </span>
+      <span>
+        <i className="l-hurdle" />
+        Mindestrendite
+      </span>
     </p>
   );
 }

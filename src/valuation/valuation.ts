@@ -1,15 +1,34 @@
 // Bewertung einer Aktie: Vorschläge aus den Fundamentaldaten, manuelle Übersteuerung, innere Rendite.
 // Reine Rechnung ohne Datenbank- und Netzzugriff (Spezifikation Abschnitte 4 bis 6).
 
+import type { Region, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
 import {
-  assessRisk, comparableReturn, defaultProbability, dividendLevel, dividendWasCut, earningsLevel, growthProposal, historicalGrowth,
-  lowerGrowth, MANUAL_FOR_FINANCIALS, netBuybacksPerShare, payoutLevelProposal, proposeAge, proposeCashFlow, proposeCountry,
-  proposeCurrency, proposeEarnings, proposeFinancing, proposeProfitability, proposeSize, requiredDebtRepayment,
-  RISK_FACTOR_IDS, RISK_FACTORS,
+  assessRisk,
+  comparableReturn,
+  defaultProbability,
+  dividendLevel,
+  dividendWasCut,
+  earningsLevel,
+  growthProposal,
+  historicalGrowth,
+  lowerGrowth,
+  MANUAL_FOR_FINANCIALS,
+  netBuybacksPerShare,
+  payoutLevelProposal,
+  proposeAge,
+  proposeCashFlow,
+  proposeCountry,
+  proposeCurrency,
+  proposeEarnings,
+  proposeFinancing,
+  proposeProfitability,
+  proposeSize,
+  RISK_FACTOR_IDS,
+  RISK_FACTORS,
+  requiredDebtRepayment,
   riskClass,
   scenarioReturns,
 } from "../calc/index.ts";
-import type { Region, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 
 /** Schlüssel einer Eingabe: `payoutLevel`, `growth` oder `risk.<Faktor>`. */
@@ -127,9 +146,18 @@ export function proposeInputs(
   const values: InputValues = {};
   const notes: string[] = [];
   const details: Proposals["details"] = {
-    fiscalYears: [], earningsLevel: null, dividendLevel: null, netBuybacksPerShare: null,
-    sustainablePayout: null, historicalGrowth: null, revenueGrowth: null, earningsGrowthPerShare: null,
-    earningsGrowthTotal: null, debtRepaymentPerShare: null, retentionCap: null, dividendsFromHistory: false,
+    fiscalYears: [],
+    earningsLevel: null,
+    dividendLevel: null,
+    netBuybacksPerShare: null,
+    sustainablePayout: null,
+    historicalGrowth: null,
+    revenueGrowth: null,
+    earningsGrowthPerShare: null,
+    earningsGrowthTotal: null,
+    debtRepaymentPerShare: null,
+    retentionCap: null,
+    dividendsFromHistory: false,
     unadjustedSplit: null,
   };
 
@@ -168,7 +196,10 @@ export function proposeInputs(
   details.unadjustedSplit = unadjustedSplit(ten, history.splits);
   if (history.dividendsByYear !== null) {
     const listed = ten.map((y) => history.dividendsByYear!.get(y.fiscalYear) ?? 0);
-    const ratios = paid.map((value, i) => (value > 0 && listed[i]! > 0 ? value / listed[i]! : null)).filter((r): r is number => r !== null).sort((x, y) => x - y);
+    const ratios = paid
+      .map((value, i) => (value > 0 && listed[i]! > 0 ? value / listed[i]! : null))
+      .filter((r): r is number => r !== null)
+      .sort((x, y) => x - y);
     const ratio = ratios.length > 0 ? ratios[Math.floor(ratios.length / 2)]! : 1;
     if (ratio >= 0.5 && ratio <= 2) {
       dividends = listed;
@@ -177,12 +208,16 @@ export function proposeInputs(
       // Entspricht der Abstand einem Aktiensplit, sind die Zahlen je Aktie nicht um ihn bereinigt.
       details.unadjustedSplit ??= history.splits.findLast((split) => Math.abs(ratio / split.ratio - 1) < 0.25) ?? null;
       if (!details.unadjustedSplit) {
-        notes.push(`Dividendenhistorie und Abschlusszahlen beziehen sich auf verschiedene Stückelungen (Faktor ${ratio.toFixed(1)}); es gilt die Rechnung aus den Abschlüssen.`);
+        notes.push(
+          `Dividendenhistorie und Abschlusszahlen beziehen sich auf verschiedene Stückelungen (Faktor ${ratio.toFixed(1)}); es gilt die Rechnung aus den Abschlüssen.`,
+        );
       }
     }
   }
   if (details.unadjustedSplit) {
-    notes.push(`Aktiensplit vom ${details.unadjustedSplit.date} ist in den Zahlen offenbar nicht bereinigt; Werte je Aktie und Kurs passen nicht zusammen.`);
+    notes.push(
+      `Aktiensplit vom ${details.unadjustedSplit.date} ist in den Zahlen offenbar nicht bereinigt; Werte je Aktie und Kurs passen nicht zusammen.`,
+    );
   }
   const level = earningsLevel(eps);
   const divLevel = dividendLevel(dividends);
@@ -200,19 +235,25 @@ export function proposeInputs(
   if (!stock.isFinancial && last.netDebt !== null && last.ebitda !== null) {
     repayment = requiredDebtRepayment(last.netDebt, last.ebitda) / last.shares!;
     details.debtRepaymentPerShare = repayment;
-    if (repayment > 0) notes.push(`Hohe Schulden: ${repayment.toFixed(2)} je Aktie und Jahr sind für die Tilgung angesetzt und zählen nicht als Rückfluss.`);
+    if (repayment > 0)
+      notes.push(`Hohe Schulden: ${repayment.toFixed(2)} je Aktie und Jahr sind für die Tilgung angesetzt und zählen nicht als Rückfluss.`);
   }
   const sustainable = stock.isFinancial ? level : allNumbers(fcfPerShare) ? Math.max(0, mean(fcfPerShare) - repayment) : null;
   Object.assign(details, { earningsLevel: level, dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
 
   let payout: number | null = null;
   if (sustainable === null) {
-    notes.push(stock.isFinancial ? "Gewinnniveau nicht bestimmbar, daher kein Vorschlag für den Rückfluss." : "Freier Cashflow fehlt, daher kein Vorschlag für den Rückfluss.");
+    notes.push(
+      stock.isFinancial
+        ? "Gewinnniveau nicht bestimmbar, daher kein Vorschlag für den Rückfluss."
+        : "Freier Cashflow fehlt, daher kein Vorschlag für den Rückfluss.",
+    );
   } else {
     const proposal = payoutLevelProposal({ dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
     payout = proposal.value;
     values.payoutLevel = payout;
-    if (proposal.capped) notes.push(`Rückfluss auf den tragbaren Wert gedeckelt (${(divLevel + buybacks).toFixed(2)} auf ${payout.toFixed(2)}).`);
+    if (proposal.capped)
+      notes.push(`Rückfluss auf den tragbaren Wert gedeckelt (${(divLevel + buybacks).toFixed(2)} auf ${payout.toFixed(2)}).`);
     if (payout === 0) notes.push("Rückflussniveau ist 0, eine innere Rendite lässt sich daraus nicht rechnen.");
   }
 
@@ -230,7 +271,13 @@ export function proposeInputs(
       ? lowerGrowth(historicalGrowth(revenuePerShare), historicalGrowth(revenuePerShare.map((r, i) => r * shares[i]!)))
       : null;
     details.revenueGrowth = revenueGrowth;
-    const growth = growthProposal({ historicalGrowth: growthHistory, revenueGrowth, payoutLevel: payout, earningsLevel: level, equityPerShare });
+    const growth = growthProposal({
+      historicalGrowth: growthHistory,
+      revenueGrowth,
+      payoutLevel: payout,
+      earningsLevel: level,
+      equityPerShare,
+    });
     details.retentionCap = growth.retentionCap;
     if (growth.value !== null) values.growth = growth.value;
     else notes.push("Historisches Wachstum negativ oder nicht bestimmbar, Wachstum muss von Hand gesetzt werden.");
@@ -300,12 +347,7 @@ export interface Valuation {
 }
 
 /** Führt Vorschläge und manuelle Werte zusammen und rechnet die innere Rendite. */
-export function evaluate(
-  proposals: InputValues,
-  manualValues: InputValues,
-  price: number | null,
-  inflationGap = 0,
-): Valuation {
+export function evaluate(proposals: InputValues, manualValues: InputValues, price: number | null, inflationGap = 0): Valuation {
   const inputs: InputValues = { ...proposals, ...manualValues };
   const manual = INPUT_KEYS.filter((key) => manualValues[key] !== undefined);
   const missing = INPUT_KEYS.filter((key) => inputs[key] === undefined);
@@ -328,7 +370,9 @@ export function evaluate(
     optimistic: comparableReturn(local.optimistic, inflationGap),
   };
   return {
-    inputs, manual, missing,
+    inputs,
+    manual,
+    missing,
     complete: missing.length === 0 && price !== null && returns?.base != null,
     riskScore: risk.score,
     riskClass: riskClass(risk.score),

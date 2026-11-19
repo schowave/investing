@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  PROFILE_FOCUSED,
-  PROFILE_GLOBAL,
   assessRisk,
   comparableReturn,
   defaultProbability,
@@ -12,9 +10,11 @@ import {
   hurdleRate,
   innerReturn,
   isCandidate,
-  lowerGrowth,
   levelFromAverage,
+  lowerGrowth,
   netBuybacksPerShare,
+  PROFILE_FOCUSED,
+  PROFILE_GLOBAL,
   payoutLevelProposal,
   positionLimit,
   presentValue,
@@ -27,13 +27,13 @@ import {
   proposeFinancing,
   proposeProfitability,
   proposeSize,
+  type RiskRatings,
   requiredDebtRepayment,
   riskClass,
+  type Stock,
   scenarioReturns,
   targetPortfolio,
   withHurdle,
-  type RiskRatings,
-  type Stock,
 } from "./index.ts";
 
 // Folie 7: Dividende 1,59 + Rückkäufe 1,50 GBP, Wachstum 2,3 %, Ausfall 1,8 %.
@@ -130,15 +130,26 @@ describe("Eingaben", () => {
       value: 0.05,
       retentionCap: null,
     });
-    expect(
-      growthProposal({ historicalGrowth: -0.02, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 }).value,
-    ).toBeNull();
+    expect(growthProposal({ historicalGrowth: -0.02, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 }).value).toBeNull();
   });
 });
 
 const ALL_MET: RiskRatings = {
-  earnings: 0, financing: 0, size: 0, age: 0, sector: 0, country: 0, moat: 0, returnOnCapital: 0,
-  ebitMargin: 0, management: 0, forecast: 0, cashFlow: 0, dependencies: 0, currency: 0, situation: 0,
+  earnings: 0,
+  financing: 0,
+  size: 0,
+  age: 0,
+  sector: 0,
+  country: 0,
+  moat: 0,
+  returnOnCapital: 0,
+  ebitMargin: 0,
+  management: 0,
+  forecast: 0,
+  cashFlow: 0,
+  dependencies: 0,
+  currency: 0,
+  situation: 0,
 };
 
 describe("Risiko", () => {
@@ -150,7 +161,13 @@ describe("Risiko", () => {
     // Flughafen Wien: Gewinn 10, Größe 10, Finanzierung 15, Rendite 5, Dividende 5, Bonus Monopol 10.
     // Die Einzelwerte ergeben 35 %; das Buch nennt als Summe 40 %.
     const vienna = assessRisk({
-      ...ALL_MET, earnings: 0.1, size: 0.1, financing: 0.15, returnOnCapital: 0.05, cashFlow: 0.05, moat: -0.1,
+      ...ALL_MET,
+      earnings: 0.1,
+      size: 0.1,
+      financing: 0.15,
+      returnOnCapital: 0.05,
+      cashFlow: 0.05,
+      moat: -0.1,
     });
     expect(vienna.score).toBeCloseTo(0.35);
     expect(riskClass(vienna.score)).toBe("durchschnittlich");
@@ -210,8 +227,15 @@ describe("Risiko", () => {
 
 function stock(id: string, innerReturnValue: number, overrides: Partial<Stock> = {}): Stock {
   return {
-    id, innerReturn: innerReturnValue, cautiousReturn: innerReturnValue, riskScore: 0.2, complete: true,
-    sector: id, region: "Europa", heldWeight: 0, ...overrides,
+    id,
+    innerReturn: innerReturnValue,
+    cautiousReturn: innerReturnValue,
+    riskScore: 0.2,
+    complete: true,
+    sector: id,
+    region: "Europa",
+    heldWeight: 0,
+    ...overrides,
   };
 }
 
@@ -263,11 +287,7 @@ describe("Zielportfolio", () => {
   });
 
   it("kürzt eine über ihr Limit gewachsene Position nicht und schlägt Käufe und Verkäufe vor", () => {
-    const stocks = [
-      stock("gewachsen", 0.12, { heldWeight: 0.3 }),
-      stock("neu", 0.11),
-      stock("raus", 0.05, { heldWeight: 0.1 }),
-    ];
+    const stocks = [stock("gewachsen", 0.12, { heldWeight: 0.3 }), stock("neu", 0.11), stock("raus", 0.05, { heldWeight: 0.1 })];
     const target = targetPortfolio(stocks, PROFILE_FOCUSED);
     expect(target.positions.find((p) => p.id === "gewachsen")!.weight).toBeCloseTo(0.3);
     const result = proposals(stocks, target);

@@ -1,20 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { Database } from "../data/db.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
+import { Database } from "../data/db.ts";
 import { looksImplausible, runDailySync, syncSucceeded } from "./dailySync.ts";
 
 const ECB = `<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.25"/><Cube currency="GBP" rate="0.8"/></Cube></Cube>`;
 const NOW = new Date("2026-11-19T22:15:00Z");
 
 const stock = (id: string, change: Partial<Stock> = {}): Stock => ({
-  id, name: id, sector: "Chemie", region: "Europa", country: "DE", reportingCurrency: "EUR", priceCurrency: "EUR",
-  priceDivisor: 1, foundedYear: 1950, isFinancial: false, watched: true, ...change,
+  id,
+  name: id,
+  sector: "Chemie",
+  region: "Europa",
+  country: "DE",
+  reportingCurrency: "EUR",
+  priceCurrency: "EUR",
+  priceDivisor: 1,
+  foundedYear: 1950,
+  isFinancial: false,
+  watched: true,
+  ...change,
 });
 
 const years: FundamentalsYear[] = Array.from({ length: 10 }, (_, i) => ({
-  fiscalYear: 2016 + i, epsDiluted: 5 + i * 0.1, dividendPerShare: 2, shares: 100, repurchases: 0, issuance: 0,
-  stockBasedCompensation: 0, revenue: 5000 * 1.03 ** i, ebit: 750, totalAssets: 30e9, equity: 18e9, currentAssets: 2000,
-  currentLiabilities: 1000, longTermDebt: 0, cash: 0, operatingCashFlow: 600, freeCashFlow: 400, netDebt: 0, interestExpense: 0, ebitda: 900,
+  fiscalYear: 2016 + i,
+  epsDiluted: 5 + i * 0.1,
+  dividendPerShare: 2,
+  shares: 100,
+  repurchases: 0,
+  issuance: 0,
+  stockBasedCompensation: 0,
+  revenue: 5000 * 1.03 ** i,
+  ebit: 750,
+  totalAssets: 30e9,
+  equity: 18e9,
+  currentAssets: 2000,
+  currentLiabilities: 1000,
+  longTermDebt: 0,
+  cash: 0,
+  operatingCashFlow: 600,
+  freeCashFlow: 400,
+  netDebt: 0,
+  interestExpense: 0,
+  ebitda: 900,
 }));
 
 interface Fake {
@@ -39,11 +66,15 @@ function fakeFetch(fake: Fake) {
   const fetchFn = (async (input: string | URL) => {
     const url = new URL(String(input));
     if (url.hostname.includes("data-api.ecb")) {
-      return new Response(fake.bondYield === undefined ? "" : `KEY,TIME_PERIOD,OBS_VALUE\nYC,2026-11-18,${fake.bondYield}`, { status: fake.bondYield === undefined ? 500 : 200 });
+      return new Response(fake.bondYield === undefined ? "" : `KEY,TIME_PERIOD,OBS_VALUE\nYC,2026-11-18,${fake.bondYield}`, {
+        status: fake.bondYield === undefined ? 500 : 200,
+      });
     }
     if (url.hostname.includes("imf.org")) {
       const forecast = (value: number) => ({ 2027: value, 2028: value, 2029: value, 2030: value });
-      return fake.inflation ? Response.json({ values: { PCPIPCH: Object.fromEntries(Object.entries(fake.inflation).map(([k, v]) => [k, forecast(v)])) } }) : new Response("", { status: 500 });
+      return fake.inflation
+        ? Response.json({ values: { PCPIPCH: Object.fromEntries(Object.entries(fake.inflation).map(([k, v]) => [k, forecast(v)])) } })
+        : new Response("", { status: 500 });
     }
     if (url.hostname.includes("ecb")) return new Response(ECB, { status: fake.ecbOk === false ? 500 : 200 });
     if (url.hostname.includes("er-api")) return Response.json({ result: "success", rates: fake.extraRates ?? {} });
@@ -56,13 +87,21 @@ function fakeFetch(fake: Fake) {
     if (kind === "eod-bulk-last-day") {
       calls.push(`sammel ${symbol}`);
       if (!fake.bulk) return new Response("", { status: 403 });
-      return Response.json(Object.entries(fake.bulk).filter(([id]) => id.endsWith(`.${symbol}`)).map(([id, close]) => ({ code: id.slice(0, id.lastIndexOf(".")), date: "2026-11-18", close })));
+      return Response.json(
+        Object.entries(fake.bulk)
+          .filter(([id]) => id.endsWith(`.${symbol}`))
+          .map(([id, close]) => ({ code: id.slice(0, id.lastIndexOf(".")), date: "2026-11-18", close })),
+      );
     }
     if (kind === "search") {
       calls.push(`suche ${symbol}`);
       const close = fake.search?.[symbol];
       const [Code, Exchange] = symbol.split(".");
-      return Response.json(close === undefined ? [] : [{ Code, Exchange, Name: symbol, Type: "Common Stock", previousClose: close, previousCloseDate: "2026-11-18" }]);
+      return Response.json(
+        close === undefined
+          ? []
+          : [{ Code, Exchange, Name: symbol, Type: "Common Stock", previousClose: close, previousCloseDate: "2026-11-18" }],
+      );
     }
     calls.push(`${symbol} ${url.searchParams.get("from")} ${url.searchParams.get("to")}`);
     const answer = fake.closes?.[symbol] ?? 404;
@@ -88,7 +127,10 @@ describe("runDailySync", () => {
     db.setHolding(portfolio, "A.XETRA", 10);
     const { fetchFn, calls } = fakeFetch({
       closes: {
-        "A.XETRA": [{ date: "2026-11-18", close: 39 }, { date: "2026-11-19", close: 40 }],
+        "A.XETRA": [
+          { date: "2026-11-18", close: 39 },
+          { date: "2026-11-19", close: 40 },
+        ],
         "B.US": [{ date: "2026-11-19", close: 125 }],
         "VORRAT.US": [{ date: "2026-11-19", close: 7 }],
       },
@@ -199,13 +241,21 @@ describe("Sammelabruf", () => {
       db.addStockIfMissing(stock(`T${i}.US`, { watched: false }));
       many[`T${i}.US`] = 10 + i;
     }
-    const { fetchFn, calls } = fakeFetch({ bulk: many, closes: { "A.XETRA": [{ date: "2026-11-18", close: 40 }], "B.US": [{ date: "2026-11-18", close: 5 }], "VORRAT.US": [] } });
+    const { fetchFn, calls } = fakeFetch({
+      bulk: many,
+      closes: { "A.XETRA": [{ date: "2026-11-18", close: 40 }], "B.US": [{ date: "2026-11-18", close: 5 }], "VORRAT.US": [] },
+    });
 
     const report = await runDailySync(db, "geheim", NOW, fetchFn);
 
     expect(calls.filter((c) => c.startsWith("sammel"))).toEqual(["sammel US"]);
     // B.US und VORRAT.US stehen nicht im Sammelabruf und werden einzeln geholt, A.XETRA ebenso (zu wenige Titel an der Börse).
-    expect(calls.filter((c) => !c.startsWith("sammel")).map((c) => c.split(" ")[0]).sort()).toEqual(["A.XETRA", "B.US", "VORRAT.US"]);
+    expect(
+      calls
+        .filter((c) => !c.startsWith("sammel"))
+        .map((c) => c.split(" ")[0])
+        .sort(),
+    ).toEqual(["A.XETRA", "B.US", "VORRAT.US"]);
     expect(db.latestPrice("T7.US")).toEqual({ date: "2026-11-18", close: 17 });
     expect(report.pricesLoaded).toBe(163);
     expect(report.budget).toBe(100000 - 2 - 100);

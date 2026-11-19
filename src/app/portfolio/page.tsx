@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { loadPortfolio } from "../../valuation/portfolioRun.ts";
 import { createPortfolio } from "../actions.ts";
 import { amount } from "../format.ts";
-import { loadPortfolio } from "../../valuation/portfolioRun.ts";
 import { database, today } from "../server.ts";
 
 export const dynamic = "force-dynamic";

@@ -1,0 +1,7 @@
+# Orca: läuft in jedem neuen Worktree. Holt .env.local und eine Kopie der Datenbank aus dem
+# Haupt-Checkout (wie .worktreeinclude für Claude Code), dann Werkzeuge, Pakete und Migrationen.
+scripts:
+  setup: |
+    mise trust --yes --quiet
+    mise run worktree:init
+    mise run setup

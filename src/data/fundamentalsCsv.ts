@@ -2,14 +2,17 @@
 // Kopfzeile: fiscal_year und beliebige Spalten aus FUNDAMENTAL_FIELDS in snake_case.
 // Trennzeichen Komma (Dezimalpunkt) oder Semikolon (Dezimalkomma, wie Excel auf Deutsch).
 
-import { FUNDAMENTAL_FIELDS, toColumn, type FundamentalField, type FundamentalsYear } from "./db.ts";
+import { FUNDAMENTAL_FIELDS, type FundamentalField, type FundamentalsYear, toColumn } from "./db.ts";
 
 const FIELD_BY_COLUMN = new Map<string, FundamentalField>(FUNDAMENTAL_FIELDS.map((f) => [toColumn(f), f]));
 
 export const CSV_HEADER = ["fiscal_year", ...FUNDAMENTAL_FIELDS.map(toColumn)].join(",");
 
 export function parseFundamentalsCsv(text: string): FundamentalsYear[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l !== "" && !l.startsWith("#"));
   const header = lines.shift();
   if (!header) throw new Error("CSV ist leer");
   const semicolon = header.includes(";");

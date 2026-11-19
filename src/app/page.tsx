@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EXCLUSION_SCORE, positionLimit, PROFILE_FOCUSED, withHurdle } from "../calc/index.ts";
+import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit, withHurdle } from "../calc/index.ts";
 import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { computeValuation } from "../valuation/run.ts";
@@ -28,7 +28,8 @@ export default function Ranking() {
   const valued = db.stocks().map((stock) => computeValuation(db, stock, date));
   // Zahlen, die nicht zum Kurs passen (meist Hinterlegungsscheine): Die Rendite ist dann nicht ernst zu nehmen.
   const doubtful = (r: (typeof valued)[number]) =>
-    r.proposals.details.unadjustedSplit !== null || looksImplausible(r.valuation.price, r.valuation.inputs.payoutLevel, r.proposals.details.earningsLevel);
+    r.proposals.details.unadjustedSplit !== null ||
+    looksImplausible(r.valuation.price, r.valuation.inputs.payoutLevel, r.proposals.details.earningsLevel);
   // Zweifelhafte Titel stehen hinter allen mit belastbarer Rendite.
   const order = (r: (typeof valued)[number]) => (doubtful(r) ? -0.5 : (r.valuation.returns?.base ?? -1));
   const rows = [...valued].sort((x, y) => order(y) - order(x));
@@ -39,10 +40,16 @@ export default function Ranking() {
   const promising = incomplete.filter((r) => clears(r) && !doubtful(r));
   const next = promising[0] ?? incomplete[0];
   const firstBelow = rows.findIndex((r) => order(r) < hurdle);
-  const priceDates = rows.map((r) => r.priceDate).filter((d): d is string => d !== null).sort();
+  const priceDates = rows
+    .map((r) => r.priceDate)
+    .filter((d): d is string => d !== null)
+    .sort();
   const lastSync = db.latestSyncRun();
   const problem = lastSync && !lastSync.ok ? syncProblem(lastSync.report as SyncReport) : "";
-  const scaleMax = scaleFor(rows.filter((r) => !doubtful(r)).map((r) => r.valuation.returns?.optimistic ?? null), hurdle);
+  const scaleMax = scaleFor(
+    rows.filter((r) => !doubtful(r)).map((r) => r.valuation.returns?.optimistic ?? null),
+    hurdle,
+  );
 
   let finding: string;
   if (rows.length === 0) finding = "Die Watchlist ist leer. Im Datenvorrat findest du Titel zum Aufnehmen.";
@@ -89,7 +96,9 @@ export default function Ranking() {
         <div className="figure">
           <dt>Offene Bewertungen</dt>
           <dd className={incomplete.length === 0 ? "muted-value" : ""}>{incomplete.length}</dd>
-          <span className="sub">{incomplete.length === 0 ? "nichts zu tun" : "Urteil zu Branche, Management und weiteren Faktoren fehlt"}</span>
+          <span className="sub">
+            {incomplete.length === 0 ? "nichts zu tun" : "Urteil zu Branche, Management und weiteren Faktoren fehlt"}
+          </span>
         </div>
         <div className="figure">
           <dt>Kurse vom</dt>
@@ -145,10 +154,24 @@ export default function Ranking() {
                       </td>
                       <td className="num">
                         <span className="return">{percent(base)}</span>
-                        {suspect ? <small>Zahlen passen nicht zum Kurs</small> : Math.abs(v.inflationGap) >= 0.005 && <small>nach {percent(v.inflationGap)} Währungsabzug</small>}
+                        {suspect ? (
+                          <small>Zahlen passen nicht zum Kurs</small>
+                        ) : (
+                          Math.abs(v.inflationGap) >= 0.005 && <small>nach {percent(v.inflationGap)} Währungsabzug</small>
+                        )}
                       </td>
                       <td className="wide-only">
-                        {suspect ? <span className="meta">nicht belastbar</span> : <ReturnRange cautious={v.returns?.cautious ?? null} base={base} optimistic={v.returns?.optimistic ?? null} hurdle={hurdle} scaleMax={scaleMax} />}
+                        {suspect ? (
+                          <span className="meta">nicht belastbar</span>
+                        ) : (
+                          <ReturnRange
+                            cautious={v.returns?.cautious ?? null}
+                            base={base}
+                            optimistic={v.returns?.optimistic ?? null}
+                            hurdle={hurdle}
+                            scaleMax={scaleMax}
+                          />
+                        )}
                       </td>
                       <td className="num wide-only">
                         {amount(v.price)}
@@ -168,7 +191,9 @@ export default function Ranking() {
                           clears(row) && !suspect ? (
                             <span className="tag ok">Kandidat</span>
                           ) : (
-                            <span className="tag">{base !== null && base >= hurdle ? "ohne Sicherheitsmarge" : "unter der Mindestrendite"}</span>
+                            <span className="tag">
+                              {base !== null && base >= hurdle ? "ohne Sicherheitsmarge" : "unter der Mindestrendite"}
+                            </span>
                           )
                         ) : (
                           <Link className="tag warn" href={`${link}#urteil`}>
@@ -185,8 +210,8 @@ export default function Ranking() {
         )}
       </section>
       <p className="meta" style={{ marginTop: 10 }}>
-        Limit: höchstes Gewicht im fokussierten Profil. Solange Eingaben offen sind, ist die Rendite vorläufig und der
-        Risikowert eine Untergrenze.
+        Limit: höchstes Gewicht im fokussierten Profil. Solange Eingaben offen sind, ist die Rendite vorläufig und der Risikowert eine
+        Untergrenze.
       </p>
     </>
   );

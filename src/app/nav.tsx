@@ -20,8 +20,9 @@ export function Nav({ items }: { items: NavItem[] }) {
         <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined}>
           {item.label}
           {item.count ? (
-            <span className="count" title={item.countLabel} aria-label={`${item.count} ${item.countLabel}`}>
+            <span className="count" title={item.countLabel}>
               {item.count}
+              <span className="sr-only"> {item.countLabel}</span>
             </span>
           ) : null}
         </Link>

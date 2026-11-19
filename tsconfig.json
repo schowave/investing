@@ -8,15 +8,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "jsx": "react-jsx",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "incremental": true,
     "esModuleInterop": true,
@@ -28,15 +22,6 @@
       }
     ]
   },
-  "include": [
-    "src",
-    "scripts",
-    "next.config.ts",
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src", "scripts", "next.config.ts", "next-env.d.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

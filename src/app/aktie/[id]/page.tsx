@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  EXCLUSION_SCORE, innerReturn, comparableReturn, MANUAL_FOR_FINANCIALS, positionLimit, PROFILE_FOCUSED, PROFILE_GLOBAL,
-  RISK_FACTORS, RISK_FACTOR_IDS, withHurdle,
-} from "../../../calc/index.ts";
 import type { RiskFactorId } from "../../../calc/index.ts";
+import {
+  comparableReturn,
+  EXCLUSION_SCORE,
+  innerReturn,
+  MANUAL_FOR_FINANCIALS,
+  PROFILE_FOCUSED,
+  PROFILE_GLOBAL,
+  positionLimit,
+  RISK_FACTOR_IDS,
+  RISK_FACTORS,
+  withHurdle,
+} from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
 import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
 import { computeValuation } from "../../../valuation/run.ts";
@@ -59,7 +67,11 @@ const fieldNumber = (value: number | undefined, asPercent: boolean) =>
   value === undefined ? "" : String(Math.round((asPercent ? value * 100 : value) * 100) / 100);
 const allowed = (id: RiskFactorId) => {
   const factor = RISK_FACTORS[id];
-  return { min: -factor.bonus * 100, max: factor.maxDeduction * 100, text: `${factor.bonus > 0 ? `−${factor.bonus * 100}` : "0"} bis ${factor.maxDeduction * 100} %` };
+  return {
+    min: -factor.bonus * 100,
+    max: factor.maxDeduction * 100,
+    text: `${factor.bonus > 0 ? `−${factor.bonus * 100}` : "0"} bis ${factor.maxDeduction * 100} %`,
+  };
 };
 
 export default async function StockPage(props: {
@@ -83,25 +95,36 @@ export default async function StockPage(props: {
   const self = `/aktie/${encodeURIComponent(stock.id)}`;
 
   // Urteil: Faktoren ohne Vorschlag aus Zahlen. Bei Finanzwerten gehören drei weitere dazu.
-  const isJudgement = (factorId: RiskFactorId) => RISK_FACTORS[factorId].manual || (stock.isFinancial && MANUAL_FOR_FINANCIALS.includes(factorId));
+  const isJudgement = (factorId: RiskFactorId) =>
+    RISK_FACTORS[factorId].manual || (stock.isFinancial && MANUAL_FOR_FINANCIALS.includes(factorId));
   const judged = RISK_FACTOR_IDS.filter(isJudgement);
   const computed = RISK_FACTOR_IDS.filter((factorId) => !isJudgement(factorId));
   const openJudgements = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined).length;
   const computedSum = computed.reduce((sum, factorId) => sum + (v.inputs[`risk.${factorId}`] ?? 0), 0);
-  const computedNeedsAttention = computed.some((factorId) => v.inputs[`risk.${factorId}`] === undefined || v.manual.includes(`risk.${factorId}`));
+  const computedNeedsAttention = computed.some(
+    (factorId) => v.inputs[`risk.${factorId}`] === undefined || v.manual.includes(`risk.${factorId}`),
+  );
   const cautious = v.returns?.cautious ?? null;
   const base = v.returns?.base ?? null;
 
   let finding: string;
-  if (excluded) finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskScore, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
+  if (excluded)
+    finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskScore, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
   else if (base === null) finding = "Die innere Rendite lässt sich noch nicht rechnen. Unten steht, welche Eingabe fehlt.";
   else if (!v.complete) {
     finding = `Vorläufig ${percent(base)}. ${v.missing.length === 1 ? "Eine Eingabe fehlt" : `${v.missing.length} Eingaben fehlen`}, bevor der Titel Kandidat fürs Portfolio werden kann.`;
-  } else if (cautious !== null && cautious >= hurdle) finding = `Kandidat: Auch der vorsichtige Fall liegt mit ${percent(cautious)} über der Mindestrendite von ${percent(hurdle)}.`;
-  else if (base >= hurdle) finding = `Ohne Sicherheitsmarge: Der Basisfall erreicht die Mindestrendite von ${percent(hurdle)}, der vorsichtige Fall mit ${percent(cautious)} nicht.`;
+  } else if (cautious !== null && cautious >= hurdle)
+    finding = `Kandidat: Auch der vorsichtige Fall liegt mit ${percent(cautious)} über der Mindestrendite von ${percent(hurdle)}.`;
+  else if (base >= hurdle)
+    finding = `Ohne Sicherheitsmarge: Der Basisfall erreicht die Mindestrendite von ${percent(hurdle)}, der vorsichtige Fall mit ${percent(cautious)} nicht.`;
   else finding = `Unter der Mindestrendite von ${percent(hurdle)}.`;
 
-  const numberRow = (key: InputKey, label: string, hint: string, opts: { min: number; max: number; step: number; unit: string; asPercent: boolean; range: string }) => {
+  const numberRow = (
+    key: InputKey,
+    label: string,
+    hint: string,
+    opts: { min: number; max: number; step: number; unit: string; asPercent: boolean; range: string },
+  ) => {
     const show = opts.asPercent ? percent : amount;
     const isManual = v.manual.includes(key);
     const isOpen = v.inputs[key] === undefined;
@@ -114,7 +137,9 @@ export default async function StockPage(props: {
           <span className="hint">{hint}</span>
         </td>
         <td className="num wide-only">{opts.range}</td>
-        <td className="num wide-only">{proposals.values[key] === undefined ? <span className="meta">keiner</span> : show(proposals.values[key])}</td>
+        <td className="num wide-only">
+          {proposals.values[key] === undefined ? <span className="meta">keiner</span> : show(proposals.values[key])}
+        </td>
         <td className="num">
           <span className="field">
             <input
@@ -138,7 +163,14 @@ export default async function StockPage(props: {
   };
   const riskRow = (factorId: RiskFactorId) => {
     const range = allowed(factorId);
-    return numberRow(`risk.${factorId}`, RISK_FACTORS[factorId].label, REQUIREMENT[factorId], { min: range.min, max: range.max, step: 0.5, unit: "%", asPercent: true, range: range.text });
+    return numberRow(`risk.${factorId}`, RISK_FACTORS[factorId].label, REQUIREMENT[factorId], {
+      min: range.min,
+      max: range.max,
+      step: 0.5,
+      unit: "%",
+      asPercent: true,
+      range: range.text,
+    });
   };
   const head = (
     <thead>
@@ -182,10 +214,18 @@ export default async function StockPage(props: {
           <dt>Innere Rendite{v.complete ? "" : ", vorläufig"}</dt>
           <dd className={base !== null && cautious !== null && cautious >= hurdle ? "lead" : ""}>{percent(base)}</dd>
           <span className="sub">
-            {v.returns ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Mindestrendite ${percent(hurdle)}` : "nicht berechenbar"}
+            {v.returns
+              ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Mindestrendite ${percent(hurdle)}`
+              : "nicht berechenbar"}
           </span>
           {v.returns && (
-            <ReturnRange cautious={cautious} base={base} optimistic={v.returns.optimistic} hurdle={hurdle} scaleMax={scaleFor([v.returns.optimistic], hurdle)} />
+            <ReturnRange
+              cautious={cautious}
+              base={base}
+              optimistic={v.returns.optimistic}
+              hurdle={hurdle}
+              scaleMax={scaleFor([v.returns.optimistic], hurdle)}
+            />
           )}
           {Math.abs(v.inflationGap) >= 0.005 && v.localReturn !== null && (
             <span className="sub">
@@ -207,7 +247,9 @@ export default async function StockPage(props: {
         </div>
         <div className="figure">
           <dt>Positionslimit</dt>
-          <dd className={excluded ? "muted-value" : ""}>{excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}</dd>
+          <dd className={excluded ? "muted-value" : ""}>
+            {excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}
+          </dd>
           <span className="sub">
             {excluded ? "ausgeschlossen" : `fokussiert; global ${percent(positionLimit(PROFILE_GLOBAL.baseLimit, v.riskScore))}`}
           </span>
@@ -223,8 +265,8 @@ export default async function StockPage(props: {
 
           <p className="section-label">Dein Urteil</p>
           <span className="hint">
-            Diese Faktoren lassen sich nicht aus Zahlen ablesen. 0 heißt: Anforderung erfüllt. Je schlechter, desto
-            höher der Abzug; ein Bonus ist negativ.
+            Diese Faktoren lassen sich nicht aus Zahlen ablesen. 0 heißt: Anforderung erfüllt. Je schlechter, desto höher der Abzug; ein
+            Bonus ist negativ.
           </span>
           <div className="scroll">
             <table>
@@ -239,8 +281,22 @@ export default async function StockPage(props: {
             <table>
               {head}
               <tbody>
-                {numberRow("payoutLevel", "Rückfluss je Aktie", "Dividende plus Netto-Rückkäufe, wie du sie fürs kommende Jahr erwartest", { min: 0, max: 1e9, step: 0.01, unit: "", asPercent: false, range: currency })}
-                {numberRow("growth", "Wachstum zu Beginn", "schmilzt über 15 Jahre auf höchstens 3 % ab", { min: -20, max: 30, step: 0.1, unit: "%", asPercent: true, range: "−20 bis 30 %" })}
+                {numberRow("payoutLevel", "Rückfluss je Aktie", "Dividende plus Netto-Rückkäufe, wie du sie fürs kommende Jahr erwartest", {
+                  min: 0,
+                  max: 1e9,
+                  step: 0.01,
+                  unit: "",
+                  asPercent: false,
+                  range: currency,
+                })}
+                {numberRow("growth", "Wachstum zu Beginn", "schmilzt über 15 Jahre auf höchstens 3 % ab", {
+                  min: -20,
+                  max: 30,
+                  step: 0.1,
+                  unit: "%",
+                  asPercent: true,
+                  range: "−20 bis 30 %",
+                })}
               </tbody>
             </table>
           </div>
@@ -261,7 +317,9 @@ export default async function StockPage(props: {
           <div className="savebar">
             <button type="submit">Bewertung speichern</button>
             <span className="meta">
-              {openJudgements > 0 ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.` : "Leere Felder übernehmen den Vorschlag."}
+              {openJudgements > 0
+                ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.`
+                : "Leere Felder übernehmen den Vorschlag."}
             </span>
           </div>
         </form>
@@ -298,7 +356,10 @@ export default async function StockPage(props: {
                   </thead>
                   <tbody>
                     {PRICE_STEPS.map((step) => {
-                      const value = comparableReturn(innerReturn(v.price! * (1 + step), { payoutLevel, growth, defaultProbability: v.defaultProbability }), v.inflationGap);
+                      const value = comparableReturn(
+                        innerReturn(v.price! * (1 + step), { payoutLevel, growth, defaultProbability: v.defaultProbability }),
+                        v.inflationGap,
+                      );
                       return (
                         <tr key={step}>
                           <td className="num">{amount(v.price! * (1 + step))}</td>
@@ -322,15 +383,44 @@ export default async function StockPage(props: {
             <div className="scroll">
               <table className="plain">
                 <tbody>
-                  <tr><td>Gewinnniveau je Aktie</td><td className="num">{amount(d.earningsLevel)}</td></tr>
-                  <tr><td>Dividendenniveau, {d.dividendsFromHistory ? "aus der Dividendenhistorie" : "aus gezahlter Summe und Aktienzahl"}</td><td className="num">{amount(d.dividendLevel)}</td></tr>
-                  <tr><td>Netto-Rückkäufe je Aktie, fünf Jahre</td><td className="num">{amount(d.netBuybacksPerShare)}</td></tr>
-                  <tr><td>Tilgung überhöhter Schulden je Aktie</td><td className="num">{amount(d.debtRepaymentPerShare)}</td></tr>
-                  <tr><td>Tragbarer Rückfluss je Aktie</td><td className="num">{amount(d.sustainablePayout)}</td></tr>
-                  <tr><td>Wachstum Gewinn je Aktie</td><td className="num">{percent(d.earningsGrowthPerShare)}</td></tr>
-                  <tr><td>Wachstum Gewinn des Unternehmens</td><td className="num">{percent(d.earningsGrowthTotal)}</td></tr>
-                  <tr><td>Wachstum Umsatz, das niedrigere aus beiden</td><td className="num">{percent(d.revenueGrowth)}</td></tr>
-                  <tr><td>Wachstumsgrenze aus Einbehaltung</td><td className="num">{percent(d.retentionCap)}</td></tr>
+                  <tr>
+                    <td>Gewinnniveau je Aktie</td>
+                    <td className="num">{amount(d.earningsLevel)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      Dividendenniveau, {d.dividendsFromHistory ? "aus der Dividendenhistorie" : "aus gezahlter Summe und Aktienzahl"}
+                    </td>
+                    <td className="num">{amount(d.dividendLevel)}</td>
+                  </tr>
+                  <tr>
+                    <td>Netto-Rückkäufe je Aktie, fünf Jahre</td>
+                    <td className="num">{amount(d.netBuybacksPerShare)}</td>
+                  </tr>
+                  <tr>
+                    <td>Tilgung überhöhter Schulden je Aktie</td>
+                    <td className="num">{amount(d.debtRepaymentPerShare)}</td>
+                  </tr>
+                  <tr>
+                    <td>Tragbarer Rückfluss je Aktie</td>
+                    <td className="num">{amount(d.sustainablePayout)}</td>
+                  </tr>
+                  <tr>
+                    <td>Wachstum Gewinn je Aktie</td>
+                    <td className="num">{percent(d.earningsGrowthPerShare)}</td>
+                  </tr>
+                  <tr>
+                    <td>Wachstum Gewinn des Unternehmens</td>
+                    <td className="num">{percent(d.earningsGrowthTotal)}</td>
+                  </tr>
+                  <tr>
+                    <td>Wachstum Umsatz, das niedrigere aus beiden</td>
+                    <td className="num">{percent(d.revenueGrowth)}</td>
+                  </tr>
+                  <tr>
+                    <td>Wachstumsgrenze aus Einbehaltung</td>
+                    <td className="num">{percent(d.retentionCap)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -367,7 +457,9 @@ export default async function StockPage(props: {
                 <tr>
                   <th>Kennzahl</th>
                   {years.map((y) => (
-                    <th className="num" key={y.fiscalYear}>{y.fiscalYear}</th>
+                    <th className="num" key={y.fiscalYear}>
+                      {y.fiscalYear}
+                    </th>
                   ))}
                 </tr>
               </thead>

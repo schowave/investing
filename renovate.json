@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "All patch/minor updates in one PR, each major in its own PR; everything merges itself once CI is green.",
+  "extends": ["config:recommended", ":pinAllExceptPeerDependencies", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Berlin",
+  "lockFileMaintenance": { "enabled": true, "automerge": true },
+  "automergeType": "pr",
+  "platformAutomerge": false,
+  "minimumReleaseAge": "2 days",
+  "packageRules": [
+    {
+      "description": "Patch and minor updates in one PR, merged by themselves once CI is green",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "non-major dependencies",
+      "automerge": true
+    },
+    {
+      "description": "Major updates in their own PRs, merged by themselves once CI is green",
+      "matchUpdateTypes": ["major"],
+      "automerge": true
+    },
+    {
+      "description": "pnpm stands in mise.toml and in packageManager; both move together",
+      "matchDepNames": ["pnpm"],
+      "groupName": "pnpm"
+    },
+    {
+      "description": "Drizzle ORM and drizzle-kit only work in matching versions",
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "groupName": "drizzle"
+    }
+  ]
+}

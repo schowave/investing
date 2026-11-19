@@ -1,0 +1,11 @@
+# Git-Hooks, eingerichtet von `mise run setup` (lefthook install).
+pre-commit:
+  # Nacheinander: erst formatieren, dann prüfen, was committet wird.
+  piped: true
+  commands:
+    format:
+      glob: "*.{ts,tsx,js,json,jsonc,css}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+    check:
+      run: mise run check

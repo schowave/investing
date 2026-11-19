@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { PROFILE_FOCUSED } from "../calc/index.ts";
 import { Database } from "../data/db.ts";
-import { buildPortfolioView } from "./portfolioView.ts";
 import type { PortfolioItem } from "./portfolioView.ts";
+import { buildPortfolioView } from "./portfolioView.ts";
 
 const item = (id: string, change: Partial<PortfolioItem> = {}): PortfolioItem => ({
-  id, sector: "Chemie", region: "Europa", innerReturn: 0.1, cautiousReturn: 0.1, riskScore: 0.2, complete: true, shares: 0, priceEur: 10, ...change,
+  id,
+  sector: "Chemie",
+  region: "Europa",
+  innerReturn: 0.1,
+  cautiousReturn: 0.1,
+  riskScore: 0.2,
+  complete: true,
+  shares: 0,
+  priceEur: 10,
+  ...change,
 });
 
 describe("buildPortfolioView", () => {
@@ -66,7 +75,16 @@ describe("buildPortfolioView", () => {
 describe("Datenbank: Portfolios, Suche, Handkurs", () => {
   it("führt Portfolios mit Positionen und findet Aktien im Vorrat", () => {
     const db = new Database(":memory:");
-    const base = { sector: "Tabak", region: "Europa", country: "GB", reportingCurrency: "GBP", priceCurrency: "GBP", priceDivisor: 100, foundedYear: null, isFinancial: false };
+    const base = {
+      sector: "Tabak",
+      region: "Europa",
+      country: "GB",
+      reportingCurrency: "GBP",
+      priceCurrency: "GBP",
+      priceDivisor: 100,
+      foundedYear: null,
+      isFinancial: false,
+    };
     db.addStockIfMissing({ ...base, id: "IMB.LSE", name: "Imperial Brands", watched: true });
     db.addStockIfMissing({ ...base, id: "BATS.LSE", name: "British American Tobacco", watched: false });
 

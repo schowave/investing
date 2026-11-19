@@ -1,7 +1,7 @@
 // Wechselkurse für Währungen, die die EZB nicht veröffentlicht (z. B. Tenge). Quelle: open.er-api.com,
 // frei nutzbar mit Quellenangabe ("Rates By Exchange Rate API"). Einheiten der Fremdwährung je Euro.
 
-export const FX_SUPPLEMENT_URL = "https://open.er-api.com/v6/latest/EUR";
+const FX_SUPPLEMENT_URL = "https://open.er-api.com/v6/latest/EUR";
 
 export async function fetchSupplementRates(currencies: readonly string[], fetchFn: typeof fetch = fetch): Promise<Record<string, number>> {
   const response = await fetchFn(FX_SUPPLEMENT_URL);

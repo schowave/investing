@@ -1,6 +1,6 @@
 // Lädt Dividenden, Aktiensplits und Monatsschlusskurse für alle gespeicherten Aktien (3 Abrufe je Aktie).
-// Aufruf: npm run import:history            fehlende Historien laden
-//         npm run import:history -- --neu   alles neu laden
+// Aufruf: pnpm run import:history            fehlende Historien laden
+//         pnpm run import:history --neu   alles neu laden
 // Bricht am Tageslimit sauber ab; derselbe Befehl setzt am nächsten Tag fort.
 
 import { Database } from "../src/data/db.ts";
@@ -45,7 +45,10 @@ async function worker(): Promise<void> {
         return;
       }
       failed++;
-      if (failed <= 30) console.log(`fehlt  ${task.id.padEnd(12)} ${task.kind}: ${error instanceof EodhdError ? `HTTP ${error.status}` : (error as Error).message}`);
+      if (failed <= 30)
+        console.log(
+          `fehlt  ${task.id.padEnd(12)} ${task.kind}: ${error instanceof EodhdError ? `HTTP ${error.status}` : (error as Error).message}`,
+        );
     }
     if ((done + failed) % 2000 === 0) console.log(`${done + failed} von ${todo.length} (${failed} fehlgeschlagen)`);
   }

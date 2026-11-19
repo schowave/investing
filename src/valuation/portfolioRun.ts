@@ -1,10 +1,10 @@
 // Stellt für ein Portfolio aus der Datenbank Ist und Ziel gegenüber.
 
-import { PROFILE_FOCUSED, PROFILE_GLOBAL, withHurdle } from "../calc/index.ts";
 import type { Profile } from "../calc/index.ts";
+import { PROFILE_FOCUSED, PROFILE_GLOBAL, withHurdle } from "../calc/index.ts";
 import type { Database, Portfolio, Stock } from "../data/db.ts";
-import { buildPortfolioView } from "./portfolioView.ts";
 import type { PortfolioView } from "./portfolioView.ts";
+import { buildPortfolioView } from "./portfolioView.ts";
 import { computeValuation } from "./run.ts";
 
 /** Schlüssel der Anleiherendite in den Bezugsgrößen. */
@@ -34,8 +34,13 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
       const price = db.latestPrice(stock.id);
       const perEur = db.latestFxRate(stock.priceCurrency);
       return {
-        id: stock.id, sector: stock.sector, region: stock.region,
-        innerReturn: valuation.returns?.base ?? null, cautiousReturn: valuation.returns?.cautious ?? null, riskScore: valuation.riskScore, complete: valuation.complete,
+        id: stock.id,
+        sector: stock.sector,
+        region: stock.region,
+        innerReturn: valuation.returns?.base ?? null,
+        cautiousReturn: valuation.returns?.cautious ?? null,
+        riskScore: valuation.riskScore,
+        complete: valuation.complete,
         shares: holdings.get(stock.id) ?? 0,
         priceEur: price && perEur ? price.close / perEur : null,
       };

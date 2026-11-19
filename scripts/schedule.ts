@@ -1,7 +1,7 @@
 // Richtet den täglichen Abgleich als macOS-Hintergrunddienst (launchd) ein.
-// Aufruf: npm run schedule -- an       täglich um 23:15 Uhr; war der Rechner aus, beim nächsten Aufwachen
-//         npm run schedule -- aus      Dienst entfernen
-//         npm run schedule -- status   zeigt, ob der Dienst eingerichtet ist
+// Aufruf: pnpm run schedule an       täglich um 23:15 Uhr; war der Rechner aus, beim nächsten Aufwachen
+//         pnpm run schedule aus      Dienst entfernen
+//         pnpm run schedule status   zeigt, ob der Dienst eingerichtet ist
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -25,7 +25,7 @@ const launchctl = (...args: string[]) => {
 
 const command = process.argv[2];
 if (process.platform !== "darwin") {
-  console.error("Dieser Befehl ist nur für macOS. Auf einem Server gehört `npm run sync` in einen Cron-Eintrag.");
+  console.error("Dieser Befehl ist nur für macOS. Auf einem Server gehört `pnpm run sync` in einen Cron-Eintrag.");
   process.exit(1);
 }
 
@@ -61,7 +61,7 @@ if (command === "an") {
     process.exit(1);
   }
   console.log(`Eingerichtet: täglich 23:15 Uhr. Protokoll: ${log}`);
-  console.log(`Verwendet ${process.execPath}. Nach einem Node-Update bitte erneut "npm run schedule -- an" ausführen.`);
+  console.log(`Verwendet ${process.execPath}. Nach einem Node-Update bitte erneut "pnpm run schedule an" ausführen.`);
 } else if (command === "aus") {
   launchctl("bootout", domain, plistPath);
   rmSync(plistPath, { force: true });
@@ -70,6 +70,6 @@ if (command === "an") {
   const loaded = launchctl("print", `${domain}/${LABEL}`);
   console.log(existsSync(plistPath) && loaded ? "Eingerichtet: täglich 23:15 Uhr." : "Nicht eingerichtet.");
 } else {
-  console.error('Aufruf: npm run schedule -- an | aus | status');
+  console.error("Aufruf: pnpm run schedule an | aus | status");
   process.exit(1);
 }

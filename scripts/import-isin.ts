@@ -1,6 +1,6 @@
 // Lädt einzelne Aktien über ihre ISIN und nimmt sie auf die Watchlist (Tarif "Fundamentals" nötig, 11 Abrufe je Aktie).
-// Aufruf: npm run import:isin -- GB0004544929 US16119P1084
-//         npm run import:isin -- --datei positionen.txt     eine ISIN je Zeile; weiterer Text in der Zeile wird ignoriert
+// Aufruf: pnpm run import:isin GB0004544929 US16119P1084
+//         pnpm run import:isin --datei positionen.txt     eine ISIN je Zeile; weiterer Text in der Zeile wird ignoriert
 // Gedacht für Listen aus einem Depot oder einem fremden Portfolio: Tabelle kopieren und als Textdatei speichern.
 
 import { readFileSync } from "node:fs";

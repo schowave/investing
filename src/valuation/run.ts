@@ -1,8 +1,8 @@
 // Bewertet eine Aktie aus der Datenbank und speichert den Tagesstand.
 
 import type { Database, Stock } from "../data/db.ts";
-import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
+import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
 
 export interface StockValuation {
   stock: Stock;
@@ -34,7 +34,8 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
     const local = db.referenceRate(`inflation:${stock.reportingCurrency}`);
     const euro = db.referenceRate("inflation:EUR");
     if (local !== null && euro !== null) inflationGap = local - euro;
-    else proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
+    else
+      proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
   }
   const valuation = evaluate(proposals.values, manual, price, inflationGap);
 

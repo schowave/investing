@@ -14,13 +14,28 @@ const SAMPLE = {
     },
     Balance_Sheet: {
       yearly: {
-        "2025-09-30": { commonStockSharesOutstanding: "15000.00", totalAssets: "360000.00", totalStockholderEquity: "74000.00", totalCurrentAssets: "148000.00", totalCurrentLiabilities: "166000.00", longTermDebt: "78000.00", cash: "36000.00" },
+        "2025-09-30": {
+          commonStockSharesOutstanding: "15000.00",
+          totalAssets: "360000.00",
+          totalStockholderEquity: "74000.00",
+          totalCurrentAssets: "148000.00",
+          totalCurrentLiabilities: "166000.00",
+          longTermDebt: "78000.00",
+          cash: "36000.00",
+        },
         "2024-09-30": { commonStockSharesOutstanding: "15400.00", totalAssets: "365000.00" },
       },
     },
     Cash_Flow: {
       yearly: {
-        "2025-09-30": { salePurchaseOfStock: "-90700.00", issuanceOfCapitalStock: null, stockBasedCompensation: "12900.00", dividendsPaid: "15400.00", totalCashFromOperatingActivities: "111000.00", freeCashFlow: "98800.00" },
+        "2025-09-30": {
+          salePurchaseOfStock: "-90700.00",
+          issuanceOfCapitalStock: null,
+          stockBasedCompensation: "12900.00",
+          dividendsPaid: "15400.00",
+          totalCashFromOperatingActivities: "111000.00",
+          freeCashFlow: "98800.00",
+        },
         "2024-09-30": { salePurchaseOfStock: "500.00", dividendsPaid: "-15200.00" },
       },
     },

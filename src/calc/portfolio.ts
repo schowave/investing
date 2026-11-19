@@ -69,7 +69,7 @@ export interface Stock {
   heldWeight: number;
 }
 
-export interface Position {
+interface Position {
   id: string;
   weight: number;
 }
@@ -98,9 +98,7 @@ const EPSILON = 1e-9;
 
 export function targetPortfolio(stocks: readonly Stock[], profile: Profile): TargetPortfolio {
   const sortKey = (s: Stock) => (s.innerReturn ?? 0) + (s.heldWeight > 0 ? profile.swapThreshold : 0);
-  const candidates = stocks
-    .filter((s) => isCandidate(s, profile))
-    .sort((a, b) => sortKey(b) - sortKey(a) || a.id.localeCompare(b.id));
+  const candidates = stocks.filter((s) => isCandidate(s, profile)).sort((a, b) => sortKey(b) - sortKey(a) || a.id.localeCompare(b.id));
 
   const positions: Position[] = [];
   const sectorShare = new Map<string, number>();
@@ -114,18 +112,12 @@ export function targetPortfolio(stocks: readonly Stock[], profile: Profile): Tar
     const sectorRegion = `${stock.sector}|${stock.region}`;
 
     // Die Zählregel gilt nur für Neuaufnahmen; gehaltene Titel bleiben.
-    if (
-      !held &&
-      profile.maxPerSectorAndRegion !== null &&
-      (sectorRegionCount.get(sectorRegion) ?? 0) >= profile.maxPerSectorAndRegion
-    ) {
+    if (!held && profile.maxPerSectorAndRegion !== null && (sectorRegionCount.get(sectorRegion) ?? 0) >= profile.maxPerSectorAndRegion) {
       continue;
     }
 
-    const sectorRoom =
-      profile.maxSectorShare === null ? Infinity : profile.maxSectorShare - (sectorShare.get(stock.sector) ?? 0);
-    const regionRoom =
-      profile.maxRegionShare === null ? Infinity : profile.maxRegionShare - (regionShare.get(stock.region) ?? 0);
+    const sectorRoom = profile.maxSectorShare === null ? Infinity : profile.maxSectorShare - (sectorShare.get(stock.sector) ?? 0);
+    const regionRoom = profile.maxRegionShare === null ? Infinity : profile.maxRegionShare - (regionShare.get(stock.region) ?? 0);
     let weight = Math.max(0, Math.min(positionLimit(profile.baseLimit, stock.riskScore), sectorRoom, regionRoom));
     // Limits gelten zum Kaufzeitpunkt: eine gewachsene Position wird nicht gekürzt.
     if (held) weight = Math.max(weight, stock.heldWeight);

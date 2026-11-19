@@ -1,4 +1,4 @@
-// Packt die gespeicherten Rohantworten und verkleinert die Datenbankdatei. Aufruf: npm run compact
+// Packt die gespeicherten Rohantworten und verkleinert die Datenbankdatei. Aufruf: pnpm run compact
 
 import { statSync } from "node:fs";
 import { Database } from "../src/data/db.ts";

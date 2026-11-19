@@ -1,0 +1,26 @@
+name: CI
+
+# Dieselben mise-Tasks wie lokal: Werkzeuge aus mise.toml/mise.lock, Pakete aus pnpm-lock.yaml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typen, Tests, Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        env:
+          MISE_LOCKED: "1"
+      # Frischer Klon -> lauffähig, legt auch eine leere Datenbank über alle Migrationen an.
+      - run: mise run setup
+      - run: mise run check
+      # Der Build prüft, was check nicht sieht: Server-Komponenten, Routen, Bundling.
+      - run: mise run build

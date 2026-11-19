@@ -19,11 +19,7 @@ export interface ReturnParams {
 export const DEFAULT_RETURN_PARAMS: ReturnParams = { fadeYears: 15, maxTerminalGrowth: 0.03 };
 
 /** Barwert aller erwarteten Rückflüsse beim Zinssatz `rate`. */
-export function presentValue(
-  rate: number,
-  inputs: ReturnInputs,
-  params: ReturnParams = DEFAULT_RETURN_PARAMS,
-): number {
+export function presentValue(rate: number, inputs: ReturnInputs, params: ReturnParams = DEFAULT_RETURN_PARAMS): number {
   const n = params.fadeYears;
   const terminalGrowth = Math.min(inputs.growth, params.maxTerminalGrowth);
   const survival = 1 - inputs.defaultProbability;
@@ -40,11 +36,7 @@ export function presentValue(
 }
 
 /** Zinssatz, bei dem der Barwert dem Kurs entspricht; `null`, wenn es keinen gibt. */
-export function innerReturn(
-  price: number,
-  inputs: ReturnInputs,
-  params: ReturnParams = DEFAULT_RETURN_PARAMS,
-): number | null {
+export function innerReturn(price: number, inputs: ReturnInputs, params: ReturnParams = DEFAULT_RETURN_PARAMS): number | null {
   if (!(price > 0) || !(inputs.payoutLevel > 0)) return null;
   const terminalGrowth = Math.min(inputs.growth, params.maxTerminalGrowth);
   let low = (1 + terminalGrowth) * (1 - inputs.defaultProbability) - 1 + 1e-9;

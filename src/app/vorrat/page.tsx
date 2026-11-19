@@ -17,7 +17,9 @@ const RETURN_OPTIONS = [
   { value: "0.15", label: "Rendite bis 15 %" },
 ];
 
-export default async function Stockpile(props: { searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string; alle?: string }> }) {
+export default async function Stockpile(props: {
+  searchParams: Promise<{ q?: string; region?: string; risiko?: string; rendite?: string; alle?: string }>;
+}) {
   const params = await props.searchParams;
   const query = (params.q ?? "").trim();
   const region = params.region ?? "";
@@ -38,8 +40,8 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
         <div>
           <h1>Datenvorrat</h1>
           <p className="finding">
-            Alle gespeicherten Titel nach vorläufiger innerer Rendite, gerechnet allein aus den Vorschlägen. Dein Urteil
-            fehlt noch, der Risikowert ist deshalb eine Untergrenze.
+            Alle gespeicherten Titel nach vorläufiger innerer Rendite, gerechnet allein aus den Vorschlägen. Dein Urteil fehlt noch, der
+            Risikowert ist deshalb eine Untergrenze.
           </p>
         </div>
       </div>
@@ -48,17 +50,23 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
         <select name="region" defaultValue={region} aria-label="Region">
           <option value="">alle Regionen</option>
           {db.regions().map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>
+              {r}
+            </option>
           ))}
         </select>
         <select name="risiko" defaultValue={params.risiko ?? ""} aria-label="Risiko">
           {RISK_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
         <select name="rendite" defaultValue={params.rendite ?? ""} aria-label="Rendite">
           {RETURN_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </select>
         <label className="meta">
@@ -71,70 +79,70 @@ export default async function Stockpile(props: { searchParams: Promise<{ q?: str
         <div className="card-head">
           <h2>{query ? `Treffer für „${query}"` : "Höchste vorläufige Rendite"}</h2>
           <span className="meta">
-        {ranked.length === 0
-          ? "Keine Titel mit berechenbarer Rendite. Der Datenvorrat wird beim täglichen Abgleich bewertet."
-          : ranked.length === LIMIT
-            ? `Die ${LIMIT} Titel mit der höchsten vorläufigen Rendite.`
-            : `${ranked.length} Titel.`}
+            {ranked.length === 0
+              ? "Keine Titel mit berechenbarer Rendite. Der Datenvorrat wird beim täglichen Abgleich bewertet."
+              : ranked.length === LIMIT
+                ? `Die ${LIMIT} Titel mit der höchsten vorläufigen Rendite.`
+                : `${ranked.length} Titel.`}
           </span>
         </div>
-      {ranked.length === 0 ? (
-        <p className="empty">Nichts gefunden. Ohne Filter erscheinen die Titel mit der höchsten vorläufigen Rendite.</p>
-      ) : (
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Aktie</th>
-                <th className="num">Innere Rendite</th>
-                <th className="num">Kurs</th>
-                <th className="num">Rückfluss</th>
-                <th className="num">Wachstum</th>
-                <th className="num">Risiko bisher</th>
-                <th>Watchlist</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ranked.map(({ stock, row }) => (
-                <tr key={stock.id}>
-                  <td>
-                    <Link className="name" href={`/aktie/${encodeURIComponent(stock.id)}`}>
-                      {stock.name}
-                    </Link>
-                    <small>
-                      {stock.id} · {stock.sector} · {stock.region}
-                    </small>
-                  </td>
-                  <td className="num">
-                    <span className="return">{percent(row.innerReturn)}</span>
-                    {row.implausible && <small>unplausibel</small>}
-                  </td>
-                  <td className="num">
-                    {amount(row.price)}
-                    <small>
-                      {stock.reportingCurrency}, {isoDate(row.priceDate)}
-                    </small>
-                  </td>
-                  <td className="num">{amount(row.payoutLevel)}</td>
-                  <td className="num">{percent(row.growth)}</td>
-                  <td className="num">{percent(row.riskScore, 0)}</td>
-                  <td>
-                    <form action={setWatched.bind(null, stock.id, !stock.watched, returnTo)}>
-                      <button className="quiet small" type="submit">
-                        {stock.watched ? "Entfernen" : "Aufnehmen"}
-                      </button>
-                    </form>
-                  </td>
+        {ranked.length === 0 ? (
+          <p className="empty">Nichts gefunden. Ohne Filter erscheinen die Titel mit der höchsten vorläufigen Rendite.</p>
+        ) : (
+          <div className="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Aktie</th>
+                  <th className="num">Innere Rendite</th>
+                  <th className="num">Kurs</th>
+                  <th className="num">Rückfluss</th>
+                  <th className="num">Wachstum</th>
+                  <th className="num">Risiko bisher</th>
+                  <th>Watchlist</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {ranked.map(({ stock, row }) => (
+                  <tr key={stock.id}>
+                    <td>
+                      <Link className="name" href={`/aktie/${encodeURIComponent(stock.id)}`}>
+                        {stock.name}
+                      </Link>
+                      <small>
+                        {stock.id} · {stock.sector} · {stock.region}
+                      </small>
+                    </td>
+                    <td className="num">
+                      <span className="return">{percent(row.innerReturn)}</span>
+                      {row.implausible && <small>unplausibel</small>}
+                    </td>
+                    <td className="num">
+                      {amount(row.price)}
+                      <small>
+                        {stock.reportingCurrency}, {isoDate(row.priceDate)}
+                      </small>
+                    </td>
+                    <td className="num">{amount(row.payoutLevel)}</td>
+                    <td className="num">{percent(row.growth)}</td>
+                    <td className="num">{percent(row.riskScore, 0)}</td>
+                    <td>
+                      <form action={setWatched.bind(null, stock.id, !stock.watched, returnTo)}>
+                        <button className="quiet small" type="submit">
+                          {stock.watched ? "Entfernen" : "Aufnehmen"}
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
       <p className="meta" style={{ marginTop: 10 }}>
-        Ausgeblendet sind Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des
-        Gewinnniveaus liegt, und Titel mit unbereinigtem Aktiensplit. Das sind meist Datenfehler.
+        Ausgeblendet sind Titel, deren Rückfluss über 20 % des Kurses oder deren Kurs unter dem Dreifachen des Gewinnniveaus liegt, und
+        Titel mit unbereinigtem Aktiensplit. Das sind meist Datenfehler.
       </p>
 
       {others.length > 0 && (

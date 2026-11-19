@@ -1,8 +1,9 @@
 // Fundamentaldaten von EODHD (Tarif "Fundamentals", 10 Abrufe je Aktie).
 // Die Werte sind um Aktiensplits bereinigt; Beträge kommen als Zeichenketten.
 
-import { EodhdError } from "./eodhd.ts";
+import { z } from "zod";
 import type { FundamentalsYear, Stock } from "./db.ts";
+import { EodhdError } from "./eodhd.ts";
 
 export interface EodhdFundamentals {
   /** Geschäftsjahre, ältestes zuerst. */
@@ -24,6 +25,38 @@ export interface EodhdFundamentals {
 type Row = Record<string, unknown>;
 type Statement = Record<string, Row>;
 
+/** Jahreswerte eines Abschlusses: Datum -> Posten. Beträge kommen als Text oder Zahl und werden in num() gelesen. */
+const Yearly = z.record(z.string(), z.record(z.string(), z.unknown()));
+const StatementSchema = z.looseObject({ currency_symbol: z.string().nullish(), yearly: Yearly.optional() });
+/**
+ * Nur die Teile der rund 1 MB großen Antwort, die gelesen werden. Fehlt etwas oder hat es eine andere Form
+ * (etwa eine Fehlermeldung statt eines Objekts), gilt der Teil als leer, statt später in der Bewertung aufzufallen.
+ */
+const FundamentalsAnswer = z
+  .looseObject({
+    General: z.looseObject({}).catch({}).optional(),
+    Financials: z
+      .looseObject({
+        Income_Statement: StatementSchema.catch({}).optional(),
+        Balance_Sheet: StatementSchema.catch({}).optional(),
+        Cash_Flow: StatementSchema.catch({}).optional(),
+      })
+      .catch({})
+      .optional(),
+  })
+  .catch({});
+
+const SearchRow = z.object({
+  Code: z.string(),
+  Exchange: z.string(),
+  Name: z.string().nullish(),
+  Type: z.string().nullish(),
+  ISIN: z.string().nullish(),
+  isPrimary: z.boolean().nullish(),
+  previousClose: z.number().nullish(),
+  previousCloseDate: z.string().nullish(),
+});
+
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
@@ -38,16 +71,11 @@ function debtLessCash(totalDebt: number | null, longTermDebt: number | null, cas
   return debt === null ? null : debt - (cash ?? 0);
 }
 
-function yearly(financials: Row | undefined, statement: string): Statement {
-  const section = financials?.[statement] as { yearly?: Statement } | undefined;
-  return section?.yearly ?? {};
-}
-
 export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
-  const root = data as { General?: Row; Financials?: Row };
-  const income = yearly(root.Financials, "Income_Statement");
-  const balance = yearly(root.Financials, "Balance_Sheet");
-  const cashFlow = yearly(root.Financials, "Cash_Flow");
+  const root = FundamentalsAnswer.parse(data);
+  const income: Statement = root.Financials?.Income_Statement?.yearly ?? {};
+  const balance: Statement = root.Financials?.Balance_Sheet?.yearly ?? {};
+  const cashFlow: Statement = root.Financials?.Cash_Flow?.yearly ?? {};
 
   const years = Object.keys(income)
     .sort()
@@ -88,7 +116,7 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     });
 
   const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
-  const currency = (root.Financials?.Income_Statement as Row | undefined)?.currency_symbol;
+  const currency = root.Financials?.Income_Statement?.currency_symbol;
   return {
     years,
     reportingCurrency: text(currency) ?? text(root.General?.CurrencyCode),
@@ -119,9 +147,24 @@ const MINOR_UNITS: Record<string, { currency: string; divisor: number }> = {
 };
 
 const REGION_BY_COUNTRY: Record<string, string> = {
-  US: "Nordamerika", CA: "Nordamerika", BM: "Nordamerika", MX: "Südamerika", BR: "Südamerika",
-  CL: "Südamerika", JP: "Japan", CN: "Asien", HK: "Asien", SG: "Asien", IN: "Asien", KR: "Asien",
-  TW: "Asien", IL: "Asien", KZ: "Asien", AU: "Ozeanien", NZ: "Ozeanien", ZA: "Afrika",
+  US: "Nordamerika",
+  CA: "Nordamerika",
+  BM: "Nordamerika",
+  MX: "Südamerika",
+  BR: "Südamerika",
+  CL: "Südamerika",
+  JP: "Japan",
+  CN: "Asien",
+  HK: "Asien",
+  SG: "Asien",
+  IN: "Asien",
+  KR: "Asien",
+  TW: "Asien",
+  IL: "Asien",
+  KZ: "Asien",
+  AU: "Ozeanien",
+  NZ: "Ozeanien",
+  ZA: "Afrika",
 };
 const EUROPE = "AT BE CH CY CZ DE DK ES FI FR GB GG GR HU IE IM IS IT JE LU MT NL NO PL PT SE".split(" ");
 for (const country of EUROPE) REGION_BY_COUNTRY[country] = "Europa";
@@ -134,11 +177,17 @@ const seats = (region: string, list: string) => {
     SEATS[name!.trim()] = [iso!.trim(), region];
   }
 };
-seats("Europa", "United Kingdom=GB;Germany=DE;France=FR;Italy=IT;Spain=ES;Netherlands=NL;Belgium=BE;Luxembourg=LU;Switzerland=CH;Austria=AT;Ireland=IE;Sweden=SE;Norway=NO;Denmark=DK;Finland=FI;Iceland=IS;Portugal=PT;Greece=GR;Poland=PL;Czech Republic=CZ;Hungary=HU;Slovakia=SK;Slovenia=SI;Estonia=EE;Lithuania=LT;Latvia=LV;Bulgaria=BG;Romania=RO;Cyprus=CY;Malta=MT;Monaco=MC;Jersey=JE;Guernsey=GG;Isle of Man=IM;Gibraltar=GI;Ukraine=UA;Greenland=GL");
+seats(
+  "Europa",
+  "United Kingdom=GB;Germany=DE;France=FR;Italy=IT;Spain=ES;Netherlands=NL;Belgium=BE;Luxembourg=LU;Switzerland=CH;Austria=AT;Ireland=IE;Sweden=SE;Norway=NO;Denmark=DK;Finland=FI;Iceland=IS;Portugal=PT;Greece=GR;Poland=PL;Czech Republic=CZ;Hungary=HU;Slovakia=SK;Slovenia=SI;Estonia=EE;Lithuania=LT;Latvia=LV;Bulgaria=BG;Romania=RO;Cyprus=CY;Malta=MT;Monaco=MC;Jersey=JE;Guernsey=GG;Isle of Man=IM;Gibraltar=GI;Ukraine=UA;Greenland=GL",
+);
 seats("Nordamerika", "United States=US;Canada=CA;Bermuda=BM;Cayman Islands=KY;Bahamas=BS;Panama=PA");
 seats("Südamerika", "Brazil=BR;Mexico=MX;Argentina=AR;Chile=CL;Colombia=CO;Peru=PE;Uruguay=UY");
 seats("Japan", "Japan=JP");
-seats("Asien", "China=CN;Hong Kong=HK;Taiwan=TW;South Korea=KR;India=IN;Singapore=SG;Indonesia=ID;Philippines=PH;Vietnam=VN;Thailand=TH;Malaysia=MY;Israel=IL;Turkey=TR;United Arab Emirates=AE;Saudi Arabia=SA;Kazakhstan=KZ;Georgia=GE;Uzbekistan=UZ;Russia=RU;Pakistan=PK;Bangladesh=BD;Qatar=QA;Kuwait=KW;Jordan=JO;Lebanon=LB;Oman=OM;Bahrain=BH");
+seats(
+  "Asien",
+  "China=CN;Hong Kong=HK;Taiwan=TW;South Korea=KR;India=IN;Singapore=SG;Indonesia=ID;Philippines=PH;Vietnam=VN;Thailand=TH;Malaysia=MY;Israel=IL;Turkey=TR;United Arab Emirates=AE;Saudi Arabia=SA;Kazakhstan=KZ;Georgia=GE;Uzbekistan=UZ;Russia=RU;Pakistan=PK;Bangladesh=BD;Qatar=QA;Kuwait=KW;Jordan=JO;Lebanon=LB;Oman=OM;Bahrain=BH",
+);
 seats("Afrika", "South Africa=ZA;Egypt=EG;Nigeria=NG;Kenya=KE;Morocco=MA;Mauritius=MU;Ghana=GH");
 seats("Ozeanien", "Australia=AU;New Zealand=NZ;Papua New Guinea=PG");
 
@@ -167,11 +216,7 @@ export function stockFromEodhd(symbol: string, parsed: EodhdFundamentals): Stock
 }
 
 /** Lädt die vollständige, unveränderte Antwort als Text (rund 1 MB je Aktie). */
-export async function fetchEodhdFundamentalsRaw(
-  symbol: string,
-  token: string,
-  fetchFn: typeof fetch = fetch,
-): Promise<string> {
+export async function fetchEodhdFundamentalsRaw(symbol: string, token: string, fetchFn: typeof fetch = fetch): Promise<string> {
   const url = new URL(`https://eodhd.com/api/fundamentals/${encodeURIComponent(symbol)}`);
   url.searchParams.set("api_token", token);
   url.searchParams.set("fmt", "json");
@@ -200,16 +245,23 @@ export async function searchEodhd(query: string, token: string, fetchFn: typeof 
   url.searchParams.set("fmt", "json");
   const response = await fetchFn(url);
   if (!response.ok) throw new EodhdError(response.status, `search/${query}`);
-  const rows = (await response.json()) as Record<string, unknown>[];
+  const rows: unknown = await response.json();
   if (!Array.isArray(rows)) return [];
-  return rows.map((r) => ({
-    symbol: `${String(r.Code)}.${String(r.Exchange)}`,
-    name: String(r.Name ?? ""),
-    exchange: String(r.Exchange),
-    type: String(r.Type ?? ""),
-    isin: typeof r.ISIN === "string" && r.ISIN !== "" ? r.ISIN : null,
-    isPrimary: r.isPrimary === true,
-    previousClose: typeof r.previousClose === "number" && r.previousClose > 0 ? r.previousClose : null,
-    previousCloseDate: typeof r.previousCloseDate === "string" ? r.previousCloseDate : null,
-  }));
+  return rows.flatMap((row) => {
+    const parsed = SearchRow.safeParse(row);
+    if (!parsed.success) return [];
+    const r = parsed.data;
+    return [
+      {
+        symbol: `${r.Code}.${r.Exchange}`,
+        name: r.Name ?? "",
+        exchange: r.Exchange,
+        type: r.Type ?? "",
+        isin: r.ISIN ? r.ISIN : null,
+        isPrimary: r.isPrimary === true,
+        previousClose: r.previousClose && r.previousClose > 0 ? r.previousClose : null,
+        previousCloseDate: r.previousCloseDate ?? null,
+      },
+    ];
+  });
 }
