@@ -53,7 +53,7 @@ describe("Server Actions", () => {
   });
 
   it.each(["0", "-3", "abc", "", "1.2.3"])("weist den Kurs %j zurück", async (price) => {
-    await expect(saveManualPrice("IMB.LSE", form({ price }))).rejects.toThrow(/fehler=Der%20Kurs/);
+    await expect(saveManualPrice("IMB.LSE", form({ price }))).rejects.toThrow(/fehler=Der\+Kurs/);
     expect(db.latestPrice("IMB.LSE")).toBeNull();
   });
 
@@ -109,7 +109,27 @@ describe("Server Actions", () => {
     await expect(requestJudgement("IMB.LSE", form({ research: "off" }))).rejects.toThrow("redirect:/aktie/IMB.LSE#urteil");
     expect(judgeStock.mock.calls.at(-1)?.[3]).toEqual({ research: false });
     judgeStock.mockRejectedValueOnce(new Error("Jev antwortet mit 503"));
-    await expect(requestJudgement("IMB.LSE", form({ research: "on" }))).rejects.toThrow(/fehler=Jev%20antwortet%20mit%20503/);
+    await expect(requestJudgement("IMB.LSE", form({ research: "on" }))).rejects.toThrow(/fehler=Jev\+antwortet\+mit\+503/);
+  });
+
+  it("behält den Ursprung der Aktienseite durch Speichern, Fehler, Jev und Aktualisieren", async () => {
+    const von = "/portfolio/2";
+    await expect(saveInputs("IMB.LSE", form({ growth: "2", von }))).rejects.toThrow(
+      "redirect:/aktie/IMB.LSE?von=%2Fportfolio%2F2&gespeichert=1",
+    );
+    await expect(saveInputs("IMB.LSE", form({ growth: "viel", von }))).rejects.toThrow(/von=%2Fportfolio%2F2&fehler=/);
+    judgeStock.mockResolvedValueOnce({});
+    await expect(requestJudgement("IMB.LSE", form({ research: "off", von }))).rejects.toThrow(
+      "redirect:/aktie/IMB.LSE?von=%2Fportfolio%2F2#urteil",
+    );
+    await expect(saveManualPrice("IMB.LSE", form({ price: "12,5", von }))).rejects.toThrow(/von=%2Fportfolio%2F2&gespeichert=1/);
+    await expect(refreshStockData("IMB.LSE", form({ von: "/vorrat?q=imb" }))).rejects.toThrow(/von=%2Fvorrat%3Fq%3Dimb&lauf=/);
+  });
+
+  it("ignoriert einen fremden Ursprung", async () => {
+    await expect(saveInputs("IMB.LSE", form({ growth: "2", von: "https://example.com" }))).rejects.toThrow(
+      "redirect:/aktie/IMB.LSE?gespeichert=1",
+    );
   });
 
   it("vermerkt einen unverändert übernommenen Jev-Vorschlag in der Notiz", async () => {
@@ -159,8 +179,8 @@ describe("Server Actions", () => {
   it("stellt Läufe ein, fasst Doppelklicks zusammen und bricht sie ab", async () => {
     await expect(startSync("/abgleich")).rejects.toThrow("redirect:/abgleich?lauf=1");
     await expect(startSync("https://example.com")).rejects.toThrow("redirect:/abgleich?lauf=1");
-    await expect(refreshStockData("IMB.LSE")).rejects.toThrow("redirect:/aktie/IMB.LSE?lauf=2");
-    await expect(refreshStockData("FEHLT")).rejects.toThrow(/^redirect:\/$/);
+    await expect(refreshStockData("IMB.LSE", form({}))).rejects.toThrow("redirect:/aktie/IMB.LSE?lauf=2");
+    await expect(refreshStockData("FEHLT", form({}))).rejects.toThrow(/^redirect:\/$/);
     expect(db.activeJobs().map((j) => [j.kind, j.args])).toEqual([
       ["sync", {}],
       ["stock-refresh", { id: "IMB.LSE" }],

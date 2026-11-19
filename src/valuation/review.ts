@@ -5,7 +5,6 @@
 // (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Abschnitt 4.1: Was über sie hinausgeht,
 // deckt die Bewertung nicht mehr ab.
 
-import { z } from "zod";
 import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS } from "../calc/index.ts";
 
 /** Nach so vielen Monaten ist eine Bewertung überfällig (Buch: jährliche Prüfung). */
@@ -36,19 +35,6 @@ export function basisOf(proposals: {
   };
 }
 
-const StoredDetails = z.object({
-  proposals: z.object({
-    values: z.record(z.string(), z.number()),
-    details: z.object({ earningsLevel: z.number().nullable().optional() }),
-  }),
-});
-
-/** Liest die Grundlage aus einem gespeicherten Tagesstand; `null`, wenn er sie nicht enthält. */
-export function storedBasis(details: unknown): Basis | null {
-  const parsed = StoredDetails.safeParse(details);
-  return parsed.success ? basisOf(parsed.data.proposals) : null;
-}
-
 export interface Review {
   /** Tag, an dem zuletzt eine Eingabe von Hand gesetzt oder bestätigt wurde; `null` ohne Eingabe von Hand. */
   assessedOn: string | null;
@@ -56,6 +42,8 @@ export interface Review {
   overdue: boolean;
   /** Was sich an den Vorschlägen seit der Bewertung über die Bandbreite hinaus verschoben hat, als Sätze. */
   changes: string[];
+  /** Die Rechnung hat sich seit der Bewertung geändert; die Verschiebungen können auch daher kommen. */
+  calcChanged: boolean;
 }
 
 const number = (value: number, digits: number) =>
@@ -88,10 +76,17 @@ function monthsLater(date: string, months: number): string {
 /**
  * @param before Grundlage am Tag der Bewertung; `null`, wenn kein Tagesstand aus dieser Zeit vorliegt.
  * @param now Grundlage heute.
+ * @param calcChanged Der Tagesstand von damals ist mit einer anderen Version der Rechnung entstanden.
  */
-export function reviewOf(args: { assessedOn: string | null; today: string; before: Basis | null; now: Basis }): Review {
+export function reviewOf(args: {
+  assessedOn: string | null;
+  today: string;
+  before: Basis | null;
+  now: Basis;
+  calcChanged?: boolean;
+}): Review {
   const { assessedOn, before, now } = args;
-  if (assessedOn === null) return { assessedOn, overdue: false, changes: [] };
+  if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false };
   const spread = DEFAULT_SCENARIO_SPREAD;
   const changes =
     before === null
@@ -102,7 +97,12 @@ export function reviewOf(args: { assessedOn: string | null; today: string; befor
           pointChange("Wachstum", before.growth, now.growth, spread.growthPoints, 1),
           pointChange("Risiko aus Zahlen", before.numberRisk, now.numberRisk, RISK_SHIFT, 0),
         ].filter((change): change is string => change !== null);
-  return { assessedOn, overdue: monthsLater(assessedOn, REVIEW_MONTHS) < args.today, changes };
+  return {
+    assessedOn,
+    overdue: monthsLater(assessedOn, REVIEW_MONTHS) < args.today,
+    changes,
+    calcChanged: before !== null && (args.calcChanged ?? false),
+  };
 }
 
 /** Die Bewertung sollte wieder angesehen werden. */

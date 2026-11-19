@@ -1,6 +1,8 @@
 // Datenbankzugriff der Oberfläche. Nur auf dem Server verwenden.
 
+import { cache } from "react";
 import { Database } from "../data/db.ts";
+import { type Ranking, rankWatchlist } from "../valuation/ranking.ts";
 
 const holder = globalThis as { investingDb?: Database };
 
@@ -21,3 +23,6 @@ export function database(): Database {
 }
 
 export const today = () => new Date().toISOString().slice(0, 10);
+
+/** Rangliste der Watchlist, einmal je Anfrage gerechnet: Layout (Zähler) und Seite teilen sie sich. */
+export const watchlistRanking: () => Ranking = cache(() => rankWatchlist(database(), today()));

@@ -1,6 +1,6 @@
 import type { Job } from "../../data/db.ts";
 import { estimateCalls, isJobKind, JOB_KINDS } from "../../jobs/registry.ts";
-import { cancelJob, setAutoSync, startHistory, startIndexImport, startRefreshAll, startSync } from "../actions.ts";
+import { cancelJob, setAutoSync, startHistory, startIndexImport, startRecompute, startRefreshAll, startSync } from "../actions.ts";
 import { AutoRefresh } from "../autoRefresh.tsx";
 import { eodhdBudget } from "../budget.ts";
 import { amount, isoDate } from "../format.ts";
@@ -81,6 +81,9 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
               label={auto ? "Nächtlichen Abgleich ausschalten" : "Nächtlichen Abgleich einschalten"}
               pendingLabel="Wird gespeichert …"
             />
+          </form>
+          <form action={startRecompute.bind(null, self)}>
+            <PendingButton className="quiet" label="Neu rechnen" pendingLabel="Wird eingestellt …" />
           </form>
           <form action={startSync.bind(null, self)}>
             <PendingButton label="Jetzt abgleichen" pendingLabel="Wird eingestellt …" />

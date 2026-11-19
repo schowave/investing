@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Database } from "../data/db.ts";
+import { FUNDAMENTALS_KIND as RAW_KIND } from "../data/eodhdSnapshot.ts";
 import { fakeEodhd, fundamentalsAnswer, status, testContext } from "../test/eodhd.ts";
-import { stock } from "../test/fixtures.ts";
+import { steadyYears, stock } from "../test/fixtures.ts";
 import { consoleContext, eachParallel, reason, requireToken } from "./context.ts";
-import { RAW_KIND, refreshFundamentals, refreshStock } from "./fundamentals.ts";
+import { refreshFundamentals, refreshStock } from "./fundamentals.ts";
 import { historyTodo, loadHistory } from "./history.ts";
 import { estimateCalls, isJobKind, runJob } from "./registry.ts";
 import { addByIsin, importStockpile, isinsIn, reparseArchive } from "./stockpile.ts";
@@ -185,6 +186,90 @@ describe("Datenvorrat", () => {
     const result = await runJob(testContext(db, fetchFn).ctx, "refresh-all", {});
     expect(result.ok).toBe(true);
     expect(fetchFn.calls).toEqual(["fundamentals/TEST.US"]);
+  });
+});
+
+describe("Fundamentaldaten aufnehmen", () => {
+  const described = () => ({
+    ...fundamentalsAnswer("Gleich Corp"),
+    General: { ...fundamentalsAnswer().General, Name: "Gleich Corp", Description: "Founded in 1901 in Ohio." },
+  });
+
+  it("legt auf jedem Weg dieselben Stammdaten an", async () => {
+    const answer = described();
+    const viaSymbol = new Database(":memory:");
+    await importStockpile(testContext(viaSymbol, fakeEodhd({ "fundamentals/GLC.US": answer })).ctx, {
+      indices: [],
+      symbols: ["GLC.US"],
+      exchanges: [],
+      refreshAll: false,
+      watch: false,
+    });
+    const viaIsin = new Database(":memory:");
+    const search = [{ Code: "GLC", Exchange: "US", Name: "Gleich Corp", Type: "Common Stock", ISIN: "US0000000009" }];
+    await addByIsin(testContext(viaIsin, fakeEodhd({ "search/US0000000009": search, "fundamentals/GLC.US": answer })).ctx, [
+      "US0000000009",
+    ]);
+    // Schon bekannt, aber ohne Gründungsjahr und Wertpapierart: Das Auffrischen trägt beides nach.
+    const viaRefresh = new Database(":memory:");
+    viaRefresh.addStockIfMissing({ ...stock, id: "GLC.US", name: "Gleich Corp", watched: false, foundedYear: null });
+    await refreshFundamentals(testContext(viaRefresh, fakeEodhd({ "fundamentals/GLC.US": answer })).ctx, [viaRefresh.stock("GLC.US")!]);
+
+    const row = (db: Database) => {
+      const { watched: _, ...rest } = db.stock("GLC.US")!;
+      return rest;
+    };
+    expect(row(viaSymbol)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika" });
+    expect(row(viaIsin)).toEqual(row(viaSymbol));
+    expect(row(viaRefresh)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika" });
+  });
+
+  it("behält beim Auffrischen die Abschlüsse, wenn die Antwort keine enthält, und lädt die Historie trotzdem", async () => {
+    const db = fresh();
+    db.saveFundamentals("TEST.US", steadyYears(), "eodhd");
+    const fetchFn = fakeEodhd({
+      "fundamentals/TEST.US": fundamentalsAnswer("Test", []),
+      "div/TEST.US": [{ date: "2025-05-02", value: 2, currency: "USD" }],
+      "splits/TEST.US": [],
+      "eod/TEST.US": [],
+    });
+    const { ctx, log } = testContext(db, fetchFn);
+    expect((await refreshStock(ctx, "TEST.US")).ok).toBe(true);
+    expect(log.join("\n")).toMatch(/keine Jahresabschlüsse/);
+    expect(db.fundamentals("TEST.US")).toHaveLength(10);
+    expect(db.dividends("TEST.US")).toHaveLength(1);
+  });
+
+  it("nimmt aus Index und Börse nur Einträge in erwarteter Form", async () => {
+    const db = new Database(":memory:");
+    const fetchFn = fakeEodhd({
+      "fundamentals/TEST.INDX": { Components: { "0": { Code: "GUT", Exchange: "US", Name: "Gut" }, "1": { Code: 5, Exchange: "US" } } },
+      "exchange-symbol-list/XX": [{ Code: null }, { Code: "B", Name: "B", Type: "Common Stock" }],
+      "fundamentals/GUT.US": fundamentalsAnswer("Gut"),
+      "fundamentals/B.XX": fundamentalsAnswer("B"),
+    });
+    const { ctx, log } = testContext(db, fetchFn);
+    const result = await importStockpile(ctx, { indices: ["TEST.INDX"], symbols: [], exchanges: ["XX"], refreshAll: false, watch: false });
+    expect(result.ok).toBe(true);
+    expect(log).toEqual(expect.arrayContaining(["TEST.INDX: 1 Bestandteile", "Börse XX: 1 Stammaktien"]));
+    expect(db.stock("GUT.US")).not.toBeNull();
+    expect(db.stock("B.XX")).not.toBeNull();
+  });
+
+  it("überspringt bei einer ISIN Notizen ohne Jahresabschlüsse", async () => {
+    const db = new Database(":memory:");
+    const search = [
+      { Code: "LEER", Exchange: "US", Name: "Gleich Corp", Type: "Common Stock", ISIN: "US0000000009", isPrimary: true },
+      { Code: "GLC", Exchange: "F", Name: "Gleich Corp", Type: "Common Stock", ISIN: "US0000000009" },
+    ];
+    const fetchFn = fakeEodhd({
+      "search/US0000000009": search,
+      "fundamentals/LEER.US": fundamentalsAnswer("Leer", []),
+      "fundamentals/GLC.F": described(),
+    });
+    expect((await addByIsin(testContext(db, fetchFn).ctx, ["US0000000009"])).ok).toBe(true);
+    expect(db.stock("LEER.US")).toBeNull();
+    expect(db.stock("GLC.F")?.watched).toBe(true);
   });
 });
 

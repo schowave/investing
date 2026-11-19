@@ -5,20 +5,21 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
-import { currentProposals } from "../judgement/factors.ts";
 import { judgeStock } from "../judgement/judge.ts";
-import { valueStock } from "../valuation/run.ts";
+import { assess, type InputUpdate } from "../valuation/run.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
+import { safeOrigin, stockPath } from "./origin.ts";
 import { database, today } from "./server.ts";
 
 /** Speichert alle Eingabefelder einer Aktie. Ein leeres Feld löscht den manuellen Wert, dann gilt der Vorschlag. */
 export async function saveInputs(stockId: string, form: FormData): Promise<void> {
   const db = database();
-  const page = `/aktie/${encodeURIComponent(stockId)}`;
+  const von = safeOrigin(form.get("von"));
+  const page = stockPath(stockId, von);
   const stock = db.stock(stockId);
   if (!stock) redirect("/");
 
-  const updates: { key: string; value: number | null }[] = [];
+  const updates: InputUpdate[] = [];
   for (const key of INPUT_KEYS) {
     const text = field(form.get(key));
     if (text === "") {
@@ -26,34 +27,19 @@ export async function saveInputs(stockId: string, form: FormData): Promise<void>
       continue;
     }
     const parsed = parseManualInput(key, text);
-    if ("error" in parsed) redirect(`${page}?fehler=${encodeURIComponent(parsed.error)}`);
+    if ("error" in parsed) redirect(stockPath(stockId, von, { fehler: parsed.error }));
     updates.push({ key, value: parsed.value });
   }
-
-  const previous = new Map(db.manualInputs(stockId).map((input) => [input.key, input]));
-  const jev = db.judgement(stockId);
-  for (const { key, value } of updates) {
-    if (value === null) {
-      db.clearManualInput(stockId, key);
-      continue;
-    }
-    const before = previous.get(key);
-    // Ein unverändert übernommener Jev-Vorschlag wird als solcher vermerkt.
-    const proposal = currentProposals(jev)[key.replace(/^risk\./, "")];
-    const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
-    db.setManualInput(stockId, key, value, fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : (before?.note ?? ""));
-  }
-  // Der Tagesstand hält fest, auf welchen Vorschlägen die Bewertung steht; daran misst sich später, was sich verschoben hat.
-  valueStock(db, stock, today());
+  assess(db, stock, updates, today());
   revalidatePath("/");
-  revalidatePath(page);
-  redirect(`${page}?gespeichert=1`);
+  revalidatePath(`/aktie/${encodeURIComponent(stockId)}`);
+  redirect(stockPath(stockId, von, { gespeichert: "1" }));
 }
 
 /** Holt Vorschläge für die Urteilsfaktoren von Jev, auf Wunsch mit Recherche im Netz. */
 export async function requestJudgement(stockId: string, form: FormData): Promise<void> {
   const db = database();
-  const page = `/aktie/${encodeURIComponent(stockId)}`;
+  const von = safeOrigin(form.get("von"));
   const stock = db.stock(stockId);
   if (!stock) redirect("/");
   let failure: string | null = null;
@@ -63,9 +49,9 @@ export async function requestJudgement(stockId: string, form: FormData): Promise
     failure = error instanceof Error ? error.message : String(error);
   }
   // redirect() wirft absichtlich und darf deshalb nicht im try-Block stehen.
-  if (failure !== null) redirect(`${page}?fehler=${encodeURIComponent(failure)}`);
-  revalidatePath(page);
-  redirect(`${page}#urteil`);
+  if (failure !== null) redirect(stockPath(stockId, von, { fehler: failure }));
+  revalidatePath(`/aktie/${encodeURIComponent(stockId)}`);
+  redirect(stockPath(stockId, von, {}, "#urteil"));
 }
 
 /** Formularfelder: Text, deutsches Dezimalkomma erlaubt. Ein leeres Feld ist `null`. */
@@ -93,12 +79,12 @@ export async function setWatched(stockId: string, watched: boolean, returnTo: st
 
 /** Trägt einen Kurs von Hand ein (Hauptwährung, Datum heute). */
 export async function saveManualPrice(stockId: string, form: FormData): Promise<void> {
-  const page = `/aktie/${encodeURIComponent(stockId)}`;
+  const von = safeOrigin(form.get("von"));
   const price = Price.safeParse(field(form.get("price")));
-  if (!price.success) redirect(`${page}?fehler=${encodeURIComponent("Der Kurs muss eine Zahl über 0 sein.")}`);
+  if (!price.success) redirect(stockPath(stockId, von, { fehler: "Der Kurs muss eine Zahl über 0 sein." }));
   database().saveManualPrice(stockId, today(), price.data);
   revalidatePath("/");
-  redirect(`${page}?gespeichert=1`);
+  redirect(stockPath(stockId, von, { gespeichert: "1" }));
 }
 
 export async function createPortfolio(form: FormData): Promise<void> {
@@ -163,6 +149,11 @@ export async function startSync(returnTo: string): Promise<void> {
   enqueue("sync", {}, returnTo);
 }
 
+/** Bewertungen, Screening und Portfolios aus den gespeicherten Daten neu rechnen, ohne Abruf. */
+export async function startRecompute(returnTo: string): Promise<void> {
+  enqueue("recompute", {}, returnTo);
+}
+
 const AutoSyncForm = z.enum(["an", "aus"]);
 
 /** Schaltet den nächtlichen Abgleich ein oder aus; von Hand lässt er sich immer starten. */
@@ -174,9 +165,9 @@ export async function setAutoSync(form: FormData): Promise<void> {
   redirect("/abgleich");
 }
 
-export async function refreshStockData(stockId: string): Promise<void> {
+export async function refreshStockData(stockId: string, form: FormData): Promise<void> {
   if (!database().stock(stockId)) redirect("/");
-  enqueue("stock-refresh", { id: stockId }, `/aktie/${encodeURIComponent(stockId)}`);
+  enqueue("stock-refresh", { id: stockId }, stockPath(stockId, safeOrigin(form.get("von"))));
 }
 
 /** ISINs und Symbole (mit Börse, z. B. KAP.IL) aus einem Textfeld; eine kopierte Depotliste geht auch. */

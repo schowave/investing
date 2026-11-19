@@ -3,6 +3,7 @@
 // Formular und den ausgeschriebenen Punkten eines 8-K, bei den gewichtigen 8-Ks dazu den Anfang des Textes.
 
 import { z } from "zod";
+import type { EodhdSnapshot } from "../data/eodhdSnapshot.ts";
 
 /** Wie weit die Mitteilungen zurückreichen. */
 const MONTHS = 12;
@@ -123,11 +124,9 @@ export function normalizeCik(value: unknown): string | null {
   return /^\d{1,10}$/.test(digits) && Number(digits) > 0 ? digits.padStart(10, "0") : null;
 }
 
-/** CIK aus der Rohantwort von EODHD (General.CIK); nur US-Titel haben eine. */
-export function cikFromFundamentals(fundamentalsJson: string | null): string | null {
-  if (!fundamentalsJson) return null;
-  const raw = JSON.parse(fundamentalsJson) as { General?: { CIK?: unknown } };
-  return normalizeCik(raw.General?.CIK);
+/** CIK aus der Momentaufnahme von EODHD; nur US-Titel haben eine. */
+export function cikOf(snapshot: EodhdSnapshot | null): string | null {
+  return normalizeCik(snapshot?.cik);
 }
 
 function describe(form: string, items: string): string | null {

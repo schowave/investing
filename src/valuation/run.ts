@@ -1,10 +1,38 @@
-// Bewertet eine Aktie aus der Datenbank und speichert den Tagesstand.
+// Bewertet eine Aktie aus der Datenbank, speichert den Tagesstand und nimmt die Eingaben von Hand entgegen.
+//
+// Der Tagesstand ist zugleich der Prüfstand: „Bewertung prüfen“ vergleicht die Vorschläge von heute mit denen vom Tag
+// der Bewertung. Sein Format steht deshalb nur hier, geschrieben in `valueStock`, gelesen in `computeValuation`.
 
+import { z } from "zod";
 import type { Database, Stock } from "../data/db.ts";
-import type { Review } from "./review.ts";
-import { basisOf, reviewOf, storedBasis } from "./review.ts";
+import { currentProposals } from "../judgement/factors.ts";
+import type { Basis, Review } from "./review.ts";
+import { basisOf, reviewOf } from "./review.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
 import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
+
+/**
+ * Version der Rechnung. Erhöhen, wenn sich Vorschläge oder Bewertung für gespeicherte Daten ändern: Der Worker
+ * rechnet dann alle gespeicherten Stände neu (`recomputeAll`), und „Bewertung prüfen“ sagt dazu, dass Verschiebungen
+ * seit der Bewertung auch aus der neuen Rechnung kommen können.
+ */
+export const CALC_VERSION = 1;
+
+/** Gespeicherter Tagesstand; nur `calcVersion` und die Vorschläge werden wieder gelesen. */
+const StoredDetails = z.object({
+  // Fehlt bei Tagesständen, die vor der Einführung der Version gespeichert wurden.
+  calcVersion: z.number().int().default(1),
+  proposals: z.object({
+    values: z.record(z.string(), z.number()),
+    details: z.object({ earningsLevel: z.number().nullable().optional() }),
+  }),
+});
+
+/** Prüfstand aus einem gespeicherten Tagesstand; `null`, wenn er die Vorschläge nicht enthält. */
+export function storedBaseline(details: unknown): { basis: Basis; calcVersion: number } | null {
+  const parsed = StoredDetails.safeParse(details);
+  return parsed.success ? { basis: basisOf(parsed.data.proposals), calcVersion: parsed.data.calcVersion } : null;
+}
 
 export interface StockValuation {
   stock: Stock;
@@ -51,8 +79,14 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
   const valuation = evaluate(proposals.values, manual, price, inflationGap, proposals.details.earningsLevel);
 
   // Verglichen wird mit dem Tagesstand vom Tag der Bewertung. Ihn speichern der Abgleich und das Speichern der Bewertung.
-  const before = assessedOn === null ? null : storedBasis(db.valuationDetailsAsOf(stock.id, assessedOn));
-  const review = reviewOf({ assessedOn, today: date, before, now: basisOf(proposals) });
+  const before = assessedOn === null ? null : storedBaseline(db.valuationDetailsAsOf(stock.id, assessedOn));
+  const review = reviewOf({
+    assessedOn,
+    today: date,
+    before: before?.basis ?? null,
+    now: basisOf(proposals),
+    calcChanged: before !== null && before.calcVersion !== CALC_VERSION,
+  });
 
   return { stock, priceDate: latest?.date ?? null, proposals, valuation, review };
 }
@@ -78,6 +112,16 @@ function afterSplits(
 export function valueStock(db: Database, stock: Stock, date: string): StockValuation {
   const result = computeValuation(db, stock, date);
   const { valuation, proposals, priceDate } = result;
+  const details = {
+    calcVersion: CALC_VERSION,
+    priceDate,
+    inputs: valuation.inputs,
+    manual: valuation.manual,
+    missing: valuation.missing,
+    proposals,
+  };
+  // Schreiben und Lesen hängen am selben Format: Ein umbenanntes Feld in `Proposals` bricht hier beim Übersetzen.
+  details satisfies z.input<typeof StoredDetails>;
   db.saveValuation(stock.id, date, {
     complete: valuation.complete,
     price: valuation.price,
@@ -85,7 +129,38 @@ export function valueStock(db: Database, stock: Stock, date: string): StockValua
     innerReturn: valuation.returns?.base ?? null,
     innerReturnCautious: valuation.returns?.cautious ?? null,
     innerReturnOptimistic: valuation.returns?.optimistic ?? null,
-    details: { priceDate, inputs: valuation.inputs, manual: valuation.manual, missing: valuation.missing, proposals },
+    details,
   });
   return result;
+}
+
+/** Neuer Wert von Hand für eine Eingabe; `null` löscht ihn, dann gilt wieder der Vorschlag. */
+export interface InputUpdate {
+  key: InputKey;
+  value: number | null;
+  /** Notiz zum Wert; ohne Angabe bleibt die bisherige, oder es wird ein übernommener Jev-Vorschlag vermerkt. */
+  note?: string;
+}
+
+/**
+ * Setzt Eingaben von Hand und speichert den Tagesstand dazu. Das Datum der Eingaben ist der Tag der Bewertung;
+ * der Tagesstand hält fest, auf welchen Vorschlägen sie steht, und daran misst sich später, was sich verschoben hat.
+ * Oberfläche und Skript gehen beide hier durch, damit kein Weg eine Bewertung ohne Prüfstand hinterlässt.
+ */
+export function assess(db: Database, stock: Stock, updates: readonly InputUpdate[], date: string): StockValuation {
+  const previous = new Map(db.manualInputs(stock.id).map((input) => [input.key, input]));
+  const jev = db.judgement(stock.id);
+  for (const { key, value, note } of updates) {
+    if (value === null) {
+      db.clearManualInput(stock.id, key);
+      continue;
+    }
+    const before = previous.get(key);
+    // Ein unverändert übernommener Jev-Vorschlag wird als solcher vermerkt.
+    const proposal = currentProposals(jev)[key.replace(/^risk\./, "")];
+    const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
+    const jevNote = fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : null;
+    db.setManualInput(stock.id, key, value, note ?? jevNote ?? before?.note ?? "");
+  }
+  return valueStock(db, stock, date);
 }

@@ -177,6 +177,26 @@ h1 {
 .crumb:hover {
   color: var(--text);
 }
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+}
+.crumbs .crumb {
+  margin-bottom: 0;
+}
+.crumbs .steps {
+  display: flex;
+  gap: 16px;
+}
+.ranking td:first-child {
+  min-width: 220px;
+}
+.ranking .range {
+  min-width: 110px;
+}
 .title-actions {
   display: flex;
   flex-wrap: wrap;

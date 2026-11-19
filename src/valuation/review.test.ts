@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Database } from "../data/db.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
 import type { Basis } from "./review.ts";
-import { basisOf, needsReview, reviewOf, storedBasis } from "./review.ts";
-import { computeValuation, valueStock } from "./run.ts";
+import { basisOf, needsReview, reviewOf } from "./review.ts";
+import { assess, CALC_VERSION, computeValuation, storedBaseline, valueStock } from "./run.ts";
 
 const basis: Basis = { payoutLevel: 3, growth: 0.05, earningsLevel: 6, numberRisk: 0.2 };
 
 describe("reviewOf", () => {
   it("verlangt ohne Eingabe von Hand keine Prüfung", () => {
     const review = reviewOf({ assessedOn: null, today: "2026-11-19", before: null, now: basis });
-    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [] });
+    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [], calcChanged: false });
     expect(needsReview(review)).toBe(false);
   });
 
@@ -73,14 +73,13 @@ describe("Grundlage einer Bewertung", () => {
   });
 
   it("liest sie aus einem gespeicherten Tagesstand und verwirft fremde Formen", () => {
-    expect(storedBasis({ proposals: { values: { growth: 0.03 }, details: { earningsLevel: 4 } } })).toEqual({
-      payoutLevel: null,
-      growth: 0.03,
-      earningsLevel: 4,
-      numberRisk: 0,
+    expect(storedBaseline({ proposals: { values: { growth: 0.03 }, details: { earningsLevel: 4 } } })).toEqual({
+      basis: { payoutLevel: null, growth: 0.03, earningsLevel: 4, numberRisk: 0 },
+      // Tagesstände von vor der Einführung der Rechenversion gelten als Version 1.
+      calcVersion: 1,
     });
-    expect(storedBasis({ inputs: {} })).toBeNull();
-    expect(storedBasis(null)).toBeNull();
+    expect(storedBaseline({ inputs: {} })).toBeNull();
+    expect(storedBaseline(null)).toBeNull();
   });
 });
 
@@ -99,7 +98,12 @@ describe("Prüfstand aus der Datenbank", () => {
     db.setManualInput(stock.id, "risk.moat", 0.05);
     valueStock(db, stock, "2025-06-01");
     valueStock(db, stock, "2025-06-15");
-    expect(computeValuation(db, stock, "2025-07-01").review).toEqual({ assessedOn: "2025-06-01", overdue: false, changes: [] });
+    expect(computeValuation(db, stock, "2025-07-01").review).toEqual({
+      assessedOn: "2025-06-01",
+      overdue: false,
+      changes: [],
+      calcChanged: false,
+    });
 
     // Neue Abschlüsse: Der freie Cashflow trägt nur noch 2,50 statt 3,00 je Aktie.
     db.saveFundamentals(
@@ -122,7 +126,53 @@ describe("Prüfstand aus der Datenbank", () => {
     db.setManualInput(stock.id, "growth", 0.01);
     expect(db.valuationDetailsAsOf(stock.id, "2025-06-01")).toBeNull();
     valueStock(db, stock, "2025-06-03");
-    expect(storedBasis(db.valuationDetailsAsOf(stock.id, "2025-06-01"))?.payoutLevel).toBeCloseTo(3);
+    expect(storedBaseline(db.valuationDetailsAsOf(stock.id, "2025-06-01"))?.basis.payoutLevel).toBeCloseTo(3);
+    db.close();
+  });
+});
+
+describe("Bewerten mit Eingaben von Hand", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("speichert mit jeder Eingabe den Prüfstand, auch beim Löschen", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    assess(db, stock, [{ key: "risk.moat", value: 0.05, note: "Marke" }], "2025-06-01");
+    expect(db.manualInputs(stock.id)).toMatchObject([{ key: "risk.moat", value: 0.05, note: "Marke" }]);
+    expect(storedBaseline(db.valuationDetailsAsOf(stock.id, "2025-06-01"))?.calcVersion).toBe(CALC_VERSION);
+
+    // Ohne neue Notiz bleibt die alte stehen.
+    assess(db, stock, [{ key: "risk.moat", value: 0.06 }], "2025-06-01");
+    expect(db.manualInputs(stock.id)[0]?.note).toBe("Marke");
+    assess(db, stock, [{ key: "risk.moat", value: null }], "2025-06-02");
+    expect(db.manualInputs(stock.id)).toEqual([]);
+    db.close();
+  });
+
+  it("sagt dazu, wenn der Prüfstand mit einer anderen Rechnung entstanden ist", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    db.setManualInput(stock.id, "risk.moat", 0.05);
+    // Ein Tagesstand aus einer älteren Rechnung mit anderem Rückfluss.
+    const now = computeValuation(db, stock, "2025-06-01").proposals;
+    db.saveValuation(stock.id, "2025-06-01", {
+      complete: true,
+      price: null,
+      riskScore: 0,
+      innerReturn: null,
+      innerReturnCautious: null,
+      innerReturnOptimistic: null,
+      details: { calcVersion: CALC_VERSION - 1, proposals: { ...now, values: { ...now.values, payoutLevel: 4 } } },
+    });
+    const review = computeValuation(db, stock, "2025-07-01").review;
+    expect(review.calcChanged).toBe(true);
+    expect(review.changes).toHaveLength(1);
     db.close();
   });
 });

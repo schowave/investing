@@ -5,6 +5,7 @@
 //         pnpm run set IMB.LSE risk.moat -        manuellen Wert löschen, es gilt wieder der Vorschlag
 
 import { Database } from "../src/data/db.ts";
+import { assess } from "../src/valuation/run.ts";
 import type { InputKey } from "../src/valuation/valuation.ts";
 import { INPUT_KEYS, parseManualInput } from "../src/valuation/valuation.ts";
 
@@ -17,17 +18,20 @@ if (!stockId || !key || rawValue === undefined) fail("Aufruf: pnpm run set <Akti
 if (!(INPUT_KEYS as string[]).includes(key!)) fail(`Unbekannte Eingabe. Möglich: ${INPUT_KEYS.join(", ")}`);
 
 const db = new Database(process.env.INVESTING_DB ?? "data/investing.sqlite");
-if (!db.stocks({ includeStockpile: true }).some((s) => s.id === stockId)) fail(`Unbekannte Aktie ${stockId}.`);
+const stock = db.stock(stockId!) ?? fail(`Unbekannte Aktie ${stockId}.`);
+const inputKey = key as InputKey;
+const today = new Date().toISOString().slice(0, 10);
 
+// Wie das Speichern auf der Aktienseite: mit Tagesstand, damit „Bewertung prüfen“ einen Prüfstand hat.
 if (rawValue === "-") {
-  db.clearManualInput(stockId!, key!);
+  assess(db, stock, [{ key: inputKey, value: null }], today);
   console.log(`${stockId} ${key}: manueller Wert gelöscht.`);
 } else {
-  const inputKey = key as InputKey;
   const parsed = parseManualInput(inputKey, rawValue!);
   if ("error" in parsed) fail(parsed.error);
   const value = (parsed as { value: number }).value;
-  db.setManualInput(stockId!, key!, value, noteParts.join(" "));
+  // Die Notiz gilt wie angegeben; ohne Angabe wird die alte gelöscht.
+  assess(db, stock, [{ key: inputKey, value, note: noteParts.join(" ") }], today);
   console.log(`${stockId} ${key} = ${inputKey === "payoutLevel" ? value : `${(value * 100).toFixed(2)} %`}`);
 }
 db.close();

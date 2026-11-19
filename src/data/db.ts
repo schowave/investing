@@ -614,16 +614,23 @@ export class Database {
 
   /** Ob der nächtliche Timer den Abgleich einstellt (Standard: ja). Von Hand geht der Abgleich immer. */
   autoSync(): boolean {
-    const row = this.#db.select({ value: t.settings.value }).from(t.settings).where(eq(t.settings.key, AUTO_SYNC)).get();
-    return row?.value !== "aus";
+    return this.setting(AUTO_SYNC) !== "aus";
   }
 
   setAutoSync(on: boolean): void {
-    const value = on ? "an" : "aus";
+    this.setSetting(AUTO_SYNC, on ? "an" : "aus");
+  }
+
+  /** Wert einer Einstellung; `null`, wenn sie nie gesetzt wurde. */
+  setting(key: string): string | null {
+    return this.#db.select({ value: t.settings.value }).from(t.settings).where(eq(t.settings.key, key)).get()?.value ?? null;
+  }
+
+  setSetting(key: string, value: string): void {
     const updatedAt = new Date().toISOString();
     this.#db
       .insert(t.settings)
-      .values({ key: AUTO_SYNC, value, updatedAt })
+      .values({ key, value, updatedAt })
       .onConflictDoUpdate({ target: t.settings.key, set: { value, updatedAt } })
       .run();
   }

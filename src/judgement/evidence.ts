@@ -4,15 +4,11 @@
 // Aktie und Hinterlegungsschein, unbereinigte Splits) und sehen dann wie grobe Verfehlungen aus.
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
+import type { EodhdSnapshot } from "../data/eodhdSnapshot.ts";
 import type { Filing } from "./edgar.ts";
 
 type Row = Record<string, unknown>;
 
-const text = (value: unknown): string | null => (typeof value === "string" && value.trim() !== "" ? value.trim() : null);
-const num = (value: unknown): number | null => {
-  const n = typeof value === "string" ? Number(value) : value;
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
-};
 const round = (value: number | null, digits = 2) => (value === null ? null : Math.round(value * 10 ** digits) / 10 ** digits);
 const ratio = (a: number | null, b: number | null) => (a === null || !b ? null : a / b);
 
@@ -31,39 +27,32 @@ export interface Evidence {
 }
 
 /**
- * @param fundamentalsJson Rohantwort von EODHD (Fundamentals), sofern gespeichert.
+ * @param snapshot Momentaufnahme aus der Rohantwort von EODHD, sofern gespeichert.
  * @param research Text der Recherche aus dem Netz, sofern vorhanden.
  * @param secFilings Mitteilungen an die SEC, sofern abgefragt.
  */
 export function buildEvidence(args: {
   stock: Stock;
   years: readonly FundamentalsYear[];
-  fundamentalsJson: string | null;
+  snapshot: EodhdSnapshot | null;
   research: string | null;
   secFilings?: readonly Filing[] | null;
   asOf: string;
 }): Evidence {
-  const raw = args.fundamentalsJson ? (JSON.parse(args.fundamentalsJson) as Row) : {};
-  const general = (raw.General ?? {}) as Row;
-
-  const officers = Object.values((general.Officers ?? {}) as Row)
-    .map((o) => o as Row)
-    .map((o) => [text(o.Name), text(o.Title)].filter(Boolean).join(", "))
-    .filter((o) => o !== "");
-
+  const snapshot = args.snapshot;
   const company: Row = {
     name: args.stock.name,
     ticker: args.stock.id,
     sector: args.stock.sector,
-    industry: text(general.Industry) ?? text(general.GicIndustry),
+    industry: snapshot?.company.industry ?? null,
     country: args.stock.country,
     reportingCurrency: args.stock.reportingCurrency,
     isFinancial: args.stock.isFinancial,
     founded: args.stock.foundedYear,
-    ipoDate: text(general.IPODate),
-    employees: num(general.FullTimeEmployees),
-    description: text(general.Description),
-    officers: officers.slice(0, 8),
+    ipoDate: snapshot?.company.ipoDate ?? null,
+    employees: snapshot?.company.employees ?? null,
+    description: snapshot?.company.description ?? null,
+    officers: (snapshot?.company.officers ?? []).slice(0, 8),
   };
 
   const fiscalYears = args.years.slice(-10).map((y) => ({
@@ -79,30 +68,25 @@ export function buildEvidence(args: {
   }));
 
   const cutoff = `${Number(args.asOf.slice(0, 4)) - INSIDER_YEARS}${args.asOf.slice(4)}`;
-  const insiderTransactions = Object.values((raw.InsiderTransactions ?? {}) as Row)
-    .map((t) => t as Row)
-    // Ohne Datum lässt sich nicht sagen, ob ein Geschäft in den Zeitraum fällt ("undefined" >= "2023-…" wäre wahr).
-    .filter((t) => {
-      const date = text(t.transactionDate) ?? text(t.date);
-      return date !== null && date >= cutoff;
-    })
-    .sort((a, b) => String(b.transactionDate ?? b.date).localeCompare(String(a.transactionDate ?? a.date)))
+  const insiderTransactions = (snapshot?.insiderTransactions ?? [])
+    // Ohne Datum lässt sich nicht sagen, ob ein Geschäft in den Zeitraum fällt.
+    .filter((t): t is typeof t & { date: string } => t.date !== null && t.date >= cutoff)
+    .sort((a, b) => b.date.localeCompare(a.date))
     .map((t) => ({
-      date: t.transactionDate ?? t.date,
-      insider: t.ownerName,
-      type: t.transactionAcquiredDisposed === "A" ? "buy" : t.transactionAcquiredDisposed === "D" ? "sell" : t.transactionCode,
-      shares: num(t.transactionAmount),
-      price: num(t.transactionPrice),
-      sharesHeldAfter: num(t.postTransactionAmount),
+      date: t.date,
+      insider: t.owner,
+      type: t.acquiredDisposed === "A" ? "buy" : t.acquiredDisposed === "D" ? "sell" : t.code,
+      shares: t.amount,
+      price: t.price,
+      sharesHeldAfter: t.heldAfter,
     }));
 
-  const ratings = raw.AnalystRatings as Row | undefined;
   return {
     asOf: args.asOf,
     company,
     fiscalYears,
     insiderTransactions,
-    analystRatings: ratings ? { rating: num(ratings.Rating), targetPrice: num(ratings.TargetPrice) } : null,
+    analystRatings: snapshot?.analystRatings ?? null,
     secFilings: args.secFilings
       ? args.secFilings.map(({ date, form, description, excerpt }) => ({ date, form, description, ...(excerpt ? { excerpt } : {}) }))
       : null,

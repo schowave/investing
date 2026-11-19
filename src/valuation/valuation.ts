@@ -1,7 +1,7 @@
 // Bewertung einer Aktie: Vorschläge aus den Fundamentaldaten, manuelle Übersteuerung, innere Rendite.
 // Reine Rechnung ohne Datenbank- und Netzzugriff (Spezifikation Abschnitte 4 bis 6).
 
-import type { Region, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
+import type { Region, ReturnInputs, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
 import {
   assessRisk,
   comparableReturn,
@@ -12,6 +12,7 @@ import {
   FULL_YEARS,
   growthProposal,
   historicalGrowth,
+  innerReturn,
   lowerGrowth,
   MANUAL_FOR_FINANCIALS,
   MIN_YEARS,
@@ -376,6 +377,8 @@ export interface Valuation {
   localReturn: number | null;
   /** Erwartete Inflation der Berichtswährung minus die des Euro. */
   inflationGap: number;
+  /** Eingaben der Renditerechnung im Basisfall; `null`, solange Rückfluss oder Wachstum fehlen. */
+  returnInputs: ReturnInputs | null;
   /**
    * Ausschüttungsquote heute und am Ende der Abschmelzphase, wenn die Rechnung eine steigende Quote annimmt;
    * sonst `null` (kein Gewinnniveau, schon volle Ausschüttung oder einbehaltene Gewinne ohne Wachstum).
@@ -428,9 +431,27 @@ export function evaluate(
     returns,
     localReturn: local?.base ?? null,
     inflationGap,
+    returnInputs,
     payoutRatio:
       terminalRatio != null && ratioNow !== null && terminalRatio > ratioNow + 1e-9 ? { now: ratioNow, terminal: terminalRatio } : null,
   };
+}
+
+/**
+ * Innere Rendite im Basisfall bei anderen Kursen, mit denselben Eingaben und demselben Währungsabgleich wie
+ * `evaluate`. Leer ohne Kurs oder ohne Rückfluss und Wachstum.
+ * @param steps Abstand zum heutigen Kurs, z. B. -0.1 für 10 % darunter.
+ */
+export function priceSensitivity(
+  valuation: Valuation,
+  steps: readonly number[],
+): { step: number; price: number; innerReturn: number | null }[] {
+  const { price, returnInputs, inflationGap } = valuation;
+  if (price === null || returnInputs === null) return [];
+  return steps.map((step) => {
+    const shifted = price * (1 + step);
+    return { step, price: shifted, innerReturn: comparableReturn(innerReturn(shifted, returnInputs), inflationGap) };
+  });
 }
 
 /** Kurs in Berichtswährung umrechnen; Wechselkurse als Einheiten je Euro. */

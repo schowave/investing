@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS } from "../../valuation/valuation.ts";
 import { addStocks, setWatched } from "../actions.ts";
 import { amount, isoDate, percent } from "../format.ts";
+import { stockPath } from "../origin.ts";
 import { PendingButton } from "../pendingButton.tsx";
 import { database } from "../server.ts";
 
@@ -129,7 +130,7 @@ export default async function Stockpile(props: {
                 {ranked.map(({ stock, row }) => (
                   <tr key={stock.id}>
                     <td>
-                      <Link className="name" href={`/aktie/${encodeURIComponent(stock.id)}`}>
+                      <Link className="name" href={stockPath(stock.id, returnTo)}>
                         {stock.name}
                       </Link>
                       <small>
@@ -187,7 +188,7 @@ export default async function Stockpile(props: {
                 {others.map(({ stock, fiscalYears }) => (
                   <tr key={stock.id}>
                     <td>
-                      <Link className="name" href={`/aktie/${encodeURIComponent(stock.id)}`}>
+                      <Link className="name" href={stockPath(stock.id, returnTo)}>
                         {stock.name}
                       </Link>
                       <small>

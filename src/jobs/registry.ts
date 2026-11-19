@@ -3,8 +3,10 @@
 
 import { z } from "zod";
 import type { Database } from "../data/db.ts";
+import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
+import { RECOMPUTE_JOB, recomputeAll } from "../valuation/recompute.ts";
 import type { JobContext, JobResult } from "./context.ts";
-import { RAW_KIND, refreshStock } from "./fundamentals.ts";
+import { refreshStock } from "./fundamentals.ts";
 import { historyTodo, loadHistory } from "./history.ts";
 import { addByIsin, importStockpile } from "./stockpile.ts";
 import { syncJob } from "./sync.ts";
@@ -82,6 +84,20 @@ export const JOB_KINDS = {
     run: (ctx: JobContext, args: { indices: string[]; exchanges: string[] }) =>
       importStockpile(ctx, { ...args, symbols: [], refreshAll: false, watch: false }),
   },
+  [RECOMPUTE_JOB]: {
+    label: "Neu rechnen",
+    args: z.object({}),
+    cancellable: false,
+    run: async (ctx: JobContext) => {
+      const report = recomputeAll(ctx.db, ctx.today);
+      for (const { id, error } of report.valuationErrors) ctx.log(`fehlt  ${id.padEnd(12)} ${error}`);
+      const failed = report.valuationErrors.length;
+      return {
+        summary: `${report.valuations} Bewertungen, ${report.screened} Titel im Screening, ${report.portfolios} Portfolios neu gerechnet${failed ? `, ${failed} nicht bewertet` : ""}`,
+        ok: failed === 0,
+      };
+    },
+  },
   "refresh-all": {
     label: "Alle Titel auffrischen",
     args: z.object({}),
@@ -111,7 +127,7 @@ export function estimateCalls(db: Database, kind: JobKind): number {
     case "history":
       return historyTodo({ db }, false).length;
     case "refresh-all":
-      return db.stockIdsWithRawDocument(RAW_KIND).size * 10;
+      return db.stockIdsWithRawDocument(FUNDAMENTALS_KIND).size * 10;
     default:
       return 0;
   }

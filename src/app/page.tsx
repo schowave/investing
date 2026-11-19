@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit, withHurdle } from "../calc/index.ts";
+import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit } from "../calc/index.ts";
 import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { needsReview } from "../valuation/review.ts";
-import { computeValuation } from "../valuation/run.ts";
-import { doubtfulNumbers } from "../valuation/valuation.ts";
 import { startSync } from "./actions.ts";
 import { amount, isoDate, percent } from "./format.ts";
+import { stockPath } from "./origin.ts";
 import { RangeLegend, ReturnRange, scaleFor } from "./parts.tsx";
 import { PendingButton } from "./pendingButton.tsx";
-import { database, today } from "./server.ts";
+import { database, watchlistRanking } from "./server.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -25,24 +24,8 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 
 export default function Ranking() {
   const db = database();
-  const date = today();
   const bondYield = db.referenceRate(BOND_KEY);
-  const hurdle = withHurdle(PROFILE_FOCUSED, bondYield).minReturn;
-  const valued = db.stocks().map((stock) => computeValuation(db, stock, date));
-  // Zahlen, die nicht zum Kurs passen (meist Hinterlegungsscheine): Die Rendite ist dann nicht ernst zu nehmen.
-  const doubtful = (r: (typeof valued)[number]) => doubtfulNumbers(r.valuation, r.proposals) !== null;
-  // Zweifelhafte Titel stehen hinter allen mit belastbarer Rendite.
-  const order = (r: (typeof valued)[number]) => (doubtful(r) ? -0.5 : (r.valuation.returns?.base ?? -1));
-  const rows = [...valued].sort((x, y) => order(y) - order(x));
-
-  const clears = (r: (typeof rows)[number]) => (r.valuation.returns?.base ?? -1) >= hurdle && r.valuation.riskScore < EXCLUSION_SCORE;
-  const candidates = rows.filter((r) => r.valuation.complete && clears(r) && !doubtful(r));
-  const incomplete = rows.filter((r) => !r.valuation.complete && r.valuation.riskScore < EXCLUSION_SCORE);
-  const promising = incomplete.filter((r) => clears(r) && !doubtful(r));
-  const next = promising[0] ?? incomplete[0];
-  // Fertige Bewertungen, die älter als ein Jahr sind oder deren Zahlen sich seither verschoben haben.
-  const toReview = rows.filter((r) => r.valuation.complete && needsReview(r.review));
-  const firstBelow = rows.findIndex((r) => order(r) < hurdle);
+  const { hurdle, rows, candidates, incomplete, promising, toReview, next, firstBelow } = watchlistRanking();
   const priceDates = rows
     .map((r) => r.priceDate)
     .filter((d): d is string => d !== null)
@@ -50,7 +33,7 @@ export default function Ranking() {
   const lastSync = db.latestSyncRun();
   const problem = lastSync && !lastSync.ok ? syncProblem(lastSync.report as SyncReport) : "";
   const scaleMax = scaleFor(
-    rows.filter((r) => !doubtful(r)).map((r) => r.valuation.returns?.optimistic ?? null),
+    rows.filter((r) => !r.doubtful).map((r) => r.valuation.returns?.optimistic ?? null),
     hurdle,
   );
 
@@ -74,7 +57,7 @@ export default function Ranking() {
         </div>
         <div className="title-actions">
           {next && (
-            <Link className="button" href={`/aktie/${encodeURIComponent(next.stock.id)}#urteil`}>
+            <Link className="button" href={stockPath(next.stock.id, "/", {}, "#urteil")}>
               {next.stock.name} bewerten
             </Link>
           )}
@@ -128,7 +111,7 @@ export default function Ranking() {
           <p className="empty">Noch keine Titel auf der Watchlist.</p>
         ) : (
           <div className="scroll">
-            <table>
+            <table className="ranking">
               <thead>
                 <tr>
                   <th>Aktie</th>
@@ -145,10 +128,10 @@ export default function Ranking() {
               <tbody>
                 {rows.map((row, index) => {
                   const { stock, valuation: v, review } = row;
-                  const suspect = doubtful(row);
+                  const suspect = row.doubtful;
                   const base = v.returns?.base ?? null;
                   const excluded = v.riskScore >= EXCLUSION_SCORE;
-                  const link = `/aktie/${encodeURIComponent(stock.id)}`;
+                  const link = stockPath(stock.id);
                   return [
                     index === firstBelow && firstBelow > 0 ? (
                       <tr className="threshold" key="threshold">
@@ -200,7 +183,7 @@ export default function Ranking() {
                         {excluded ? (
                           <span className="tag bad">ausgeschlossen</span>
                         ) : v.complete ? (
-                          clears(row) && !suspect ? (
+                          row.clears && !suspect ? (
                             <span className="tag ok">Kandidat</span>
                           ) : (
                             <span className="tag">unter der Anleiherendite</span>

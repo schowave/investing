@@ -2,8 +2,9 @@
 // (falls möglich), dann Einstufung durch Jev.
 
 import type { Database, Stock, StoredJudgement } from "../data/db.ts";
+import { storedSnapshot } from "../data/eodhdSnapshot.ts";
 import type { Filing } from "./edgar.ts";
-import { cikFromFundamentals, fetchFilings } from "./edgar.ts";
+import { cikOf, fetchFilings } from "./edgar.ts";
 import { buildEvidence } from "./evidence.ts";
 import { FACTOR_QUESTIONS, JUDGED_FACTORS, LEVELS_VERSION, proposalFromScore } from "./factors.ts";
 import type { ScoreQuestion } from "./jev.ts";
@@ -41,12 +42,12 @@ export async function judgeStock(db: Database, stock: Stock, asOf: string, optio
   if (options.research !== false && researchAvailable()) {
     research = await researchCompany({ name: stock.name, ticker: stock.id, country: stock.country, asOf });
   }
-  const fundamentalsJson = db.rawDocument(stock.id, "eodhd-fundamentals")?.body ?? null;
-  const filings = await secFilings(cikFromFundamentals(fundamentalsJson), asOf);
+  const snapshot = storedSnapshot(db, stock.id);
+  const filings = await secFilings(cikOf(snapshot), asOf);
   const evidence = buildEvidence({
     stock,
     years: db.fundamentals(stock.id),
-    fundamentalsJson,
+    snapshot,
     research: research?.text ?? null,
     secFilings: filings,
     asOf,

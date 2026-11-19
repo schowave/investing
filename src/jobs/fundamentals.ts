@@ -1,13 +1,39 @@
 // Fundamentaldaten und Historie einzelner Aktien neu laden (Aktienseite, pnpm run import:eodhd).
 
-import type { Stock } from "../data/db.ts";
+import type { Database, Stock } from "../data/db.ts";
 import { FUNDAMENTAL_FIELDS } from "../data/db.ts";
-import { fetchEodhdFundamentalsRaw, parseEodhdFundamentals } from "../data/eodhdFundamentals.ts";
+import type { EodhdFundamentals } from "../data/eodhdFundamentals.ts";
+import { fetchEodhdFundamentalsRaw, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
 import { fetchDividends, fetchMonthlyCloses, fetchSplits } from "../data/eodhdHistory.ts";
+import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
 import { valueStock } from "../valuation/run.ts";
 import { isDailyLimit, type JobContext, type JobResult, reason, requireToken } from "./context.ts";
 
-export const RAW_KIND = "eodhd-fundamentals";
+/** Die Antwort enthält keine Jahresabschlüsse (Fonds, Hinterlegungsscheine ohne Abschlüsse, falsche Notiz). */
+export class NoAnnualReportsError extends Error {
+  constructor() {
+    super("keine Jahresabschlüsse");
+  }
+}
+
+/**
+ * Der eine Weg, auf dem Fundamentaldaten ins System kommen, ob über den Datenvorrat, eine ISIN, das Auffrischen
+ * oder das Archiv: Stammdaten anlegen oder ergänzen, auf Wunsch die Rohantwort bewahren, Abschlüsse speichern.
+ * Den Firmensitz überschreibt er nur im Datenvorrat; auf der Watchlist kann er von Hand gesetzt sein.
+ * @throws NoAnnualReportsError, bevor etwas gespeichert ist.
+ */
+export function ingestFundamentals(db: Database, symbol: string, raw: string, options: { keepRaw: boolean }): EodhdFundamentals {
+  const parsed = parseEodhdFundamentals(JSON.parse(raw));
+  if (parsed.years.length === 0) throw new NoAnnualReportsError();
+  const derived = stockFromEodhd(symbol, parsed);
+  db.addStockIfMissing(derived);
+  db.setSeatInStockpile(symbol, derived.country, derived.region);
+  if (parsed.foundedYear !== null) db.setFoundedYearIfMissing(symbol, parsed.foundedYear);
+  if (parsed.securityType !== null) db.setSecurityType(symbol, parsed.securityType);
+  if (options.keepRaw) db.saveRawDocument(symbol, FUNDAMENTALS_KIND, raw);
+  db.saveFundamentals(symbol, parsed.years, "eodhd");
+  return parsed;
+}
 
 /** Lädt die Jahresabschlüsse (10 Abrufe je Aktie) oder wertet mit `fromArchive` die gespeicherte Antwort neu aus. */
 export async function refreshFundamentals(ctx: JobContext, stocks: readonly Stock[], fromArchive = false): Promise<JobResult> {
@@ -17,13 +43,11 @@ export async function refreshFundamentals(ctx: JobContext, stocks: readonly Stoc
   for (const [index, stock] of stocks.entries()) {
     if (ctx.shouldStop()) return { summary: `abgebrochen nach ${index} von ${stocks.length} Aktien`, ok: false };
     try {
-      const archived = fromArchive ? ctx.db.rawDocument(stock.id, RAW_KIND) : null;
+      const archived = fromArchive ? ctx.db.rawDocument(stock.id, FUNDAMENTALS_KIND) : null;
       if (fromArchive && !archived) throw new Error("keine gespeicherte Rohantwort");
       const raw = archived?.body ?? (await fetchEodhdFundamentalsRaw(stock.id, token, ctx.fetchFn));
       // Die Rohantwort bleibt vollständig erhalten, damit sich später weitere Kennzahlen ohne neuen Abruf gewinnen lassen.
-      if (!archived) ctx.db.saveRawDocument(stock.id, RAW_KIND, raw);
-      const { years, reportingCurrency } = parseEodhdFundamentals(JSON.parse(raw));
-      ctx.db.saveFundamentals(stock.id, years, "eodhd");
+      const { years, reportingCurrency } = ingestFundamentals(ctx.db, stock.id, raw, { keepRaw: !archived });
       const lastTen = years.slice(-10);
       const gaps = FUNDAMENTAL_FIELDS.filter((f) => lastTen.some((y) => y[f] === null));
       const complete = lastTen.filter((y) => FUNDAMENTAL_FIELDS.every((f) => y[f] !== null)).length;
@@ -36,6 +60,12 @@ export async function refreshFundamentals(ctx: JobContext, stocks: readonly Stoc
       );
     } catch (error) {
       if (isDailyLimit(error)) return { summary: `Tageslimit erreicht nach ${index} von ${stocks.length} Aktien`, ok: false };
+      // Eine leere Antwort ist kein Abbruch: Die gespeicherten Abschlüsse bleiben, Historie und Bewertung folgen.
+      if (error instanceof NoAnnualReportsError) {
+        ctx.log(`leer   ${stock.id.padEnd(10)} keine Jahresabschlüsse in der Antwort, die gespeicherten bleiben`);
+        ctx.progress(index + 1, stocks.length);
+        continue;
+      }
       failed++;
       ctx.log(`fehlt  ${stock.id.padEnd(10)} ${reason(error)}`);
     }

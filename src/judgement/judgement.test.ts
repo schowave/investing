@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RISK_FACTORS } from "../calc/risk.ts";
 import type { Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
+import { parseEodhdSnapshot } from "../data/eodhdSnapshot.ts";
 import { buildEvidence } from "./evidence.ts";
 import { currentProposals, FACTOR_QUESTIONS, JUDGED_FACTORS, LEVELS_VERSION, proposalFromScore } from "./factors.ts";
 import { judgeStock } from "./judge.ts";
@@ -98,7 +99,7 @@ describe("buildEvidence", () => {
   });
 
   it("nimmt Beschreibung, gemeldete Quartale und Insidergeschäfte der letzten drei Jahre", () => {
-    const evidence = buildEvidence({ stock, years: [], fundamentalsJson: raw, research: "notes", asOf: "2026-11-19" });
+    const evidence = buildEvidence({ stock, years: [], snapshot: parseEodhdSnapshot(raw), research: "notes", asOf: "2026-11-19" });
     expect(evidence.company.description).toBe("Sends money abroad.");
     expect(evidence.company.officers).toEqual(["A. Boss, CEO"]);
     // Die Gewinnüberraschungen des Anbieters mischen Einheiten und gehen nicht an Jev.
@@ -110,7 +111,7 @@ describe("buildEvidence", () => {
   });
 
   it("kommt ohne Rohdaten aus", () => {
-    const evidence = buildEvidence({ stock, years: [], fundamentalsJson: null, research: null, asOf: "2026-11-19" });
+    const evidence = buildEvidence({ stock, years: [], snapshot: null, research: null, asOf: "2026-11-19" });
     expect(evidence.company.name).toBe("Test");
     expect(evidence.insiderTransactions).toEqual([]);
   });

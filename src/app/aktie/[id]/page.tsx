@@ -2,31 +2,30 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { RiskFactorId } from "../../../calc/index.ts";
 import {
-  comparableReturn,
   EXCLUSION_SCORE,
-  innerReturn,
   MANUAL_FOR_FINANCIALS,
   PROFILE_FOCUSED,
   PROFILE_GLOBAL,
   positionLimit,
   RISK_FACTOR_IDS,
   RISK_FACTORS,
-  withHurdle,
 } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
+import { storedSnapshot } from "../../../data/eodhdSnapshot.ts";
 import { currentProposals, LEVELS_VERSION } from "../../../judgement/factors.ts";
 import { researchAvailable } from "../../../judgement/research.ts";
 import { situationSignals } from "../../../judgement/situation.ts";
-import { BOND_KEY } from "../../../valuation/portfolioRun.ts";
+import { rankingHurdle } from "../../../valuation/ranking.ts";
 import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { doubtfulNumbers } from "../../../valuation/valuation.ts";
+import { doubtfulNumbers, priceSensitivity } from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
+import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { PendingButton } from "../../pendingButton.tsx";
-import { database, today } from "../../server.ts";
+import { database, today, watchlistRanking } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +81,7 @@ const allowed = (id: RiskFactorId) => {
 
 export default async function StockPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; gespeichert?: string; lauf?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; lauf?: string; von?: string }>;
 }) {
   const id = decodeURIComponent((await props.params).id);
   const query = await props.searchParams;
@@ -95,11 +94,19 @@ export default async function StockPage(props: {
   const years = db.fundamentals(stock.id).slice(-10);
   const history = db.valuationHistory(stock.id, 12);
   const d = proposals.details;
-  const hurdle = withHurdle(PROFILE_FOCUSED, db.referenceRate(BOND_KEY)).minReturn;
+  const hurdle = rankingHurdle(db);
   const excluded = v.riskScore >= EXCLUSION_SCORE;
   const { payoutLevel, growth } = v.inputs;
   const currency = stock.reportingCurrency;
-  const self = `/aktie/${encodeURIComponent(stock.id)}`;
+  const von = safeOrigin(query.von);
+  const self = stockPath(stock.id, von);
+  const backLabel = originLabel(von, (portfolioId) => db.portfolio(portfolioId)?.name);
+  // Wer von der Rangliste kommt, kann sie Titel für Titel durchgehen, ohne jedes Mal zurückzuspringen.
+  const ranked = von === "/" ? watchlistRanking().rows : [];
+  const position = ranked.findIndex((entry) => entry.stock.id === stock.id);
+  const previous = position > 0 ? ranked[position - 1] : undefined;
+  const following = position >= 0 ? ranked[position + 1] : undefined;
+  const origin = <input type="hidden" name="von" value={von} />;
   const judgement = db.judgement(stock.id);
   // Eine Einstufung nach älteren Stufen bleibt mit Recherche und Quellen sichtbar, schlägt aber nichts mehr vor.
   const outdated = judgement !== null && judgement.levelsVersion !== LEVELS_VERSION;
@@ -111,7 +118,7 @@ export default async function StockPage(props: {
   // Das 52-Wochen-Hoch von EODHD steht in der Börseneinheit (z. B. Pence), der gespeicherte Kurs ist schon umgerechnet.
   const latestClose = db.latestPrice(stock.id)?.close ?? null;
   const signals = situationSignals({
-    fundamentalsJson: db.rawDocument(stock.id, "eodhd-fundamentals")?.body ?? null,
+    snapshot: storedSnapshot(db, stock.id),
     price: latestClose === null ? null : latestClose * stock.priceDivisor,
     isFinancial: stock.isFinancial,
   });
@@ -221,9 +228,25 @@ export default async function StockPage(props: {
 
   return (
     <>
-      <Link className="crumb" href="/">
-        ← Rangliste
-      </Link>
+      <div className="crumbs">
+        <Link className="crumb" href={von}>
+          ← {backLabel}
+        </Link>
+        {(previous || following) && (
+          <span className="steps">
+            {previous && (
+              <Link className="crumb" href={stockPath(previous.stock.id)} title={previous.stock.name}>
+                ← Vorheriger in der Rangliste
+              </Link>
+            )}
+            {following && (
+              <Link className="crumb" href={stockPath(following.stock.id)} title={following.stock.name}>
+                Nächster in der Rangliste →
+              </Link>
+            )}
+          </span>
+        )}
+      </div>
       <div className="title-row">
         <div>
           <h1>{stock.name}</h1>
@@ -236,6 +259,7 @@ export default async function StockPage(props: {
         </div>
         <div className="title-actions">
           <form action={refreshStockData.bind(null, stock.id)}>
+            {origin}
             <PendingButton className="quiet" label="Daten aktualisieren" pendingLabel="Wird eingestellt …" />
           </form>
           <form action={setWatched.bind(null, stock.id, !stock.watched, self)}>
@@ -260,6 +284,9 @@ export default async function StockPage(props: {
           {review.overdue && `Sie ist vom ${isoDate(review.assessedOn)} und damit älter als ${REVIEW_MONTHS} Monate. `}
           {review.changes.length > 0 &&
             `Seit dem ${isoDate(review.assessedOn)} haben sich die Vorschläge aus den Zahlen verschoben: ${review.changes.join("; ")}. `}
+          {review.changes.length > 0 &&
+            review.calcChanged &&
+            "Die Rechnung hat sich seither geändert; ein Teil der Verschiebung kann daher kommen statt aus neuen Zahlen. "}
           Sieh dir Rückfluss, Wachstum und dein Urteil noch einmal an. Speichern bestätigt die Bewertung mit dem heutigen Datum.
         </div>
       )}
@@ -325,6 +352,7 @@ export default async function StockPage(props: {
 
       <div className="columns">
         <form className="card" id="urteil" action={saveInputs.bind(null, stock.id)}>
+          {origin}
           <div className="card-head">
             <h2>Bewertung</h2>
             <span className="meta">
@@ -423,6 +451,7 @@ export default async function StockPage(props: {
                 {!canResearch && " Für die Recherche fehlt ANTHROPIC_API_KEY in .env.local."}
               </p>
               <form className="row" action={requestJudgement.bind(null, stock.id)} style={{ marginTop: 12 }}>
+                {origin}
                 {canResearch ? <input type="hidden" name="research" value="on" /> : <input type="hidden" name="research" value="off" />}
                 <PendingButton
                   className={judgement && !outdated ? "quiet" : ""}
@@ -496,26 +525,15 @@ export default async function StockPage(props: {
                     </tr>
                   </thead>
                   <tbody>
-                    {PRICE_STEPS.map((step) => {
-                      const value = comparableReturn(
-                        innerReturn(v.price! * (1 + step), {
-                          payoutLevel,
-                          growth,
-                          defaultProbability: v.defaultProbability,
-                          earningsLevel: proposals.details.earningsLevel,
-                        }),
-                        v.inflationGap,
-                      );
-                      return (
-                        <tr key={step}>
-                          <td className="num">{amount(v.price! * (1 + step))}</td>
-                          <td className="num">{step === 0 ? "heute" : `${step > 0 ? "+" : ""}${percent(step, 0)}`}</td>
-                          <td className="num">
-                            <strong>{percent(value)}</strong>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {priceSensitivity(v, PRICE_STEPS).map(({ step, price, innerReturn: value }) => (
+                      <tr key={step}>
+                        <td className="num">{amount(price)}</td>
+                        <td className="num">{step === 0 ? "heute" : `${step > 0 ? "+" : ""}${percent(step, 0)}`}</td>
+                        <td className="num">
+                          <strong>{percent(value)}</strong>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -577,6 +595,7 @@ export default async function StockPage(props: {
               <h2>Kurs von Hand</h2>
             </div>
             <form className="card-body row" action={saveManualPrice.bind(null, stock.id)}>
+              {origin}
               <label htmlFor="price" className="meta">
                 Schlusskurs in {stock.priceCurrency}
               </label>

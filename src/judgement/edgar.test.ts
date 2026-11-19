@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cikFromFundamentals, excerptFrom, fetchFilings, normalizeCik, selectFilings } from "./edgar.ts";
+import { parseEodhdSnapshot } from "../data/eodhdSnapshot.ts";
+import { cikOf, excerptFrom, fetchFilings, normalizeCik, selectFilings } from "./edgar.ts";
 
 // Gekürzte Antwort von data.sec.gov/submissions/CIK0001683695.json (International Money Express), Stand 18.11.2026.
 const rows: [string, string, string, string, string][] = [
@@ -37,9 +38,9 @@ describe("normalizeCik", () => {
   });
 
   it("liest die CIK aus der Rohantwort von EODHD", () => {
-    expect(cikFromFundamentals(JSON.stringify({ General: { CIK: "0001683695" } }))).toBe("0001683695");
-    expect(cikFromFundamentals(JSON.stringify({ General: { CIK: null } }))).toBeNull();
-    expect(cikFromFundamentals(null)).toBeNull();
+    expect(cikOf(parseEodhdSnapshot(JSON.stringify({ General: { CIK: "0001683695" } })))).toBe("0001683695");
+    expect(cikOf(parseEodhdSnapshot(JSON.stringify({ General: { CIK: null } })))).toBeNull();
+    expect(cikOf(null)).toBeNull();
   });
 });
 

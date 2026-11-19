@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { computeValuation } from "../valuation/run.ts";
-import { looksImplausible, runDailySync, syncSucceeded } from "./dailySync.ts";
+import { looksImplausible } from "../valuation/valuation.ts";
+import { runDailySync, syncSucceeded } from "./dailySync.ts";
 
 const ECB = `<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.25"/><Cube currency="GBP" rate="0.8"/></Cube></Cube>`;
 const NOW = new Date("2026-11-19T22:15:00Z");

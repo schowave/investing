@@ -13,6 +13,7 @@ function describeSyncReport(report: SyncReport): string[] {
   ];
   if (report.pricesDeferred.length > 0) lines.push(`Budget erschöpft, folgen beim nächsten Lauf: ${report.pricesDeferred.join(", ")}`);
   for (const error of report.referenceErrors) lines.push(`Bezugsgröße nicht geladen: ${error}`);
+  for (const { id, error } of report.valuationErrors ?? []) lines.push(`nicht bewertet ${id.padEnd(12)} ${error}`);
   lines.push(
     `${report.valuations} Bewertungen mit Verlauf, ${report.screened} Titel im Screening, ${report.portfolios} Portfolios gespeichert.`,
   );

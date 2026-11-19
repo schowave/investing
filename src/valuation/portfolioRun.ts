@@ -5,6 +5,7 @@ import { PROFILE_FOCUSED, PROFILE_GLOBAL, withHurdle } from "../calc/index.ts";
 import type { Database, Portfolio, Stock } from "../data/db.ts";
 import type { PortfolioView } from "./portfolioView.ts";
 import { buildPortfolioView } from "./portfolioView.ts";
+import type { StockValuation } from "./run.ts";
 import { computeValuation } from "./run.ts";
 import { doubtfulNumbers } from "./valuation.ts";
 
@@ -22,7 +23,16 @@ export interface LoadedPortfolio {
   doubtful: Map<string, string>;
 }
 
-export function loadPortfolio(db: Database, portfolio: Portfolio, date: string): LoadedPortfolio {
+/**
+ * @param valued Schon gerechnete Bewertungen nach Aktie; fehlt eine, wird sie hier gerechnet. Der Abgleich reicht
+ * so die Bewertungen eines Laufs an alle Portfolios weiter, statt sie je Portfolio neu zu rechnen.
+ */
+export function loadPortfolio(
+  db: Database,
+  portfolio: Portfolio,
+  date: string,
+  valued: ReadonlyMap<string, StockValuation> = new Map(),
+): LoadedPortfolio {
   const profile = withHurdle(portfolio.profile === "global" ? PROFILE_GLOBAL : PROFILE_FOCUSED, db.referenceRate(BOND_KEY));
   const holdings = db.holdings(portfolio.id);
   const watchlist = db.stocks();
@@ -34,7 +44,7 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
     profile,
     portfolio.cashEur,
     stocks.map((stock) => {
-      const { valuation, proposals } = computeValuation(db, stock, date);
+      const { valuation, proposals } = valued.get(stock.id) ?? computeValuation(db, stock, date);
       const reason = doubtfulNumbers(valuation, proposals);
       if (reason) doubtful.set(stock.id, reason);
       const price = db.latestPrice(stock.id);

@@ -1,10 +1,10 @@
-// Täglicher Abgleich (Spezifikation Abschnitt 8): Kurse und Wechselkurse laden, Bewertungen und
-// Zielportfolios neu rechnen und als Tagesstand speichern. Ein Fehler bei einem Titel hält den Lauf nicht auf.
+// Täglicher Abgleich (Spezifikation Abschnitt 8): Kurse und Wechselkurse laden, dann Bewertungen und
+// Zielportfolios neu rechnen und als Tagesstand speichern (`recomputeAll`). Ein Fehler bei einem Titel hält den Lauf nicht auf.
 //
 // Der Abgleich richtet sich nach dem Tagesbudget des Tarifs. Reicht es nicht für alle Titel, kommen zuerst
 // gehaltene Aktien, dann die Watchlist, jeweils die mit dem ältesten Kurs zuerst; der Rest folgt am nächsten Tag.
 
-import type { Database, ScreeningRow, Stock } from "../data/db.ts";
+import type { Database, Stock } from "../data/db.ts";
 import { fetchEcbRates } from "../data/ecb.ts";
 import type { DailyClose } from "../data/eodhd.ts";
 import { EodhdError, fetchAccount, fetchDailyCloses } from "../data/eodhd.ts";
@@ -12,11 +12,8 @@ import { searchEodhd } from "../data/eodhdFundamentals.ts";
 import { fetchBulkLastDay, fetchSplits } from "../data/eodhdHistory.ts";
 import { fetchSupplementRates } from "../data/fxSupplement.ts";
 import { fetchBondYield, fetchInflationForecasts } from "../data/reference.ts";
-import { BOND_KEY, loadPortfolio } from "../valuation/portfolioRun.ts";
-import { computeValuation, valueStock } from "../valuation/run.ts";
-import { doubtfulNumbers, looksImplausible } from "../valuation/valuation.ts";
-
-export { looksImplausible };
+import { BOND_KEY } from "../valuation/portfolioRun.ts";
+import { recomputeAll } from "../valuation/recompute.ts";
 
 /** Der kostenlose Tarif liefert höchstens ein Jahr Kurshistorie. */
 const MAX_LOOKBACK_DAYS = 360;
@@ -50,6 +47,7 @@ export interface SyncReport {
   valuations: number;
   screened: number;
   portfolios: number;
+  valuationErrors: { id: string; error: string }[];
 }
 
 const isoDay = (time: number) => new Date(time).toISOString().slice(0, 10);
@@ -90,6 +88,7 @@ export async function runDailySync(
     valuations: 0,
     screened: 0,
     portfolios: 0,
+    valuationErrors: [],
   };
 
   // --- Wechselkurse: EZB, dazu eine zweite Quelle für Währungen, die dort fehlen ---
@@ -235,37 +234,8 @@ export async function runDailySync(
     }
   }
 
-  // --- Bewertungen: mit Verlauf für beobachtete Titel, als Momentaufnahme für den Datenvorrat ---
-  const screening: ScreeningRow[] = [];
-  for (const stock of all) {
-    const trackedStock = group(stock) < 2;
-    const { valuation, priceDate, proposals } = trackedStock ? valueStock(db, stock, date) : computeValuation(db, stock, date);
-    if (trackedStock) report.valuations++;
-    screening.push({
-      stockId: stock.id,
-      date,
-      priceDate,
-      price: valuation.price,
-      payoutLevel: valuation.inputs.payoutLevel ?? null,
-      growth: valuation.inputs.growth ?? null,
-      riskScore: valuation.riskScore,
-      innerReturn: valuation.returns?.base ?? null,
-      implausible: doubtfulNumbers(valuation, proposals) !== null,
-    });
-  }
-  db.saveScreening(screening);
-  report.screened = screening.filter((r) => r.innerReturn !== null).length;
-
-  for (const portfolio of db.portfolios()) {
-    const { view } = loadPortfolio(db, portfolio, date);
-    db.savePortfolioSnapshot(portfolio.id, date, view.totalEur, {
-      profile: portfolio.profile,
-      cashEur: portfolio.cashEur,
-      targetCashWeight: view.targetCashWeight,
-      rows: view.rows,
-    });
-    report.portfolios++;
-  }
+  // --- Bewertungen, Screening und Portfolios aus den frischen Kursen ---
+  Object.assign(report, recomputeAll(db, date));
 
   db.saveSyncRun(syncSucceeded(report), report);
   return report;

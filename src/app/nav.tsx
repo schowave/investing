@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { navSection } from "./origin.ts";
 
 export interface NavItem {
   href: string;
@@ -13,7 +14,9 @@ export interface NavItem {
 
 export function Nav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
-  const isActive = (href: string) => (href === "/" ? pathname === "/" || pathname.startsWith("/aktie") : pathname.startsWith(href));
+  // Eine Aktienseite gehört zu der Seite, von der man kam: aus dem Portfolio bleibt „Portfolios“ markiert.
+  const section = navSection(pathname, useSearchParams().get("von"));
+  const isActive = (href: string) => href === section;
   return (
     <nav className="nav" aria-label="Hauptnavigation">
       {items.map((item) => (

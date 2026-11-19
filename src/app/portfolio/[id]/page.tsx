@@ -4,6 +4,7 @@ import { loadPortfolio } from "../../../valuation/portfolioRun.ts";
 import type { Share } from "../../../valuation/portfolioView.ts";
 import { deletePortfolio, saveHoldings } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
+import { stockPath } from "../../origin.ts";
 import { database, today } from "../../server.ts";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +77,7 @@ export default async function PortfolioPage(props: {
   if (!portfolio) notFound();
 
   const { profile, holdings, stocks, view, doubtful } = loadPortfolio(db, portfolio, today());
+  const here = `/portfolio/${portfolio.id}`;
   const names = new Map(stocks.map((s) => [s.id, s.name]));
   const history = db.portfolioSnapshots(portfolio.id, 12);
   const targetCount = view.rows.filter((r) => r.targetWeight > 0).length;
@@ -189,7 +191,7 @@ export default async function PortfolioPage(props: {
                 {view.rows.map((row) => (
                   <tr key={row.id}>
                     <td>
-                      <Link className="name" href={`/aktie/${encodeURIComponent(row.id)}`}>
+                      <Link className="name" href={stockPath(row.id, here)}>
                         {names.get(row.id)}
                       </Link>
                       <small>{row.id}</small>
@@ -211,7 +213,7 @@ export default async function PortfolioPage(props: {
                       )}
                       {row.action === "halten" && <span className="meta">halten</span>}
                       {row.action === "bewerten" && (
-                        <Link className="tag warn" href={`/aktie/${encodeURIComponent(row.id)}#urteil`}>
+                        <Link className="tag warn" href={stockPath(row.id, here, {}, "#urteil")}>
                           erst bewerten
                         </Link>
                       )}

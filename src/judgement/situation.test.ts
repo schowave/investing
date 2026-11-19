@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseEodhdSnapshot } from "../data/eodhdSnapshot.ts";
 import { situationSignals } from "./situation.ts";
 
 // Gekürzt aus den Rohdaten von International Money Express (IMXI.US), Stand 18.11.2026.
@@ -19,7 +20,7 @@ const imxi = JSON.stringify({
 
 describe("situationSignals", () => {
   it("schlägt bei IMXI dreifach an", () => {
-    expect(situationSignals({ fundamentalsJson: imxi, price: 5.79, isFinancial: false })).toEqual([
+    expect(situationSignals({ snapshot: parseEodhdSnapshot(imxi), price: 5.79, isFinancial: false })).toEqual([
       { kind: "drawdown", text: "Der Kurs liegt 64 % unter dem 52-Wochen-Hoch." },
       { kind: "misses", text: "2 der letzten 4 Quartale lagen mehr als 15 % unter der Gewinnschätzung, zuletzt bis zu 67 %." },
       { kind: "revenue", text: "Der Umsatz des letzten Quartals lag 18 % unter dem Vorjahresquartal." },
@@ -27,7 +28,10 @@ describe("situationSignals", () => {
   });
 
   it("prüft bei Finanzwerten den Umsatz nicht", () => {
-    expect(situationSignals({ fundamentalsJson: imxi, price: 5.79, isFinancial: true }).map((s) => s.kind)).toEqual(["drawdown", "misses"]);
+    expect(situationSignals({ snapshot: parseEodhdSnapshot(imxi), price: 5.79, isFinancial: true }).map((s) => s.kind)).toEqual([
+      "drawdown",
+      "misses",
+    ]);
   });
 
   it("schweigt unterhalb der Schwellen", () => {
@@ -42,14 +46,14 @@ describe("situationSignals", () => {
         },
       },
     });
-    expect(situationSignals({ fundamentalsJson: calm, price: 61, isFinancial: false })).toEqual([]);
+    expect(situationSignals({ snapshot: parseEodhdSnapshot(calm), price: 61, isFinancial: false })).toEqual([]);
   });
 
   it("kommt mit fehlenden Daten aus", () => {
-    expect(situationSignals({ fundamentalsJson: null, price: 5, isFinancial: false })).toEqual([]);
-    expect(situationSignals({ fundamentalsJson: "{}", price: null, isFinancial: false })).toEqual([]);
+    expect(situationSignals({ snapshot: null, price: 5, isFinancial: false })).toEqual([]);
+    expect(situationSignals({ snapshot: parseEodhdSnapshot("{}"), price: null, isFinancial: false })).toEqual([]);
     expect(
-      situationSignals({ fundamentalsJson: JSON.stringify({ Technicals: { "52WeekHigh": 0 } }), price: 1, isFinancial: false }),
+      situationSignals({ snapshot: parseEodhdSnapshot(JSON.stringify({ Technicals: { "52WeekHigh": 0 } })), price: 1, isFinancial: false }),
     ).toEqual([]);
   });
 });

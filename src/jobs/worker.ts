@@ -2,6 +2,7 @@
 // Läuft als eigener Prozess (scripts/worker.ts), damit lange Läufe die Oberfläche nicht ausbremsen.
 
 import type { Database } from "../data/db.ts";
+import { enqueueRecomputeIfOutdated } from "../valuation/recompute.ts";
 import { type JobContext, reason } from "./context.ts";
 import { isJobKind, JOB_KINDS, runJob } from "./registry.ts";
 
@@ -64,6 +65,8 @@ export async function runNextJob(db: Database, deps: WorkerDeps): Promise<boolea
 export async function runWorker(db: Database, deps: WorkerDeps, signal: AbortSignal, pollMs = 2000): Promise<void> {
   const orphans = db.failOrphanedJobs();
   if (orphans > 0) console.log(`${orphans} unterbrochene Läufe als gescheitert markiert`);
+  // Neue Version der Rechnung (Deployment): gespeicherte Stände neu rechnen, bevor jemand den Datenvorrat ansieht.
+  if (enqueueRecomputeIfOutdated(db)) console.log("Neue Version der Rechnung: Neurechnen eingestellt");
   while (!signal.aborted) {
     const ran = await runNextJob(db, deps);
     if (!ran) await new Promise((resolve) => setTimeout(resolve, pollMs));
