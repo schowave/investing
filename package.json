@@ -1,0 +1,18 @@
+{
+  "name": "investing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check:eodhd": "node --env-file-if-exists=.env.local scripts/check-eodhd.ts",
+    "sync": "node --env-file-if-exists=.env.local scripts/sync.ts",
+    "import:fundamentals": "node scripts/import-fundamentals.ts",
+    "import:eodhd": "node --env-file-if-exists=.env.local scripts/import-eodhd.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
