@@ -202,11 +202,18 @@ Vorschlag geholt werden.
 
 1. **Recherche (optional):** Claude (`claude-opus-5-5` mit Websuche) sammelt datierte Belege zu den
    sechs Faktoren, ohne sie zu bewerten. Ohne `ANTHROPIC_API_KEY` entfällt dieser Schritt.
-2. **Einstufung:** Jev von TypeSafe AI (`jev-latest`, Schlüssel `TYPESAFE_API_KEY`) bekommt
+2. **Mitteilungen an die SEC:** Bei Titeln mit CIK (US-Werte, aus den Rohdaten von EODHD) holt
+   `src/judgement/edgar.ts` die Mitteilungen der letzten zwölf Monate von EDGAR, kostenlos und
+   ohne Sprachmodell (User-Agent `SEC_USER_AGENT`). Genommen werden 8-Ks mit ausgeschriebenen
+   Punkten und Formulare mit außergewöhnlichem Inhalt (Berichtigungen, verspätete Abschlüsse,
+   13D, Übernahmeangebote, Delisting). Von bis zu acht 8-Ks mit gewichtigen Punkten (z. B. 1.02,
+   4.02, 5.02, 8.01) geht der Anfang des Textes mit. Fällt EDGAR aus, wird ohne eingestuft.
+3. **Einstufung:** Jev von TypeSafe AI (`jev-latest`, Schlüssel `TYPESAFE_API_KEY`) bekommt
    Stammdaten und Beschreibung, zehn Geschäftsjahre, die Gewinnüberraschungen der letzten zwölf
-   Quartale, die Insidergeschäfte der letzten drei Jahre und die Recherche. Je Faktor wählt Jev
+   Quartale, die Insidergeschäfte der letzten drei Jahre, die Mitteilungen an die SEC und die
+   Recherche. Je Faktor wählt Jev
    unter festen Stufen (`src/judgement/factors.ts`) und nennt für jede eine Wahrscheinlichkeit.
-3. **Vorschlag:** der mit diesen Wahrscheinlichkeiten gewichtete Abzug, gerundet auf 0,5
+4. **Vorschlag:** der mit diesen Wahrscheinlichkeiten gewichtete Abzug, gerundet auf 0,5
    Prozentpunkte, dazu die Sicherheit laut Jev.
 
 Regeln:

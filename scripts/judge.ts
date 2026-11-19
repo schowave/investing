@@ -38,7 +38,11 @@ for (const id of ids) {
     const summary = Object.entries(judgement.proposals)
       .map(([factor, p]) => `${factor} ${(p.value * 100).toFixed(1)} % (${Math.round(p.confidence * 100)} %)`)
       .join(", ");
-    console.log(`${id}: ${summary}${judgement.research ? `; ${judgement.sources.length} Quellen` : ""}`);
+    const filings = judgement.sources.filter((source) => source.kind === "sec").length;
+    const web = judgement.sources.length - filings;
+    console.log(
+      `${id}: ${summary}${filings > 0 ? `; ${filings} Mitteilungen an die SEC` : ""}${judgement.research ? `; ${web} Quellen` : ""}`,
+    );
   } catch (error) {
     console.error(`${id}: ${error instanceof Error ? error.message : error}`);
     failed++;

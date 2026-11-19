@@ -103,6 +103,7 @@ describe("judgeStock", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("fragt Jev nach allen sechs Faktoren und speichert die Vorschläge", async () => {
@@ -135,6 +136,82 @@ describe("judgeStock", () => {
     expect(judgement.proposals.management!.value).toBeCloseTo(-0.1);
     expect(db.judgement(stock.id)?.jevModel).toBe("jev-test");
     expect(db.judgement(stock.id)?.research).toBeNull();
+  });
+
+  it("gibt Jev bei US-Werten die Mitteilungen an die SEC und speichert sie als Quellen", async () => {
+    vi.stubEnv("TYPESAFE_API_KEY", "test");
+    vi.stubEnv("SEC_USER_AGENT", "investing test@example.com");
+    const submissions = {
+      filings: {
+        recent: {
+          accessionNumber: ["0001140361-26-043232"],
+          filingDate: ["2026-11-12"],
+          form: ["8-K"],
+          items: ["1.02"],
+          primaryDocument: ["8k.htm"],
+        },
+      },
+    };
+    let state: { secFilings: unknown } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: { body?: string }) => {
+        if (url.startsWith("https://data.sec.gov/")) return new Response(JSON.stringify(submissions));
+        if (url.startsWith("https://www.sec.gov/")) return new Response("<p>Item 1.02 Termination of the merger with Western Union.</p>");
+        const body = JSON.parse(init.body!) as { state: { secFilings: unknown }; questions: Record<string, unknown> };
+        state = body.state;
+        const answers = Object.fromEntries(
+          Object.keys(body.questions).map((name) => [name, { type: "score", score: 0, confidence: 0.5, probabilities: { "0": 1 } }]),
+        );
+        return new Response(JSON.stringify({ model: "jev-test", answers }));
+      }),
+    );
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveRawDocument(stock.id, "eodhd-fundamentals", JSON.stringify({ General: { CIK: "0001683695" } }));
+
+    const judgement = await judgeStock(db, stock, "2026-11-19", { research: false });
+
+    expect(state!.secFilings).toEqual([
+      {
+        date: "2026-11-12",
+        form: "8-K",
+        description: "Termination of a Material Definitive Agreement",
+        excerpt: "Item 1.02 Termination of the merger with Western Union.",
+      },
+    ]);
+    expect(judgement.sources).toEqual([
+      {
+        url: "https://www.sec.gov/Archives/edgar/data/1683695/000114036126043232/8k.htm",
+        title: "8-K: Termination of a Material Definitive Agreement",
+        pageAge: "2026-11-12",
+        kind: "sec",
+      },
+    ]);
+  });
+
+  it("stuft auch ein, wenn EDGAR nicht antwortet", async () => {
+    vi.stubEnv("TYPESAFE_API_KEY", "test");
+    vi.stubEnv("SEC_USER_AGENT", "investing test@example.com");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: { body?: string }) => {
+        if (url.startsWith("https://data.sec.gov/")) return new Response("", { status: 503 });
+        const { questions } = JSON.parse(init.body!) as { questions: Record<string, unknown> };
+        const answers = Object.fromEntries(
+          Object.keys(questions).map((name) => [name, { type: "score", score: 0, confidence: 0.5, probabilities: { "0": 1 } }]),
+        );
+        return new Response(JSON.stringify({ model: "jev-test", answers }));
+      }),
+    );
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveRawDocument(stock.id, "eodhd-fundamentals", JSON.stringify({ General: { CIK: "1683695" } }));
+
+    const judgement = await judgeStock(db, stock, "2026-11-19", { research: false });
+    expect(judgement.sources).toEqual([]);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/EDGAR.*503/));
   });
 
   it("weist eine unvollständige Antwort von Jev zurück, statt mit fehlenden Werten zu rechnen", async () => {

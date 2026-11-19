@@ -1,7 +1,9 @@
 // Stellt zusammen, was Jev über ein Unternehmen erfährt: Stammdaten und Beschreibung, zehn Geschäftsjahre,
-// Gewinnüberraschungen, Insidergeschäfte und, falls vorhanden, die Recherche aus dem Netz.
+// Gewinnüberraschungen, Insidergeschäfte, bei US-Werten die Mitteilungen an die SEC und, falls vorhanden, die Recherche
+// aus dem Netz.
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
+import type { Filing } from "./edgar.ts";
 
 type Row = Record<string, unknown>;
 
@@ -24,18 +26,22 @@ export interface Evidence {
   earningsSurprises: Row[];
   insiderTransactions: Row[];
   analystRatings: Row | null;
+  /** Mitteilungen an die SEC der letzten zwölf Monate; `null`, wenn nicht abgefragt (kein US-Wert, keine CIK). */
+  secFilings: Pick<Filing, "date" | "form" | "description" | "excerpt">[] | null;
   research: string | null;
 }
 
 /**
  * @param fundamentalsJson Rohantwort von EODHD (Fundamentals), sofern gespeichert.
  * @param research Text der Recherche aus dem Netz, sofern vorhanden.
+ * @param secFilings Mitteilungen an die SEC, sofern abgefragt.
  */
 export function buildEvidence(args: {
   stock: Stock;
   years: readonly FundamentalsYear[];
   fundamentalsJson: string | null;
   research: string | null;
+  secFilings?: readonly Filing[] | null;
   asOf: string;
 }): Evidence {
   const raw = args.fundamentalsJson ? (JSON.parse(args.fundamentalsJson) as Row) : {};
@@ -112,6 +118,9 @@ export function buildEvidence(args: {
     earningsSurprises,
     insiderTransactions,
     analystRatings: ratings ? { rating: num(ratings.Rating), targetPrice: num(ratings.TargetPrice) } : null,
+    secFilings: args.secFilings
+      ? args.secFilings.map(({ date, form, description, excerpt }) => ({ date, form, description, ...(excerpt ? { excerpt } : {}) }))
+      : null,
     research: args.research,
   };
 }
