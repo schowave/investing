@@ -14,6 +14,9 @@ import { fetchSupplementRates } from "../data/fxSupplement.ts";
 import { fetchBondYield, fetchInflationForecasts } from "../data/reference.ts";
 import { BOND_KEY, loadPortfolio } from "../valuation/portfolioRun.ts";
 import { computeValuation, valueStock } from "../valuation/run.ts";
+import { looksImplausible } from "../valuation/valuation.ts";
+
+export { looksImplausible };
 
 /** Der kostenlose Tarif liefert höchstens ein Jahr Kurshistorie. */
 const MAX_LOOKBACK_DAYS = 360;
@@ -54,21 +57,6 @@ const isoDay = (time: number) => new Date(time).toISOString().slice(0, 10);
 /** Vollständig heißt: Wechselkurse da, kein Kursfehler, kein beobachteter Titel zurückgestellt. */
 export function syncSucceeded(report: SyncReport): boolean {
   return report.fxError === null && report.priceErrors.length === 0 && report.pricesDeferred.length === 0;
-}
-
-/** Rückfluss über diesem Anteil des Kurses gilt als Datenfehler. */
-const MAX_PAYOUT_YIELD = 0.2;
-/** Ein Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler. */
-const MIN_PRICE_TO_EARNINGS = 3;
-
-/**
- * Grobe Prüfung, ob Kurs und Fundamentaldaten zusammenpassen. Sie fängt vor allem Hinterlegungsscheine, deren
- * Zahlen sich auf eine andere Stückelung oder Währung beziehen. Echte Sonderfälle fallen auch darunter.
- */
-export function looksImplausible(price: number | null, payoutLevel: number | undefined, earningsLevel: number | null): boolean {
-  if (price === null || !(price > 0)) return false;
-  if (payoutLevel !== undefined && payoutLevel / price > MAX_PAYOUT_YIELD) return true;
-  return earningsLevel !== null && earningsLevel > 0 && price / earningsLevel < MIN_PRICE_TO_EARNINGS;
 }
 
 function describe(error: unknown): string {

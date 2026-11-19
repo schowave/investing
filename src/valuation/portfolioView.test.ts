@@ -40,6 +40,15 @@ describe("buildPortfolioView", () => {
     expect(view.rows[0]).toMatchObject({ action: "bewerten", change: 0, changeEur: 0, reason: "Bewertung unvollständig" });
   });
 
+  it("zählt sonstige Anlagen zum Gesamtwert und zieht sie im Ziel vom Barbestand ab", () => {
+    const view = buildPortfolioView(PROFILE_FOCUSED, 1000, [item("GUT", { shares: 100 })], 2000);
+    expect(view.totalEur).toBe(4000);
+    expect(view.otherWeight).toBe(0.5);
+    expect(view.rows[0]!.heldWeight).toBe(0.25);
+    // Ziel: 25 % bleiben in der Aktie, 75 % wären bar; davon sind 50 Punkte durch sonstige Anlagen belegt.
+    expect(view.targetCashWeight).toBeCloseTo(0.25);
+  });
+
   it("nennt gehaltene Titel ohne Kurs und rechnet sie nicht in die Summe", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 1000, [item("OHNE", { shares: 10, priceEur: null })]);
     expect(view.totalEur).toBe(1000);
@@ -75,7 +84,8 @@ describe("Datenbank: Portfolios, Suche, Handkurs", () => {
     db.setHolding(id, "IMB.LSE", 100);
     db.setHolding(id, "BATS.LSE", 50);
     db.setHolding(id, "BATS.LSE", 0);
-    expect(db.portfolio(id)).toEqual({ id, name: "Depot", profile: "global", cashEur: 2500 });
+    db.setOtherAssets(id, 800);
+    expect(db.portfolio(id)).toEqual({ id, name: "Depot", profile: "global", cashEur: 2500, otherEur: 800 });
     expect([...db.holdings(id)]).toEqual([["IMB.LSE", 100]]);
     db.deletePortfolio(id);
     expect(db.portfolios()).toEqual([]);

@@ -1,6 +1,6 @@
 // Ist-Bestand gegen Zielportfolio (Spezifikation Abschnitt 7). Reine Rechnung.
 
-import { EXCLUSION_SCORE, proposals, targetPortfolio } from "../calc/index.ts";
+import { EXCLUSION_SCORE, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";
 import type { Profile } from "../calc/index.ts";
 
 export interface PortfolioItem {
@@ -42,6 +42,8 @@ export interface Share {
 export interface PortfolioView {
   totalEur: number;
   cashWeight: number;
+  /** Anteil der Anlagen außerhalb der Strategie. */
+  otherWeight: number;
   targetCashWeight: number;
   /** Gehaltene Titel und Titel des Zielportfolios, Ziel absteigend. */
   rows: PortfolioRow[];
@@ -51,8 +53,11 @@ export interface PortfolioView {
   unpriced: string[];
 }
 
+/** So weit kann dein Urteil den Risikowert höchstens senken (Boni der Urteilsfaktoren). */
+const MAX_JUDGEMENT_BONUS = RISK_FACTOR_IDS.filter((id) => RISK_FACTORS[id].manual).reduce((sum, id) => sum + RISK_FACTORS[id].bonus, 0);
+
 function reasonFor(item: PortfolioItem, profile: Profile): string {
-  if (item.riskScore >= EXCLUSION_SCORE) return "Risikowert ab 75 %";
+  if (item.riskScore - (item.complete ? 0 : MAX_JUDGEMENT_BONUS) >= EXCLUSION_SCORE) return "Risikowert ab 75 %";
   if (!item.complete) return "Bewertung unvollständig";
   if (item.innerReturn === null || item.innerReturn < profile.minReturn) return "unter der Mindestrendite";
   if (item.cautiousReturn === null || item.cautiousReturn < profile.minReturn) return "ohne Sicherheitsmarge: vorsichtiger Fall unter der Mindestrendite";
@@ -71,9 +76,14 @@ function shares(rows: readonly PortfolioRow[], items: ReadonlyMap<string, Portfo
   return [...result.values()].sort((a, b) => b.target - a.target || b.held - a.held);
 }
 
-export function buildPortfolioView(profile: Profile, cashEur: number, items: readonly PortfolioItem[]): PortfolioView {
+/**
+ * @param otherEur Wert der Anlagen außerhalb der Strategie (Fonds, Anleihen, ETF). Er zählt zum Gesamtwert, damit die
+ *   Gewichte der Aktien stimmen, und geht im Ziel vom Barbestand ab.
+ */
+export function buildPortfolioView(profile: Profile, cashEur: number, items: readonly PortfolioItem[], otherEur = 0): PortfolioView {
   const value = (item: PortfolioItem) => (item.shares > 0 && item.priceEur !== null ? item.shares * item.priceEur : 0);
-  const totalEur = cashEur + items.reduce((sum, item) => sum + value(item), 0);
+  const totalEur = cashEur + otherEur + items.reduce((sum, item) => sum + value(item), 0);
+  const otherWeight = totalEur > 0 ? otherEur / totalEur : 0;
   const weight = (item: PortfolioItem) => (totalEur > 0 ? value(item) / totalEur : 0);
 
   const stocks = items.map((item) => ({
@@ -88,7 +98,7 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
     .filter((item) => item.shares > 0 || targetWeight.has(item.id))
     .map((item): PortfolioRow => {
       // Ein fehlendes Urteil ist kein Grund zu verkaufen: Erst bewerten, dann entscheiden.
-      const needsRating = item.shares > 0 && !item.complete && item.riskScore < EXCLUSION_SCORE;
+      const needsRating = item.shares > 0 && !item.complete && item.riskScore - MAX_JUDGEMENT_BONUS < EXCLUSION_SCORE;
       const suggested = needsRating ? undefined : proposal.get(item.id);
       const inTarget = targetWeight.has(item.id);
       return {
@@ -109,7 +119,8 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
   return {
     totalEur,
     cashWeight: totalEur > 0 ? cashEur / totalEur : 0,
-    targetCashWeight: target.cash,
+    otherWeight,
+    targetCashWeight: Math.max(0, target.cash - otherWeight),
     rows,
     sectors: shares(rows, byId, (i) => i.sector),
     regions: shares(rows, byId, (i) => i.region),

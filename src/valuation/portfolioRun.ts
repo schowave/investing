@@ -40,6 +40,7 @@ export function loadPortfolio(db: Database, portfolio: Portfolio, date: string):
         priceEur: price && perEur ? price.close / perEur : null,
       };
     }),
+    portfolio.otherEur,
   );
   return { profile, holdings, stocks, view };
 }

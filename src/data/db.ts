@@ -62,6 +62,8 @@ export interface Portfolio {
   profile: ProfileName;
   /** Barbestand in Euro. */
   cashEur: number;
+  /** Wert der Anlagen, die die Strategie nicht bewertet (Fonds, Anleihen, ETF), in Euro. */
+  otherEur: number;
 }
 
 export interface StockSearchHit {
@@ -165,7 +167,8 @@ CREATE TABLE IF NOT EXISTS portfolios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   profile TEXT NOT NULL,
-  cash_eur REAL NOT NULL DEFAULT 0
+  cash_eur REAL NOT NULL DEFAULT 0,
+  other_eur REAL NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS holdings (
   portfolio_id INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
@@ -261,6 +264,7 @@ function toPortfolio(r: Record<string, unknown>): Portfolio {
     name: String(r.name),
     profile: r.profile === "global" ? "global" : "fokussiert",
     cashEur: Number(r.cash_eur),
+    otherEur: Number(r.other_eur),
   };
 }
 
@@ -285,6 +289,10 @@ export class Database {
     const fundamentalColumns = new Set((this.#db.prepare("PRAGMA table_info(fundamentals)").all() as { name: string }[]).map((c) => c.name));
     for (const column of FUNDAMENTAL_FIELDS.map(toColumn)) {
       if (!fundamentalColumns.has(column)) this.#db.exec(`ALTER TABLE fundamentals ADD COLUMN ${column} REAL`);
+    }
+    const portfolioColumns = this.#db.prepare("PRAGMA table_info(portfolios)").all() as { name: string }[];
+    if (!portfolioColumns.some((c) => c.name === "other_eur")) {
+      this.#db.exec("ALTER TABLE portfolios ADD COLUMN other_eur REAL NOT NULL DEFAULT 0");
     }
     const screeningColumns = this.#db.prepare("PRAGMA table_info(screening)").all() as { name: string }[];
     if (!screeningColumns.some((c) => c.name === "implausible")) {
@@ -373,6 +381,10 @@ export class Database {
 
   setCash(portfolioId: number, cashEur: number): void {
     this.#db.prepare("UPDATE portfolios SET cash_eur = ? WHERE id = ?").run(cashEur, portfolioId);
+  }
+
+  setOtherAssets(portfolioId: number, otherEur: number): void {
+    this.#db.prepare("UPDATE portfolios SET other_eur = ? WHERE id = ?").run(otherEur, portfolioId);
   }
 
   /** Setzt die Stückzahl einer Position; 0 entfernt sie. */

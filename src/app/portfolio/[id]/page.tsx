@@ -73,7 +73,7 @@ export default async function PortfolioPage(props: {
   const targetCount = view.rows.filter((r) => r.targetWeight > 0).length;
   const buys = view.rows.filter((r) => r.action === "kaufen");
   const sells = view.rows.filter((r) => r.action === "verkaufen");
-  const empty = holdings.size === 0 && portfolio.cashEur === 0;
+  const empty = holdings.size === 0 && portfolio.cashEur === 0 && portfolio.otherEur === 0;
   const unrated = view.rows.filter((r) => r.action === "bewerten").length;
 
   let finding: string;
@@ -118,7 +118,10 @@ export default async function PortfolioPage(props: {
         <div className="figure">
           <dt>Wert</dt>
           <dd className={view.totalEur === 0 ? "muted-value" : ""}>{euro(view.totalEur)}</dd>
-          <span className="sub">davon bar {euro(portfolio.cashEur)}</span>
+          <span className="sub">
+            davon bar {euro(portfolio.cashEur)}
+            {portfolio.otherEur > 0 ? `, sonstige Anlagen ${euro(portfolio.otherEur)}` : ""}
+          </span>
         </div>
         <div className="figure">
           <dt>Positionen</dt>
@@ -222,6 +225,18 @@ export default async function PortfolioPage(props: {
                   <td className="num">
                     <span className="field">
                       <input id="cash" name="cash" type="number" min={0} step="0.01" inputMode="decimal" autoComplete="off" defaultValue={fieldNumber(portfolio.cashEur)} />
+                      <span className="unit">€</span>
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <label htmlFor="other" className="factor">Sonstige Anlagen</label>
+                    <span className="hint">Fonds, Anleihen und ETF, die die Strategie nicht bewertet; zählen zum Gesamtwert</span>
+                  </td>
+                  <td className="num">
+                    <span className="field">
+                      <input id="other" name="other" type="number" min={0} step="0.01" inputMode="decimal" autoComplete="off" defaultValue={fieldNumber(portfolio.otherEur)} />
                       <span className="unit">€</span>
                     </span>
                   </td>

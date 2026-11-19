@@ -77,10 +77,12 @@ export async function saveHoldings(id: number, form: FormData): Promise<void> {
     return value;
   };
   const cash = read("cash", "Barbestand");
+  const other = read("other", "Sonstige Anlagen");
   const ids = new Set([...db.stocks().map((stock) => stock.id), ...db.holdings(id).keys()]);
   const entries = [...ids].map((stockId) => ({ id: stockId, shares: read(`shares:${stockId}`, stockId) }));
 
   db.setCash(id, cash);
+  db.setOtherAssets(id, other);
   for (const entry of entries) db.setHolding(id, entry.id, entry.shares);
   redirect(`${page}?gespeichert=1`);
 }

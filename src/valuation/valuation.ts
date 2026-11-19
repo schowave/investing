@@ -364,3 +364,18 @@ export function parseManualInput(key: InputKey, text: string): { value: number }
   }
   return { value };
 }
+
+/** Rückfluss über diesem Anteil des Kurses gilt als Datenfehler. */
+const MAX_PAYOUT_YIELD = 0.2;
+/** Ein Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler. */
+const MIN_PRICE_TO_EARNINGS = 3;
+
+/**
+ * Grobe Prüfung, ob Kurs und Fundamentaldaten zusammenpassen. Sie fängt vor allem Hinterlegungsscheine, deren
+ * Zahlen sich auf eine andere Stückelung oder Währung beziehen. Echte Sonderfälle fallen auch darunter.
+ */
+export function looksImplausible(price: number | null, payoutLevel: number | undefined, earningsLevel: number | null): boolean {
+  if (price === null || !(price > 0)) return false;
+  if (payoutLevel !== undefined && payoutLevel / price > MAX_PAYOUT_YIELD) return true;
+  return earningsLevel !== null && earningsLevel > 0 && price / earningsLevel < MIN_PRICE_TO_EARNINGS;
+}
