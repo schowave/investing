@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lektion 2: Was zählt als Rückfluss?</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<h1>Was zählt als Rückfluss?</h1>
+<p class="sub">Lektion 2 · etwa 10 Minuten · baut auf <a href="0001-was-ist-die-innere-rendite.html">Lektion 1</a> auf</p>
+
+<div class="win"><strong>Dein Gewinn in dieser Lektion:</strong> Du kannst für eine Aktie das Rückflussniveau <span class="num">R0</span>
+selbst ausrechnen und begründen, warum Aktienrückkäufe mitzählen, aber nicht ungedeckt und nicht ohne Abzug.</div>
+
+<h2>0. Zum Aufwärmen (aus Lektion 1)</h2>
+<div class="quiz" data-answer="B" data-explain="2,5 / 50 = 5 %, dazu 2 % Wachstum ergibt 7 %.">
+  <p class="q">Kurs 50 €, Rückfluss 2,5 €, Wachstum 2 % pro Jahr. Innere Rendite?</p>
+  <ol><li>5 Prozent pro Jahr</li><li>7 Prozent pro Jahr</li><li>2 Prozent pro Jahr</li><li>9 Prozent pro Jahr</li></ol>
+</div>
+
+<h2>1. Geld, das zu dir zurückfließt</h2>
+<p>In Lektion 1 war der Rückfluss einfach „5 € im Jahr". Woher kommen sie? Ein Unternehmen kann Geld auf zwei Wegen an
+seine Eigentümer zurückgeben:</p>
+<ul>
+<li><strong>Dividende:</strong> Du bekommst Geld aufs Konto.</li>
+<li><strong>Aktienrückkauf:</strong> Das Unternehmen kauft eigene Aktien am Markt und löscht sie. Es gibt weniger Aktien,
+also gehört dir mit derselben Aktie ein größerer Anteil.</li>
+</ul>
+<p>Beide Wege bringen dir dasselbe, wenn man Steuern beiseitelässt. Ein Zahlenbeispiel: Eine Firma hat
+<span class="num">100.000</span> Aktien zu je <span class="num">200 €</span> und will <span class="num">1 Mio. €</span> zurückgeben.</p>
+<table>
+<thead><tr><th>Weg</th><th>Was passiert</th><th>Dein Gewinn je Aktie</th></tr></thead>
+<tbody>
+<tr><td>Dividende</td><td>10 € je Aktie</td><td>5,0 % des Kurses</td></tr>
+<tr><td>Rückkauf</td><td>5.000 Aktien weg, 95.000 bleiben</td><td>Anteil wächst um 5,3 %</td></tr>
+</tbody></table>
+<p>Die Strategie nennt die Summe aus beiden <strong>Rückfluss</strong>. Nur Dividenden zu zählen würde Unternehmen
+benachteiligen, die ihr Geld über Rückkäufe zurückgeben.</p>
+<p class="note">Belegt ist das in der Recherche: Damodaran schlägt Rückkäufe den Dividenden zu und rät, sie über vier bis
+fünf Jahre zu mitteln, weil sie unregelmäßig sind
+(<a href="../../docs/Recherche-Bewertungsansatz.md">Recherche, Abschnitt 2.2</a>; Quelle:
+<a href="https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch11.pdf">Investment Valuation</a>, Kapitel 13).</p>
+
+<h2>2. Drei Fallen, drei Regeln</h2>
+<p>Die Spezifikation baut gegen drei Fallen jeweils eine Regel
+(<a href="../../docs/SPEZIFIKATION.md">Abschnitt 5</a>):</p>
+<ol>
+<li><strong>Falle: Rückkauf und Neuausgabe gleichzeitig.</strong> Gibt die Firma neue Aktien aus, etwa als Bezahlung
+für Mitarbeiter, wird dein Anteil wieder kleiner. Darum gilt:
+<em>Rückkäufe minus Ausgabe neuer Aktien minus aktienbasierte Vergütung</em>, nie unter 0, im Mittel der letzten fünf
+Jahre. Buffett nennt Rückkäufe, die nur ausgeübte Optionen ausgleichen, „buy high, sell low" (Brief 1999,
+laut Recherche geprüft).</li>
+<li><strong>Falle: Ausschütten, was man nicht hat.</strong> Eine Firma kann Rückkäufe mit Schulden bezahlen. Das trägt
+nicht auf Dauer. Darum gilt ein <em>Deckel</em>: Der Rückfluss darf nicht höher sein als der <em>tragbare Rückfluss</em>,
+im Kern der freie Cashflow je Aktie, gemittelt über fünf Jahre.</li>
+<li><strong>Falle: Einmaliges.</strong> Sonderdividenden zählen nicht, denn sie kommen nicht jedes Jahr wieder.</li>
+</ol>
+<div class="formula">R0 = min( Dividendenniveau + Netto-Rückkäufe , tragbarer Rückfluss )</div>
+
+<div class="lab" id="lab">
+  <label>Dividendenniveau je Aktie <span><span class="num" id="o-div"></span> €</span></label>
+  <input type="range" id="div" min="0" max="6" step="0.5" value="2">
+  <label>Rückkäufe je Aktie (Fünfjahresmittel) <span><span class="num" id="o-buy"></span> €</span></label>
+  <input type="range" id="buy" min="0" max="10" step="0.5" value="5">
+  <label>Ausgabe neuer Aktien je Aktie <span><span class="num" id="o-iss"></span> €</span></label>
+  <input type="range" id="iss" min="0" max="5" step="0.5" value="1">
+  <label>Aktienbasierte Vergütung je Aktie <span><span class="num" id="o-comp"></span> €</span></label>
+  <input type="range" id="comp" min="0" max="5" step="0.5" value="1">
+  <label>Tragbarer Rückfluss je Aktie (Deckel) <span><span class="num" id="o-cap"></span> €</span></label>
+  <input type="range" id="cap" min="0" max="12" step="0.5" value="4">
+  <div class="result">Rückflussniveau R0: <strong id="o-r0"></strong></div>
+  <div class="note" id="o-steps"></div>
+  <div class="note" id="o-cap-note"></div>
+</div>
+<p class="note">Aufgabe: Stelle die Vergütung auf 5 €. Was passiert mit den Netto-Rückkäufen? Dann hebe den Deckel auf 12 €:
+Wann greift er nicht mehr?</p>
+
+<h2>3. Kritischer Blick: warum nicht einfach den Gewinn nehmen?</h2>
+<p>Buffett und Damodaran bewerten nicht, was ausgeschüttet <em>wird</em>, sondern was sich entnehmen
+<em>lässt</em>. Buffett über Berkshire, das nie ausschüttet: „it's the ability to distribute cash that gives Berkshire
+its value" (HV 2007, laut Recherche geprüft). Die Strategie hier bewertet dagegen die tatsächliche Ausschüttung, mit dem
+freien Cashflow als Deckel. Die Recherche vermerkt das ausdrücklich als Abweichung (Abschnitt 2.2).
+Folge: Aktien ohne Ausschüttung sind nicht bewertbar. Ob das ein Vorteil (Disziplin: Geld, das fließt, ist echt)
+oder ein Nachteil (Wachstumsfirmen fallen heraus) ist, ist eine Frage, die wir in Lektion 4 aufgreifen, wenn die
+steigende Ausschüttungsquote dran ist. Sie lindert genau dieses Problem.</p>
+
+<h2>4. Teste dich</h2>
+
+<div class="quiz" data-answer="A" data-explain="Dividende 2 plus Netto-Rückkäufe 3 ergeben 5. Der Deckel liegt bei 4, also gilt 4. (Das ist ein Abnahmetest der Spezifikation.)">
+  <p class="q">1. Dividendenniveau 2 €, Netto-Rückkäufe 3 €, tragbarer Rückfluss 4 € je Aktie. Wie hoch ist R0?</p>
+  <ol><li>4 Euro je Aktie</li><li>5 Euro je Aktie</li><li>3 Euro je Aktie</li><li>2 Euro je Aktie</li></ol>
+</div>
+
+<div class="quiz" data-answer="C" data-explain="Die Ausgabe in Aktien hebt den Rückkauf auf. Ihr Anteil wird nicht größer, also kommt kein Rückfluss an.">
+  <p class="q">2. Eine Firma kauft für 3 € je Aktie zurück und gibt Aktien als Vergütung für 3 € je Aktie aus. Wie viel Rückfluss bleibt aus den Rückkäufen?</p>
+  <ol><li>6 Euro je Aktie</li><li>3 Euro je Aktie</li><li>0 Euro je Aktie</li><li>1,5 Euro je Aktie</li></ol>
+</div>
+
+<div class="quiz" data-answer="D" data-explain="Schuldenfinanzierte Rückkäufe lassen sich nicht jedes Jahr wiederholen. Der Deckel hält den Rückfluss auf dem, was dauerhaft verdient wird.">
+  <p class="q">3. Wozu dient der Deckel durch den tragbaren Rückfluss?</p>
+  <ol>
+  <li>Er senkt jede Rendite pauschal</li>
+  <li>Er ersetzt die Dividenden komplett</li>
+  <li>Er glättet jedes einzelne Jahr</li>
+  <li>Er stoppt ungedeckte Rückkäufe</li></ol>
+</div>
+
+<h2>Weiterlesen</h2>
+<p><strong>Primärquelle:</strong> Damodaran,
+<a href="https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch11.pdf">Investment Valuation</a>, Kapitel 13 zu
+Rückkäufen (die Datei heißt analog <code>ch13.pdf</code>). Den vollen Befund samt Gegenargumenten findest du in der
+<a href="../../docs/Recherche-Bewertungsansatz.md">Recherche, Abschnitt 2.2</a>.</p>
+
+<p class="note"><strong>Frag deinen Lehrer.</strong> Unklar ist vielleicht, warum Rückkauf und Dividende „dasselbe" sind
+oder was der freie Cashflow ist. Frag nach, ich erkläre es mit anderen Zahlen. Die nächste Lektion: Wachstum, also
+woher die Zahl <span class="num">g0</span> kommt und warum sie nach 15 Jahren auf höchstens 3 % abschmilzt.</p>
+
+<nav class="foot"><a href="0001-was-ist-die-innere-rendite.html">← Lektion 1</a> · <a href="../NOTES.md">Notizen</a></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (x) => x.toFixed(2).replace(".", ",") + " €";
+function update() {
+  const d = +$("div").value, b = +$("buy").value, i = +$("iss").value, c = +$("comp").value, cap = +$("cap").value;
+  for (const [id, v] of [["div", d], ["buy", b], ["iss", i], ["comp", c], ["cap", cap]]) $("o-" + id).textContent = String(v).replace(".", ",");
+  const net = Math.max(0, b - i - c), sum = d + net, r0 = Math.min(sum, cap);
+  $("o-r0").textContent = fmt(r0);
+  $("o-steps").textContent = `Netto-Rückkäufe = max(0; ${b} − ${i} − ${c}) = ${fmt(net)}. Dividende + Netto-Rückkäufe = ${fmt(sum)}.`;
+  $("o-cap-note").textContent = sum > cap ? `Der Deckel greift: ${fmt(cap)} statt ${fmt(sum)}.` : "Der Deckel greift nicht.";
+}
+document.querySelectorAll("#lab input").forEach((el) => el.addEventListener("input", update));
+update();
+</script>
+</body>
+</html>
