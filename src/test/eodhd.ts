@@ -11,7 +11,8 @@ export function fakeEodhd(routes: Record<string, Handler | unknown>): typeof fet
   const fn = (async (input: URL | RequestInfo) => {
     const url = new URL(String(input));
     const path = url.pathname.replace(/^\/api\//, "");
-    calls.push(path);
+    // Die Kontoabfrage kostet nichts und läuft vor großen Läufen; sie bleibt aus der Liste der Abrufe.
+    if (path !== "user") calls.push(path);
     const key = Object.keys(routes).find((k) => (k.endsWith("*") ? path.startsWith(k.slice(0, -1)) : k === path));
     if (key === undefined) return new Response("not found", { status: 404 });
     const route = routes[key];

@@ -3,7 +3,7 @@ import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { computeValuation } from "../valuation/run.ts";
 import { looksImplausible } from "../valuation/valuation.ts";
-import { runDailySync, syncSucceeded } from "./dailySync.ts";
+import { planPrices, runDailySync, syncSucceeded } from "./dailySync.ts";
 
 const ECB = `<Cube><Cube time="2026-11-19"><Cube currency="USD" rate="1.25"/><Cube currency="GBP" rate="0.8"/></Cube></Cube>`;
 const NOW = new Date("2026-11-19T22:15:00Z");
@@ -213,6 +213,31 @@ describe("runDailySync", () => {
     expect(tried(later.calls)).toBe(1);
     expect(db.priceFailures().has("VORRAT.US")).toBe(false);
     db.close();
+  });
+
+  it("schätzt die Kosten des nächsten Abgleichs wie der Abgleich selbst", () => {
+    const db = setup();
+    db.saveRawCloses("A.XETRA", [{ date: "2026-11-19", close: 40 }]);
+    expect(planPrices(db, NOW)).toEqual({
+      current: 1,
+      stale: 2,
+      neverPriced: 2,
+      paused: 0,
+      bulkCalls: 0,
+      singleCalls: 2,
+      stragglers: 0,
+      stockpileSkipped: 0,
+    });
+    // Kleiner Tarif: Der Datenvorrat bekommt keine Kurse, die Watchlist einzeln.
+    expect(planPrices(db, NOW, 20)).toMatchObject({ singleCalls: 1, stockpileSkipped: 1 });
+    for (let i = 0; i < 150; i++) db.addStockIfMissing(stock(`T${i}.US`, { watched: false }));
+    db.recordPriceFailure("T0.US", "HTTP 404", "2026-11-18");
+    db.recordPriceFailure("T0.US", "HTTP 404", "2026-11-18");
+    db.recordPriceFailure("T0.US", "HTTP 404", "2026-11-18");
+    // 151 Titel an der US-Börse (einer pausiert): ein Sammelabruf, die Titel ohne Kurs kommen höchstens einzeln dazu.
+    expect(planPrices(db, NOW)).toMatchObject({ stale: 151, paused: 1, bulkCalls: 100, singleCalls: 0, stragglers: 151 });
+    // B.US steht auf der Watchlist und kommt einzeln; die 150 Vorrats-Titel bleiben ohne Kurs.
+    expect(planPrices(db, NOW, 499)).toMatchObject({ bulkCalls: 0, singleCalls: 1, stockpileSkipped: 150 });
   });
 
   it("zählt eine leere Antwort im Datenvorrat als Fehlschlag, bei beobachteten Titeln nicht", async () => {

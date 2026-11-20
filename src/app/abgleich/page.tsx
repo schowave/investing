@@ -1,11 +1,16 @@
-import type { Job } from "../../data/db.ts";
-import { estimateCalls, isJobKind, JOB_KINDS } from "../../jobs/registry.ts";
-import { cancelJob, setAutoSync, startHistory, startIndexImport, startRecompute, startRefreshAll, startSync } from "../actions.ts";
+import type { ReactNode } from "react";
+import { expectedFiscalYear, type Job } from "../../data/db.ts";
+import { FUNDAMENTALS_KIND } from "../../data/eodhdSnapshot.ts";
+import { CONFIRM_CALLS, estimateHistory, estimateRefresh, isJobKind, JOB_KINDS, refreshIds } from "../../jobs/registry.ts";
+import { SYNC_RESERVE } from "../../jobs/reserve.ts";
+import { FUNDAMENTALS_CALLS } from "../../jobs/stockpile.ts";
+import { planPrices } from "../../sync/dailySync.ts";
+import { cancelJob, setAutoSync, startHistory, startIndexImport, startRecompute, startRefresh, startSync } from "../actions.ts";
 import { AutoRefresh } from "../autoRefresh.tsx";
 import { eodhdBudget } from "../budget.ts";
 import { amount, isoDate } from "../format.ts";
 import { PendingButton } from "../pendingButton.tsx";
-import { database } from "../server.ts";
+import { database, today } from "../server.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -36,19 +41,76 @@ function duration(job: Job): string {
       : `${Math.round(ms / 1000)} s`;
 }
 
-const calls = (n: number) => `${amount(n, 0)} ${n === 1 ? "Abruf" : "Abrufe"}`;
+const n = (value: number) => amount(value, 0);
+const calls = (value: number) => `${n(value)} ${value === 1 ? "Abruf" : "Abrufe"}`;
 
-function Confirm({ cost }: { cost: string }) {
+/** Kosten eines Laufs; ab vielen Abrufen als Häkchen, das bestätigt werden muss. */
+function Cost({ value, suffix = "" }: { value: number; suffix?: string }) {
+  if (value <= CONFIRM_CALLS) {
+    return (
+      <span className="meta">
+        {calls(value)}
+        {suffix}
+      </span>
+    );
+  }
   return (
-    <label className="row">
-      <input type="checkbox" name="bestaetigt" required /> Mir ist klar: {cost} vom Tagesbudget, bei großen Läufen über mehrere Tage
+    <label className="meta confirm">
+      <input type="checkbox" name="bestaetigt" required /> {calls(value)}
+      {suffix} bestätigen
     </label>
+  );
+}
+
+/** Startknopf für einen Lauf mit seinen Kosten; ohne offene Abrufe nur ein Vermerk. */
+function Run(props: {
+  action: (form: FormData) => Promise<void>;
+  fields: Record<string, string>;
+  cost: number;
+  suffix?: string;
+  label: string;
+  primary?: boolean;
+}) {
+  if (props.cost === 0) return <span className="meta">{props.label}: nichts offen</span>;
+  return (
+    <form action={props.action}>
+      {Object.entries(props.fields).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
+      <Cost value={props.cost} suffix={props.suffix} />
+      <PendingButton className={props.primary ? "" : "quiet"} label={props.label} pendingLabel="Wird eingestellt …" />
+    </form>
+  );
+}
+
+/** Nächster Lauf des Timers im LXC: täglich 00:15 UTC. */
+function nextScheduledRun(now: Date): Date {
+  const run = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 15));
+  if (run <= now) run.setUTCDate(run.getUTCDate() + 1);
+  return run;
+}
+
+/** Eine Zeile im Plan: was die Daten leisten, wie der Stand ist, was ein Abruf kostet. */
+function Step(props: { title: string; purpose: string; state: ReactNode; recommended?: boolean; children: ReactNode }) {
+  return (
+    <div className={`step${props.recommended ? " recommended" : ""}`}>
+      <div>
+        <h3>
+          {props.title}
+          {props.recommended && <span className="tag ok">empfohlen</span>}
+        </h3>
+        <p className="hint">{props.purpose}</p>
+        <p className="state">{props.state}</p>
+      </div>
+      <div className="step-action">{props.children}</div>
+    </div>
   );
 }
 
 export default async function Sync(props: { searchParams: Promise<{ lauf?: string; fehler?: string }> }) {
   const query = await props.searchParams;
   const db = database();
+  const date = today();
   const active = db.activeJobs();
   const running = active.find((job) => job.status === "running");
   const waiting = active.filter((job) => job.status === "queued");
@@ -59,6 +121,42 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
   const self = "/abgleich";
   const auto = db.autoSync();
 
+  // --- Datenstand und was jeder Schritt kostet ---
+  const prices = planPrices(db, auto ? nextScheduledRun(new Date()) : new Date(), budget?.dailyRateLimit ?? null);
+  const priceCalls = prices.bulkCalls + prices.singleCalls;
+  const tracked = refreshIds(db, "watchlist", date);
+  const trackedCount = new Set([...db.stocks().map((s) => s.id), ...db.heldStockIds()]).size;
+  const stale = new Set(db.staleFundamentals(FUNDAMENTALS_KIND, date));
+  const trackedStale = tracked.filter((id) => stale.has(id)).length;
+  const withFundamentals = db.stockIdsWithRawDocument(FUNDAMENTALS_KIND).size;
+  const historyFor = (scope: "watchlist" | "rechenbar") => estimateHistory(db, { refresh: false, scope, monthly: false });
+  const trackedHistory = historyFor("watchlist");
+  const ratedHistory = historyFor("rechenbar");
+  const rated = db.ratedStockIds().size;
+  const monthlyCost = estimateHistory(db, { refresh: false, scope: "alle", monthly: true });
+  const monthlyMissing = monthlyCost - estimateHistory(db, { refresh: false, scope: "alle", monthly: false });
+  const refreshAll = estimateRefresh(db, "alle", date);
+  const importable = free === null ? null : Math.max(0, Math.floor((free - SYNC_RESERVE) / FUNDAMENTALS_CALLS));
+
+  const steps = {
+    prices: !auto,
+    trackedFundamentals: trackedStale > 0,
+    trackedHistory: trackedHistory > 0,
+    ratedHistory: ratedHistory > trackedHistory,
+    staleFundamentals: stale.size > trackedStale,
+  };
+  const next = steps.prices
+    ? "den nächtlichen Abgleich einschalten"
+    : steps.trackedFundamentals
+      ? "Abschlüsse der Watchlist auffrischen"
+      : steps.trackedHistory
+        ? "Dividenden und Splits der Watchlist laden"
+        : steps.ratedHistory
+          ? "Dividenden und Splits der rechenbaren Titel laden"
+          : steps.staleFundamentals
+            ? "veraltete Abschlüsse im Datenvorrat auffrischen"
+            : null;
+
   return (
     <>
       <AutoRefresh active={active.length > 0} />
@@ -68,20 +166,14 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
           <p className="finding">
             {running
               ? `Läuft gerade: ${label(running)}${running.progressTotal ? ` (${running.progressDone ?? 0} von ${running.progressTotal})` : ""}.`
-              : auto
-                ? "Kein Lauf aktiv. Der Abgleich läuft jede Nacht um 1:15 Uhr (im Sommer 2:15 Uhr) von selbst, nachdem EODHD das Tageslimit zurückgesetzt hat; hier startest du ihn und größere Läufe von Hand."
-                : "Kein Lauf aktiv. Der nächtliche Abgleich ist ausgeschaltet: Kurse und Bewertungen kommen nur, wenn du ihn hier von Hand startest."}
+              : next
+                ? `Als Nächstes: ${next}.`
+                : auto
+                  ? "Alles auf dem Stand. Kurse kommen jede Nacht um 1:15 Uhr (im Sommer 2:15 Uhr)."
+                  : "Alles auf dem Stand."}
           </p>
         </div>
         <div className="title-actions">
-          <form action={setAutoSync}>
-            <input type="hidden" name="automatisch" value={auto ? "aus" : "an"} />
-            <PendingButton
-              className="quiet"
-              label={auto ? "Nächtlichen Abgleich ausschalten" : "Nächtlichen Abgleich einschalten"}
-              pendingLabel="Wird gespeichert …"
-            />
-          </form>
           <form action={startRecompute.bind(null, self)}>
             <PendingButton className="quiet" label="Neu rechnen" pendingLabel="Wird eingestellt …" />
           </form>
@@ -97,20 +189,25 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
         </div>
       )}
 
-      <dl className="figures">
+      <dl className="card figures">
         <div className="figure">
           <dt>EODHD heute frei</dt>
-          <dd>{free === null ? "–" : amount(free, 0)}</dd>
+          <dd>{free === null ? "–" : n(free)}</dd>
           <span className="sub">
             {budget
-              ? `${amount(budget.requestsToday, 0)} von ${amount(budget.dailyRateLimit, 0)} verbraucht, Tarif ${budget.subscription}`
+              ? `${n(budget.requestsToday)} von ${n(budget.dailyRateLimit)} verbraucht, Tarif ${budget.subscription}`
               : "Konto nicht erreichbar oder kein Token gesetzt"}
           </span>
         </div>
         <div className="figure">
-          <dt>Abgleich jetzt</dt>
-          <dd>{calls(estimateCalls(db, "sync"))}</dd>
-          <span className="sub">höchstens, je Watchlist-Titel mit altem Kurs einer</span>
+          <dt>Nächster Abgleich</dt>
+          <dd>{calls(priceCalls)}</dd>
+          <span className="sub">
+            Kurse für {n(prices.stale)} Titel
+            {prices.bulkCalls > 0 ? " mit Sammelabruf je Börse" : ""}
+            {prices.stragglers > 0 ? `, dazu bis zu ${n(prices.stragglers)} Nachzügler einzeln` : ""}
+            {prices.stockpileSkipped > 0 ? `; ${n(prices.stockpileSkipped)} im Datenvorrat bleiben ohne Kurs (Budget zu klein)` : ""}
+          </span>
         </div>
         <div className="figure">
           <dt>Warteschlange</dt>
@@ -158,49 +255,155 @@ export default async function Sync(props: { searchParams: Promise<{ lauf?: strin
 
       <section className="card">
         <div className="card-head">
-          <h2>Große Läufe</h2>
-          <span className="meta">brauchen viele Abrufe; am Tageslimit hören sie auf, ein neuer Start setzt fort</span>
+          <h2>Was die Rangliste braucht</h2>
+          <span className="meta">in dieser Reihenfolge; große Läufe lassen {n(SYNC_RESERVE)} Abrufe für den Abgleich übrig</span>
         </div>
-        <div className="card-body stack">
-          <form className="stack" action={startHistory}>
-            <strong>Historie laden</strong>
-            <span className="hint">
-              Dividenden, Splits und Monatskurse für alle gespeicherten Titel, denen sie noch fehlen (je Titel 3 Abrufe). Braucht einen
-              Tarif mit Kursdaten.
-            </span>
-            <label className="row">
-              <input type="checkbox" name="neu" /> Auch vorhandene neu laden
-            </label>
-            <Confirm cost={`fehlende: ${calls(estimateCalls(db, "history"))}`} />
-            <PendingButton label="Historie laden" pendingLabel="Wird eingestellt …" className="quiet" />
+
+        <Step
+          title="Kurse"
+          purpose="Ohne Kurs keine Rendite. Jede Nacht, nachdem EODHD das Tageslimit zurückgesetzt hat."
+          recommended={steps.prices}
+          state={
+            <>
+              {n(prices.current)} aktuell, {n(prices.stale)} veraltet
+              {prices.neverPriced > 0 ? `, davon ${n(prices.neverPriced)} noch nie ein Kurs` : ""}
+              {prices.paused > 0 ? `; ${n(prices.paused)} pausiert, weil der Abruf wiederholt scheiterte` : ""}.{" "}
+              {auto ? "Nächtlicher Abgleich ist an." : "Nächtlicher Abgleich ist aus."}
+            </>
+          }
+        >
+          <span className="meta">{calls(priceCalls)} je Nacht</span>
+          <form action={setAutoSync}>
+            <input type="hidden" name="automatisch" value={auto ? "aus" : "an"} />
+            <PendingButton
+              className={auto ? "quiet" : ""}
+              label={auto ? "Nachts ausschalten" : "Nachts einschalten"}
+              pendingLabel="Wird gespeichert …"
+            />
           </form>
-          <form className="stack" action={startIndexImport}>
-            <strong>Indizes oder Börsen in den Datenvorrat laden</strong>
-            <span className="hint">
-              Neue Titel aus Indizes (z. B. GSPC.INDX STOXX.INDX) oder alle Stammaktien einer Börse (z. B. IL); je Titel 10 Abrufe.
-            </span>
-            <div className="row">
-              <input
-                className="wide"
-                type="text"
-                name="indizes"
-                placeholder="Indizes, z. B. GSPC.INDX"
-                aria-label="Indizes"
-                autoComplete="off"
-              />
-              <input type="text" name="boersen" placeholder="Börsen, z. B. IL" aria-label="Börsen" autoComplete="off" />
-            </div>
-            <Confirm cost="je neuem Titel 10 Abrufe" />
-            <PendingButton label="Laden" pendingLabel="Wird eingestellt …" className="quiet" />
-          </form>
-          <form className="stack" action={startRefreshAll}>
-            <strong>Alle Titel auffrischen</strong>
-            <span className="hint">Lädt die Abschlüsse aller gespeicherten Titel neu, z. B. vor einer Kündigung des Tarifs.</span>
-            <Confirm cost={calls(estimateCalls(db, "refresh-all"))} />
-            <PendingButton label="Alle auffrischen" pendingLabel="Wird eingestellt …" className="quiet" />
-          </form>
-        </div>
+        </Step>
+
+        <Step
+          title="Abschlüsse von Watchlist und Bestand"
+          purpose="Rückfluss, Wachstum und Risiko kommen aus den Jahresabschlüssen. Einmal nach der Berichtssaison (März bis Mai) auffrischen."
+          recommended={steps.trackedFundamentals}
+          state={
+            trackedStale > 0
+              ? `${n(trackedStale)} von ${n(trackedCount)} Titeln mit wahrscheinlich fehlendem Geschäftsjahr ${expectedFiscalYear(date)}.`
+              : `${n(trackedCount)} Titel, alle mit aktuellem Geschäftsjahr oder kürzlich geladen.`
+          }
+        >
+          <Run
+            action={startRefresh}
+            fields={{ umfang: "watchlist" }}
+            cost={tracked.length * FUNDAMENTALS_CALLS}
+            label="Auffrischen"
+            primary={steps.trackedFundamentals}
+          />
+        </Step>
+
+        <Step
+          title="Dividenden und Splits"
+          purpose="Prüfen, ob die Zahlen je Aktie zum Kurs passen. Titel mit unbereinigtem Split fallen aus dem Screening, statt mit falscher Rendite oben zu stehen."
+          recommended={steps.trackedHistory || steps.ratedHistory}
+          state={`Fehlen für Watchlist und Bestand: ${calls(trackedHistory)}; für alle ${n(rated)} Titel mit berechenbarer Rendite: ${calls(ratedHistory)}.`}
+        >
+          <Run
+            action={startHistory}
+            fields={{ umfang: "watchlist" }}
+            cost={trackedHistory}
+            label="Für die Watchlist"
+            primary={steps.trackedHistory}
+          />
+          <Run
+            action={startHistory}
+            fields={{ umfang: "rechenbar" }}
+            cost={ratedHistory}
+            label="Für alle rechenbaren"
+            primary={!steps.trackedHistory && steps.ratedHistory}
+          />
+        </Step>
+
+        <Step
+          title="Veraltete Abschlüsse im Datenvorrat"
+          purpose="Ein Titel, dem das letzte Geschäftsjahr fehlt, rechnet mit alten Zahlen. Nur die, deren letzter Abruf älter als 90 Tage ist."
+          recommended={steps.staleFundamentals}
+          state={
+            stale.size > 0
+              ? `${n(stale.size)} von ${n(withFundamentals)} Titeln wahrscheinlich veraltet.`
+              : `Keiner von ${n(withFundamentals)} Titeln veraltet.`
+          }
+        >
+          <Run
+            action={startRefresh}
+            fields={{ umfang: "veraltet" }}
+            cost={stale.size * FUNDAMENTALS_CALLS}
+            label="Auffrischen"
+            primary={steps.staleFundamentals}
+          />
+        </Step>
       </section>
+
+      <section className="card">
+        <div className="card-head">
+          <h2>Neue Titel in den Datenvorrat</h2>
+          <span className="meta">
+            je Titel {calls(FUNDAMENTALS_CALLS)}
+            {importable !== null ? `; heute passen noch etwa ${n(importable)} Titel` : ""}
+          </span>
+        </div>
+        <form className="card-body stack" action={startIndexImport}>
+          <p className="hint">
+            Alle Bestandteile eines Index (z. B. GSPC.INDX, STOXX.INDX) oder alle Stammaktien einer Börse (z. B. IL). Eine Börse mit 1.000
+            Aktien kostet etwa 10.000 Abrufe. Was heute nicht passt, setzt ein neuer Start morgen fort. Der Algorithmus nutzt nur
+            ausschüttende Titel; Nicht-Ausschütter landen in der Gruppe „Rückfluss 0“.
+          </p>
+          <div className="row">
+            <input
+              className="wide"
+              type="text"
+              name="indizes"
+              placeholder="Indizes, z. B. GSPC.INDX"
+              aria-label="Indizes"
+              autoComplete="off"
+            />
+            <input type="text" name="boersen" placeholder="Börsen, z. B. IL" aria-label="Börsen" autoComplete="off" />
+          </div>
+          <label className="meta confirm">
+            <input type="checkbox" name="bestaetigt" required /> Mir ist klar: je neuem Titel {calls(FUNDAMENTALS_CALLS)}
+          </label>
+          <div>
+            <PendingButton label="Laden" pendingLabel="Wird eingestellt …" className="quiet" />
+          </div>
+        </form>
+      </section>
+
+      <details className="card">
+        <summary className="card-head">
+          <h2>Selten nötig</h2>
+          <span className="meta">für die Rangliste nicht erforderlich</span>
+        </summary>
+        <Step
+          title="Monatskurse"
+          purpose="Für einen späteren Rückblick gespeichert; die Bewertung wertet sie nicht aus."
+          state={`Fehlen für ${n(monthlyMissing)} Titel.`}
+        >
+          <Run
+            action={startHistory}
+            fields={{ umfang: "alle", monatskurse: "on" }}
+            cost={monthlyMissing === 0 ? 0 : monthlyCost}
+            label="Laden"
+            suffix=" mit fehlenden Dividenden und Splits"
+          />
+        </Step>
+        <Step
+          title="Alle Abschlüsse neu laden"
+          purpose="Nur vor einer Kündigung des Tarifs oder nach einer Änderung beim Anbieter. Neue Kennzahlen gewinnt „Neu rechnen“ ohne Abruf aus den gespeicherten Antworten."
+          state={`${n(withFundamentals)} Titel.`}
+        >
+          <Run action={startRefresh} fields={{ umfang: "alle" }} cost={refreshAll} label="Alle neu laden" suffix=", über mehrere Tage" />
+        </Step>
+      </details>
 
       <section className="card">
         <div className="card-head">

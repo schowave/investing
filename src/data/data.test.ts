@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Database, type FundamentalsYear } from "./db.ts";
+import { Database, expectedFiscalYear, type FundamentalsYear } from "./db.ts";
 import { parseEcbRates } from "./ecb.ts";
 import { parseFundamentalsCsv } from "./fundamentalsCsv.ts";
 import { START_WATCHLIST } from "./seed.ts";
@@ -89,6 +89,18 @@ describe("Rohantworten", () => {
     db.saveRawDocument("BAS.XETRA", "eodhd-fundamentals", '{"a":2}');
     expect(db.rawDocument("BAS.XETRA", "eodhd-fundamentals")!.body).toBe('{"a":2}');
     expect(db.rawDocument("IMB.LSE", "eodhd-fundamentals")).toBeNull();
+  });
+
+  it("erwartet das Vorjahr erst nach der Berichtssaison", () => {
+    expect(expectedFiscalYear("2027-01-15")).toBe(2025);
+    expect(expectedFiscalYear("2027-05-31")).toBe(2025);
+    expect(expectedFiscalYear("2027-06-01")).toBe(2026);
+    const db = emptyDatabase();
+    db.saveRawDocument("IMB.LSE", "eodhd-fundamentals", "{}");
+    db.saveFundamentals("IMB.LSE", parseFundamentalsCsv("fiscal_year,eps_diluted\n2025,5"), "eodhd");
+    // Im Januar fehlt 2026 noch überall: nicht veraltet. Im Juni schon.
+    expect(db.staleFundamentals("eodhd-fundamentals", "2027-01-15")).toEqual([]);
+    expect(db.staleFundamentals("eodhd-fundamentals", "2027-06-15")).toEqual(["IMB.LSE"]);
   });
 
   it("blättert im Datenvorrat und zählt, warum Renditen fehlen", () => {

@@ -77,6 +77,12 @@ export interface StockSearchHit {
 }
 
 /** Vorläufige Bewertung eines Titels aus den Vorschlägen, ohne Verlauf. */
+/** Jüngstes Geschäftsjahr, dessen Abschluss vorliegen sollte: ab Juni das Vorjahr, davor das Jahr davor. */
+export function expectedFiscalYear(today: string): number {
+  const year = Number(today.slice(0, 4));
+  return Number(today.slice(5, 7)) >= 6 ? year - 1 : year - 2;
+}
+
 export interface ScreeningFilter {
   region?: string;
   /** Risikowert höchstens. */
@@ -937,6 +943,34 @@ export class Database {
   /** Kennungen aller Aktien, zu denen eine Rohantwort dieser Art vorliegt. */
   stockIdsWithRawDocument(kind: string): Set<string> {
     const rows = this.#db.select({ id: t.rawDocuments.stockId }).from(t.rawDocuments).where(eq(t.rawDocuments.kind, kind)).all();
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /**
+   * Titel, deren Abschlüsse wahrscheinlich ein neues Geschäftsjahr verpasst haben: Das jüngste Jahr liegt vor dem
+   * Vorjahr von `today`, und der letzte Abruf ist älter als `minAgeDays` (sonst gibt es schlicht noch keinen neuen Bericht).
+   */
+  staleFundamentals(kind: string, today: string, minAgeDays = 90): string[] {
+    // Abschlüsse kommen von März bis Mai; vorher fehlt das Vorjahr bei fast allen und ein Auffrischen brächte nichts.
+    const cutoff = new Date(Date.parse(today) - minAgeDays * 86_400_000).toISOString();
+    const rows = this.#client
+      .prepare(
+        `SELECT r.stock_id AS id FROM raw_documents r LEFT JOIN fundamentals f ON f.stock_id = r.stock_id
+         WHERE r.kind = ? AND r.fetched_at < ? GROUP BY r.stock_id HAVING COALESCE(MAX(f.fiscal_year), 0) < ?`,
+      )
+      .all(kind, cutoff, expectedFiscalYear(today)) as { id: string }[];
+    return rows.map((r) => r.id).sort();
+  }
+
+  /** Titel, die in irgendeinem Portfolio mit Stückzahl über 0 stehen. */
+  heldStockIds(): Set<string> {
+    const rows = this.#db.selectDistinct({ id: t.holdings.stockId }).from(t.holdings).where(gt(t.holdings.shares, 0)).all();
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /** Titel mit berechenbarer innerer Rendite im Screening. */
+  ratedStockIds(): Set<string> {
+    const rows = this.#db.select({ id: t.screening.stockId }).from(t.screening).where(sql`${t.screening.innerReturn} IS NOT NULL`).all();
     return new Set(rows.map((r) => r.id));
   }
 

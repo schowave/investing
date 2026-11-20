@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { JOB_KINDS, type JobKind } from "../jobs/registry.ts";
+import { CONFIRM_CALLS, estimateHistory, estimateRefresh, JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
 import { judgeStock } from "../judgement/judge.ts";
 import { assess, type InputUpdate } from "../valuation/run.ts";
@@ -177,9 +177,16 @@ export async function addStocks(form: FormData): Promise<void> {
   enqueue("add-stocks", { isins, symbols }, "/vorrat");
 }
 
+const HistoryScope = z.enum(["watchlist", "rechenbar", "alle"]);
+const RefreshScope = z.enum(["watchlist", "veraltet", "alle"]);
+
+/** Dividenden und Splits laden; bestätigen muss nur, wer viele Abrufe auslöst. */
 export async function startHistory(form: FormData): Promise<void> {
-  requireConfirmation(form, "/abgleich");
-  enqueue("history", { refresh: form.get("neu") === "on" }, "/abgleich");
+  const scope = HistoryScope.safeParse(form.get("umfang"));
+  if (!scope.success) redirect(`/abgleich?fehler=${encodeURIComponent("Unbekannter Umfang für die Historie.")}`);
+  const options = { refresh: form.get("neu") === "on", scope: scope.data, monthly: form.get("monatskurse") === "on" };
+  if (estimateHistory(database(), options) > CONFIRM_CALLS) requireConfirmation(form, "/abgleich");
+  enqueue("history", options, "/abgleich");
 }
 
 export async function startIndexImport(form: FormData): Promise<void> {
@@ -192,9 +199,12 @@ export async function startIndexImport(form: FormData): Promise<void> {
   enqueue("index-import", { indices: words("indizes"), exchanges: words("boersen") }, "/abgleich");
 }
 
-export async function startRefreshAll(form: FormData): Promise<void> {
-  requireConfirmation(form, "/abgleich");
-  enqueue("refresh-all", {}, "/abgleich");
+/** Abschlüsse neu laden: Watchlist und Bestand, die wahrscheinlich veralteten oder alle. */
+export async function startRefresh(form: FormData): Promise<void> {
+  const scope = RefreshScope.safeParse(form.get("umfang"));
+  if (!scope.success) redirect(`/abgleich?fehler=${encodeURIComponent("Unbekannter Umfang zum Auffrischen.")}`);
+  if (estimateRefresh(database(), scope.data, today()) > CONFIRM_CALLS) requireConfirmation(form, "/abgleich");
+  enqueue("refresh-all", { scope: scope.data }, "/abgleich");
 }
 
 export async function cancelJob(id: number): Promise<void> {

@@ -9,7 +9,7 @@ import { steadyYears, stock } from "../test/fixtures.ts";
 import { consoleContext, eachParallel, reason, requireToken } from "./context.ts";
 import { refreshFundamentals, refreshStock } from "./fundamentals.ts";
 import { historyTodo, loadHistory } from "./history.ts";
-import { estimateCalls, isJobKind, runJob } from "./registry.ts";
+import { estimateHistory, estimateRefresh, isJobKind, runJob } from "./registry.ts";
 import { addByIsin, importStockpile, isinsIn, reparseArchive } from "./stockpile.ts";
 
 const fresh = () => {
@@ -98,16 +98,57 @@ describe("Fundamentaldaten", () => {
 });
 
 describe("Historie", () => {
+  const all = { refresh: false, scope: "alle", monthly: true } as const;
+
   it("lädt nur Fehlendes, Watchlist zuerst, und setzt nach dem Tageslimit fort", async () => {
     const db = fresh();
     db.addStockIfMissing({ ...stock, id: "VORRAT.US", watched: false });
-    expect(historyTodo({ db }, false).map((t) => t.id)).toEqual(["TEST.US", "TEST.US", "TEST.US", "VORRAT.US", "VORRAT.US", "VORRAT.US"]);
+    expect(historyTodo({ db }, all).map((t) => t.id)).toEqual(["TEST.US", "TEST.US", "TEST.US", "VORRAT.US", "VORRAT.US", "VORRAT.US"]);
     let calls = 0;
     const limited = fakeEodhd({ "*": () => (++calls > 2 ? new Response("", { status: 402 }) : Response.json([])) });
-    const first = await loadHistory(testContext(db, limited).ctx, false);
+    const first = await loadHistory(testContext(db, limited).ctx, all);
     expect(first.summary).toMatch(/Rest offen/);
-    expect(historyTodo({ db }, false).length).toBeLessThan(6);
-    expect(historyTodo({ db }, true)).toHaveLength(6);
+    expect(historyTodo({ db }, all).length).toBeLessThan(6);
+    expect(historyTodo({ db }, { ...all, refresh: true })).toHaveLength(6);
+  });
+
+  it("lädt ohne Monatskurse und nur für den gewählten Umfang", () => {
+    const db = fresh();
+    db.addStockIfMissing({ ...stock, id: "VORRAT.US", watched: false });
+    db.addStockIfMissing({ ...stock, id: "RECHENBAR.US", watched: false });
+    db.saveScreening([
+      {
+        stockId: "RECHENBAR.US",
+        date: "2026-11-18",
+        priceDate: "2026-11-18",
+        price: 10,
+        payoutLevel: 1,
+        growth: 0.05,
+        riskScore: 0.1,
+        innerReturn: 0.1,
+        implausible: false,
+      },
+    ]);
+    const ids = (scope: "watchlist" | "rechenbar" | "alle") =>
+      historyTodo({ db }, { refresh: false, scope, monthly: false }).map((t) => `${t.id} ${t.kind}`);
+    expect(ids("watchlist")).toEqual(["TEST.US dividends", "TEST.US splits"]);
+    expect(ids("rechenbar")).toEqual(["TEST.US dividends", "TEST.US splits", "RECHENBAR.US dividends", "RECHENBAR.US splits"]);
+    expect(ids("alle")).toHaveLength(6);
+  });
+
+  it("lässt die Reserve für den nächtlichen Abgleich übrig", async () => {
+    const db = fresh();
+    db.addStockIfMissing({ ...stock, id: "VORRAT.US", watched: false });
+    // 100.000 Abrufe am Tag, 96.998 verbraucht: Nach der Reserve von 3.000 bleiben 2 Abrufe.
+    const fetchFn = fakeEodhd({
+      user: { dailyRateLimit: 100_000, apiRequests: 96_998, subscriptionType: "all-in-one" },
+      "*": [],
+    });
+    const { ctx, log } = testContext(db, fetchFn);
+    const result = await loadHistory(ctx, { refresh: false, scope: "alle", monthly: false });
+    expect(fetchFn.calls).toHaveLength(2);
+    expect(result.summary).toMatch(/Rest offen/);
+    expect(log.join("\n")).toMatch(/Reserve|nächtlichen Abgleich/);
   });
 });
 
@@ -184,6 +225,35 @@ describe("Datenvorrat", () => {
     db.saveRawDocument("TEST.US", RAW_KIND, JSON.stringify(fundamentalsAnswer()));
     const fetchFn = fakeEodhd({ "fundamentals/TEST.US": fundamentalsAnswer() });
     const result = await runJob(testContext(db, fetchFn).ctx, "refresh-all", {});
+    expect(result.ok).toBe(true);
+    expect(fetchFn.calls).toEqual(["fundamentals/TEST.US"]);
+  });
+
+  it("nimmt einzelne Titel auch bei knappem Budget auf, große Läufe nicht", async () => {
+    const db = fresh();
+    // Kleiner Tarif: weit unter der Reserve für den Abgleich.
+    const routes = {
+      user: { dailyRateLimit: 100, apiRequests: 0, subscriptionType: "free" },
+      "fundamentals/*": fundamentalsAnswer("Neu Corp"),
+    };
+    const added = fakeEodhd(routes);
+    const result = await runJob(testContext(db, added).ctx, "add-stocks", { isins: [], symbols: ["NEU.US"] });
+    expect(result.ok).toBe(true);
+    expect(added.calls).toEqual(["fundamentals/NEU.US"]);
+
+    const refreshed = fakeEodhd(routes);
+    const capped = await runJob(testContext(db, refreshed).ctx, "refresh-all", { scope: "alle" });
+    expect(refreshed.calls).toEqual([]);
+    expect(capped).toMatchObject({ ok: false, summary: expect.stringMatching(/Rest offen/) });
+  });
+
+  it("frischt nur Watchlist und Bestand auf, wenn so gewählt", async () => {
+    const db = fresh();
+    db.addStockIfMissing({ ...stock, id: "VORRAT.US", watched: false });
+    db.saveRawDocument("TEST.US", RAW_KIND, JSON.stringify(fundamentalsAnswer()));
+    db.saveRawDocument("VORRAT.US", RAW_KIND, JSON.stringify(fundamentalsAnswer()));
+    const fetchFn = fakeEodhd({ "fundamentals/*": fundamentalsAnswer() });
+    const result = await runJob(testContext(db, fetchFn).ctx, "refresh-all", { scope: "watchlist" });
     expect(result.ok).toBe(true);
     expect(fetchFn.calls).toEqual(["fundamentals/TEST.US"]);
   });
@@ -281,11 +351,14 @@ describe("Registry", () => {
     expect(isJobKind("toString")).toBe(false);
     await expect(runJob(ctx, "add-stocks", { isins: [], symbols: [] })).rejects.toThrow(/mindestens eine/);
     await expect(runJob(ctx, "index-import", { indices: ["GSPC"], exchanges: [] })).rejects.toThrow();
-    expect(estimateCalls(db, "sync")).toBe(1);
-    expect(estimateCalls(db, "stock-refresh")).toBe(13);
-    expect(estimateCalls(db, "history")).toBe(3);
-    expect(estimateCalls(db, "refresh-all")).toBe(0);
-    expect(estimateCalls(db, "add-stocks")).toBe(0);
+    expect(estimateHistory(db, { refresh: false, scope: "watchlist", monthly: false })).toBe(2);
+    expect(estimateHistory(db, { refresh: false, scope: "watchlist", monthly: true })).toBe(3);
+    expect(estimateRefresh(db, "alle", "2026-11-19")).toBe(0);
+    db.saveRawDocument("TEST.US", RAW_KIND, "{}");
+    expect(estimateRefresh(db, "watchlist", "2026-11-19")).toBe(10);
+    // Gerade erst geladen: nicht veraltet, auch wenn das jüngste Geschäftsjahr fehlt.
+    expect(estimateRefresh(db, "veraltet", "2026-11-19")).toBe(0);
+    expect(estimateRefresh(db, "veraltet", "2027-06-01")).toBe(10);
   });
 
   it("nimmt Titel über ISIN und Symbol in einem Lauf auf", async () => {

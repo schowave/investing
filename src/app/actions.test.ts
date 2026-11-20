@@ -30,7 +30,7 @@ const {
   setWatched,
   startHistory,
   startIndexImport,
-  startRefreshAll,
+  startRefresh,
   startSync,
 } = await import("./actions.ts");
 
@@ -195,15 +195,25 @@ describe("Server Actions", () => {
     await expect(addStocks(form({ titel: "nichts Brauchbares" }))).rejects.toThrow(/redirect:\/vorrat\?fehler=Bitte%20mindestens/);
   });
 
-  it("startet große Läufe nur mit Bestätigung", async () => {
-    await expect(startRefreshAll(form({}))).rejects.toThrow(/fehler=Bitte%20best%C3%A4tigen/);
-    await expect(startRefreshAll(form({ bestaetigt: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=1");
-    await expect(startHistory(form({ bestaetigt: "on", neu: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=2");
-    expect(db.job(2)!.args).toEqual({ refresh: true });
+  it("startet kleine Läufe direkt und große nur mit Bestätigung", async () => {
+    await expect(startRefresh(form({ umfang: "watchlist" }))).rejects.toThrow("redirect:/abgleich?lauf=1");
+    expect(db.job(1)!.args).toEqual({ scope: "watchlist" });
+    await expect(startHistory(form({ umfang: "rechenbar", neu: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=2");
+    expect(db.job(2)!.args).toEqual({ refresh: true, scope: "rechenbar", monthly: false });
+    await expect(startHistory(form({ umfang: "irgendwas" }))).rejects.toThrow(/fehler=Unbekannter/);
+    await expect(startRefresh(form({}))).rejects.toThrow(/fehler=Unbekannter/);
+
+    // 201 Titel mit Abschlüssen: alle auffrischen kostet 2.010 Abrufe und braucht das Häkchen.
+    for (let i = 0; i < 201; i++) {
+      db.addStockIfMissing({ ...stock, id: `V${i}.US`, watched: false });
+      db.saveRawDocument(`V${i}.US`, "eodhd-fundamentals", "{}");
+    }
+    await expect(startRefresh(form({ umfang: "alle" }))).rejects.toThrow(/fehler=Bitte%20best%C3%A4tigen/);
+    await expect(startRefresh(form({ umfang: "alle", bestaetigt: "on" }))).rejects.toThrow("redirect:/abgleich?lauf=3");
     await expect(startIndexImport(form({ bestaetigt: "on", indizes: "gspc.indx, STOXX.INDX", boersen: "il" }))).rejects.toThrow(
-      "redirect:/abgleich?lauf=3",
+      "redirect:/abgleich?lauf=4",
     );
-    expect(db.job(3)!.args).toEqual({ indices: ["GSPC.INDX", "STOXX.INDX"], exchanges: ["IL"] });
+    expect(db.job(4)!.args).toEqual({ indices: ["GSPC.INDX", "STOXX.INDX"], exchanges: ["IL"] });
     await expect(startIndexImport(form({ bestaetigt: "on", indizes: "GSPC" }))).rejects.toThrow(/fehler=/);
   });
 });

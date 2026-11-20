@@ -931,3 +931,60 @@ details.card > summary.card-head::-webkit-details-marker {
   margin-left: 6px;
   font-variant-numeric: tabular-nums;
 }
+
+/* Abgleich: eine Zeile je Datenart, links was sie leistet und wie der Stand ist, rechts Kosten und Knopf. */
+.step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 24px;
+  align-items: start;
+  padding: 16px var(--pad);
+  border-top: 1px solid var(--rule);
+}
+.card-head + .step {
+  margin-top: 12px;
+}
+.step h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.step .state {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.step-action {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+.step-action form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+}
+.step-action .confirm {
+  flex-basis: 100%;
+  text-align: right;
+}
+.confirm input {
+  margin-right: 4px;
+}
+@media (max-width: 720px) {
+  .step {
+    grid-template-columns: 1fr;
+  }
+  .step-action,
+  .step-action form {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+  .step-action .confirm {
+    text-align: left;
+  }
+}

@@ -55,6 +55,85 @@ export interface SyncReport {
 
 const isoDay = (time: number) => new Date(time).toISOString().slice(0, 10);
 
+/**
+ * Kurse, die der Abgleich holen will: alles mit Kurs älter als gestern, außer pausierten Titeln im Datenvorrat.
+ * Reihenfolge: gehaltene Titel, Watchlist, Datenvorrat; je Gruppe der älteste Kurs zuerst.
+ */
+function priceQueue(db: Database, now: Date) {
+  const yesterday = isoDay(now.getTime() - 86_400_000);
+  const all = db.stocks({ includeStockpile: true });
+  const held = db.heldStockIds();
+  const priceDates = db.latestPriceDates();
+  const group = (s: Stock) => (held.has(s.id) ? 0 : s.watched ? 1 : 2);
+  // Titel im Datenvorrat, deren Kurs wiederholt nicht kam (eingestellt, Symbol unbekannt), kosten sonst jeden Tag Budget.
+  const failures = db.priceFailures();
+  const retryFrom = isoDay(now.getTime() - RETRY_AFTER_DAYS * 86_400_000);
+  const paused = (s: Stock) => {
+    const failure = failures.get(s.id);
+    return (
+      group(s) === 2 && failure !== undefined && failure.attempts >= FAILURES_BEFORE_PAUSE && failure.failedAt.slice(0, 10) > retryFrom
+    );
+  };
+  const queue = all
+    .filter((s) => (priceDates.get(s.id) ?? "") < yesterday && !paused(s))
+    .sort(
+      (a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id),
+    );
+  return { all, priceDates, group, queue, paused: all.filter(paused).length };
+}
+
+const exchangeOf = (s: Stock) => s.id.slice(s.id.lastIndexOf(".") + 1);
+
+export interface PricePlan {
+  /** Titel mit aktuellem Kurs (von gestern oder heute). */
+  current: number;
+  /** Titel, deren Kurs der Abgleich holen will. */
+  stale: number;
+  /** Davon ohne jeden gespeicherten Kurs. */
+  neverPriced: number;
+  /** Pausiert nach wiederholtem Fehlschlag. */
+  paused: number;
+  /** Abrufe bei vollem Budget: Sammelabrufe (je Börse 100) und Einzelabrufe. */
+  bulkCalls: number;
+  singleCalls: number;
+  /** Höchstens so viele Einzelabrufe kommen dazu für Titel, die im Sammelabruf fehlen (noch nie ein Kurs). */
+  stragglers: number;
+  /** Titel im Datenvorrat, die bei zu kleinem Budget keinen Kurs bekommen. */
+  stockpileSkipped: number;
+}
+
+/**
+ * Was der nächste Abgleich an Kursen holen würde und was das kostet, ohne etwas abzurufen.
+ * @param budget Tagesbudget des Kontos; darunter `STOCKPILE_MIN_BUDGET` holt der Abgleich weder Sammelabrufe noch
+ * Kurse für den Datenvorrat. Ohne Angabe gilt ein großes Budget. Ob der Tarif Sammelabrufe enthält, zeigt erst der Abruf.
+ */
+export function planPrices(db: Database, now: Date, budget: number | null = null): PricePlan {
+  const { all, priceDates, group, queue, paused } = priceQueue(db, now);
+  const large = budget === null || budget >= STOCKPILE_MIN_BUDGET;
+  const loaded = large ? queue : queue.filter((s) => group(s) < 2);
+  const perExchange = new Map<string, Stock[]>();
+  for (const stock of loaded) perExchange.set(exchangeOf(stock), [...(perExchange.get(exchangeOf(stock)) ?? []), stock]);
+  let bulkCalls = 0;
+  let singleCalls = 0;
+  let stragglers = 0;
+  for (const stocks of perExchange.values()) {
+    if (large && stocks.length >= BULK_MIN_STOCKS) {
+      bulkCalls += BULK_COST;
+      stragglers += stocks.filter((s) => !priceDates.has(s.id)).length;
+    } else singleCalls += stocks.length;
+  }
+  return {
+    current: all.length - queue.length - paused,
+    stale: queue.length,
+    neverPriced: queue.filter((s) => !priceDates.has(s.id)).length,
+    paused,
+    bulkCalls,
+    singleCalls,
+    stragglers,
+    stockpileSkipped: queue.length - loaded.length,
+  };
+}
+
 /** Vollständig heißt: Wechselkurse da, kein Kursfehler, kein beobachteter Titel zurückgestellt. */
 export function syncSucceeded(report: SyncReport): boolean {
   return report.fxError === null && report.priceErrors.length === 0 && report.pricesDeferred.length === 0;
@@ -126,27 +205,10 @@ export async function runDailySync(
     report.referenceErrors.push((error as Error).message);
   }
 
-  // --- Reihenfolge: gehaltene Titel, Watchlist, Datenvorrat; je Gruppe der älteste Kurs zuerst ---
-  const all = db.stocks({ includeStockpile: true });
-  const held = new Set<string>();
-  for (const portfolio of db.portfolios()) for (const id of db.holdings(portfolio.id).keys()) held.add(id);
-  const priceDates = db.latestPriceDates();
-  const group = (s: Stock) => (held.has(s.id) ? 0 : s.watched ? 1 : 2);
-  // Titel im Datenvorrat, deren Kurs wiederholt nicht kam (eingestellt, Symbol unbekannt), kosten sonst jeden Tag Budget.
-  const failures = db.priceFailures();
-  const retryFrom = isoDay(now.getTime() - RETRY_AFTER_DAYS * 86_400_000);
-  const paused = (s: Stock) => {
-    const failure = failures.get(s.id);
-    return (
-      group(s) === 2 && failure !== undefined && failure.attempts >= FAILURES_BEFORE_PAUSE && failure.failedAt.slice(0, 10) > retryFrom
-    );
-  };
-  let queue = all
-    .filter((s) => (priceDates.get(s.id) ?? "") < yesterday && !paused(s))
-    .sort(
-      (a, b) => group(a) - group(b) || (priceDates.get(a.id) ?? "").localeCompare(priceDates.get(b.id) ?? "") || a.id.localeCompare(b.id),
-    );
-  report.pricesCurrent = all.length - queue.length;
+  const { all, priceDates, group, queue: stale, paused: stalePaused } = priceQueue(db, now);
+  let queue = stale;
+  // Pausierte Titel sind nicht aktuell, sie werden nur gerade nicht versucht (wie in `planPrices`).
+  report.pricesCurrent = all.length - queue.length - stalePaused;
 
   if (token !== null) {
     try {
@@ -158,7 +220,6 @@ export async function runDailySync(
   }
   // --- Sammelabruf: Mit großem Budget kommen die Schlusskurse einer ganzen Börse in einem Abruf (zählt als 100).
   // Das lohnt sich ab einer Handvoll Titeln je Börse und schont das Budget für den Datenvorrat.
-  const exchangeOf = (s: Stock) => s.id.slice(s.id.lastIndexOf(".") + 1);
   if (token !== null && report.budget >= STOCKPILE_MIN_BUDGET) {
     const perExchange = new Map<string, Stock[]>();
     for (const stock of queue) perExchange.set(exchangeOf(stock), [...(perExchange.get(exchangeOf(stock)) ?? []), stock]);

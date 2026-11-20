@@ -7,8 +7,8 @@ import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
 import { RECOMPUTE_JOB, recomputeAll } from "../valuation/recompute.ts";
 import type { JobContext, JobResult } from "./context.ts";
 import { refreshStock } from "./fundamentals.ts";
-import { historyTodo, loadHistory } from "./history.ts";
-import { addByIsin, importStockpile } from "./stockpile.ts";
+import { type HistoryOptions, historyTodo, loadHistory } from "./history.ts";
+import { addByIsin, FUNDAMENTALS_CALLS, importStockpile } from "./stockpile.ts";
 import { syncJob } from "./sync.ts";
 
 const TickerSymbol = z
@@ -17,6 +17,16 @@ const TickerSymbol = z
   .toUpperCase()
   .regex(/^[A-Z0-9][A-Z0-9.\-_]*\.[A-Z0-9]+$/, "Symbol mit Börse, z. B. IMB.LSE");
 const Isin = z.string().regex(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/);
+
+/** Welche Abschlüsse "Abschlüsse auffrischen" neu lädt. */
+export type RefreshScope = "watchlist" | "veraltet" | "alle";
+
+/** Titel mit gespeicherten Abschlüssen für einen Umfang: Watchlist und Bestand, oder die wahrscheinlich veralteten. */
+export function refreshIds(db: Database, scope: Exclude<RefreshScope, "alle">, today: string): string[] {
+  const known = db.stockIdsWithRawDocument(FUNDAMENTALS_KIND);
+  if (scope === "veraltet") return db.staleFundamentals(FUNDAMENTALS_KIND, today);
+  return [...new Set([...db.stocks().map((s) => s.id), ...db.heldStockIds()])].filter((id) => known.has(id)).sort();
+}
 
 export const JOB_KINDS = {
   sync: {
@@ -51,10 +61,15 @@ export const JOB_KINDS = {
     },
   },
   history: {
-    label: "Historie laden",
-    args: z.object({ refresh: z.boolean() }),
+    label: "Dividenden und Splits laden",
+    args: z.object({
+      refresh: z.boolean(),
+      // Ältere Läufe in der Warteschlange haben nur `refresh`; sie laden Dividenden und Splits für alle, ohne Monatskurse.
+      scope: z.enum(["watchlist", "rechenbar", "alle"]).default("alle"),
+      monthly: z.boolean().default(false),
+    }),
     cancellable: true,
-    run: (ctx: JobContext, args: { refresh: boolean }) => loadHistory(ctx, args.refresh),
+    run: (ctx: JobContext, args: HistoryOptions) => loadHistory(ctx, args),
   },
   "index-import": {
     label: "Indizes laden",
@@ -99,10 +114,20 @@ export const JOB_KINDS = {
     },
   },
   "refresh-all": {
-    label: "Alle Titel auffrischen",
-    args: z.object({}),
+    label: "Abschlüsse auffrischen",
+    args: z.object({ scope: z.enum(["watchlist", "veraltet", "alle"]).default("alle") }),
     cancellable: true,
-    run: (ctx: JobContext) => importStockpile(ctx, { indices: [], symbols: [], exchanges: [], refreshAll: true, watch: false }),
+    run: (ctx: JobContext, args: { scope: RefreshScope }) =>
+      args.scope === "alle"
+        ? importStockpile(ctx, { indices: [], symbols: [], exchanges: [], refreshAll: true, watch: false })
+        : importStockpile(ctx, {
+            indices: [],
+            symbols: refreshIds(ctx.db, args.scope, ctx.today),
+            exchanges: [],
+            refreshAll: false,
+            reload: true,
+            watch: false,
+          }),
   },
 } as const;
 
@@ -117,18 +142,16 @@ export async function runJob(ctx: JobContext, kind: string, args: unknown): Prom
   return (definition.run as (ctx: JobContext, args: unknown) => Promise<JobResult>)(ctx, parsed);
 }
 
-/** Geschätzte EODHD-Abrufe, bevor jemand einen Lauf startet. */
-export function estimateCalls(db: Database, kind: JobKind): number {
-  switch (kind) {
-    case "sync":
-      return db.stocks().length;
-    case "stock-refresh":
-      return 13;
-    case "history":
-      return historyTodo({ db }, false).length;
-    case "refresh-all":
-      return db.stockIdsWithRawDocument(FUNDAMENTALS_KIND).size * 10;
-    default:
-      return 0;
-  }
+/** Ab so vielen Abrufen muss ein Lauf ausdrücklich bestätigt werden. */
+export const CONFIRM_CALLS = 2000;
+
+/** Geschätzte EODHD-Abrufe für das Auffrischen von Abschlüssen. */
+export function estimateRefresh(db: Database, scope: RefreshScope, today: string): number {
+  const count = scope === "alle" ? db.stockIdsWithRawDocument(FUNDAMENTALS_KIND).size : refreshIds(db, scope, today).length;
+  return count * FUNDAMENTALS_CALLS;
+}
+
+/** Geschätzte EODHD-Abrufe für Dividenden und Splits (je fehlender Art und Aktie einer). */
+export function estimateHistory(db: Database, options: HistoryOptions): number {
+  return historyTodo({ db }, options).length;
 }

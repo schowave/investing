@@ -7,6 +7,10 @@ import { fetchEodhdFundamentalsRaw, searchEodhd } from "../data/eodhdFundamental
 import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
 import { eachParallel, isDailyLimit, type JobContext, type JobResult, reason, requireToken } from "./context.ts";
 import { ingestFundamentals, NoAnnualReportsError } from "./fundamentals.ts";
+import { capToBudget } from "./reserve.ts";
+
+/** Abrufe für die Fundamentaldaten einer Aktie. */
+export const FUNDAMENTALS_CALLS = 10;
 
 const PARALLEL = 4;
 /** Ersatzbörsen für Titel, deren Heimatbörse der Anbieter nicht führt (Mailand). */
@@ -34,6 +38,8 @@ export interface StockpileRequest {
   exchanges: string[];
   /** Alle gespeicherten Titel neu laden (vor einer Kündigung des Tarifs). */
   refreshAll: boolean;
+  /** Die angegebenen Symbole auch dann neu laden, wenn sie schon gespeichert sind (Auffrischen einer Auswahl). */
+  reload?: boolean;
   /** Geladene Titel auf die Watchlist nehmen. */
   watch: boolean;
 }
@@ -99,14 +105,22 @@ export async function importStockpile(ctx: JobContext, request: StockpileRequest
   const token = requireToken(ctx);
   const names = await collectSymbols(ctx, request, token);
   const known = ctx.db.stockIdsWithRawDocument(FUNDAMENTALS_KIND);
-  const todo = request.refreshAll
+  const wanted = request.refreshAll
     ? [...new Set([...known, ...names.keys()])].sort()
-    : [...names.keys()].filter((s) => !known.has(s) || request.watch).sort();
-  ctx.log(`${todo.length} Aktien zu laden${request.refreshAll ? " (Auffrischen)" : `, ${names.size - todo.length} schon vorhanden`}`);
+    : [...names.keys()].filter((s) => !known.has(s) || request.watch || request.reload).sort();
+  // Was schon gespeichert ist und nur auf die Watchlist soll, kostet nichts; der Rest zählt gegen das Budget.
+  const free = request.watch && !request.reload ? wanted.filter((s) => known.has(s)) : [];
+  const toFetch = wanted.filter((s) => !free.includes(s));
+  // Ausdrücklich aufgenommene Titel (Watchlist) sind wenige und gewollt: Sie laufen bis zum Tageslimit, ohne Reserve.
+  const paid = request.watch ? { items: toFetch, capped: false } : await capToBudget(ctx, toFetch, FUNDAMENTALS_CALLS);
+  const todo = [...free, ...paid.items];
+  ctx.log(
+    `${todo.length} Aktien zu laden${request.refreshAll || request.reload ? " (Auffrischen)" : `, ${names.size - wanted.length} schon vorhanden`}`,
+  );
 
   const stored: string[] = [];
   const result = await eachParallel(ctx, todo, PARALLEL, async (symbol) => {
-    if (request.watch && known.has(symbol)) {
+    if (request.watch && known.has(symbol) && !request.reload) {
       stored.push(symbol);
       return;
     }
@@ -135,10 +149,10 @@ export async function importStockpile(ctx: JobContext, request: StockpileRequest
       ctx.log(`ok     ${id.padEnd(12)} ${ctx.db.stock(id)?.name ?? ""} auf der Watchlist`);
     }
   }
-  const rest = result.limitReached || result.stopped ? ", Rest offen" : "";
+  const rest = result.limitReached || result.stopped || paid.capped ? ", Rest offen" : "";
   return {
     summary: `${result.done} Aktien geladen, ${result.failed} fehlgeschlagen${rest}`,
-    ok: result.failed === 0 && !result.limitReached && !result.stopped,
+    ok: result.failed === 0 && !result.limitReached && !result.stopped && !paid.capped,
   };
 }
 

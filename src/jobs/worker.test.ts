@@ -15,8 +15,9 @@ describe("Worker", () => {
     const { id } = db.enqueueJob("history", { refresh: false });
     expect(await runNextJob(db, deps(fetchFn))).toBe(true);
     const job = db.job(id)!;
-    expect(job).toMatchObject({ status: "done", summary: "3 Historien geladen, 0 fehlgeschlagen", progressDone: 3, progressTotal: 3 });
-    expect(job.log).toContain("3 Abrufe für 1 Aktien");
+    expect(job).toMatchObject({ status: "done", summary: "2 Historien geladen, 0 fehlgeschlagen", progressDone: 2, progressTotal: 2 });
+    // Ohne Monatskurse: Dividenden und Splits.
+    expect(job.log).toContain("2 Abrufe für 1 Aktien");
   });
 
   it("meldet einen gescheiterten Lauf und unbekannte Arten", async () => {
@@ -24,7 +25,7 @@ describe("Worker", () => {
     db.addStockIfMissing(stock);
     const failing = db.enqueueJob("history", { refresh: false }).id;
     await runNextJob(db, deps(fakeEodhd({ "*": status(500) })));
-    expect(db.job(failing)).toMatchObject({ status: "failed", summary: expect.stringContaining("3 fehlgeschlagen") });
+    expect(db.job(failing)).toMatchObject({ status: "failed", summary: expect.stringContaining("2 fehlgeschlagen") });
 
     const unknown = db.enqueueJob("gibt-es-nicht", {}).id;
     await runNextJob(db, deps(fakeEodhd({})));
