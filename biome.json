@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!db/migrations", "!pnpm-lock.yaml", "!next-env.d.ts", "!coverage"]
+    "includes": ["**", "!db/migrations", "!pnpm-lock.yaml", "!next-env.d.ts", "!coverage", "!lernen"]
   },
   "formatter": {
     "indentStyle": "space",

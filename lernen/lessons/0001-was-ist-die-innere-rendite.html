@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lektion 1: Was ist die innere Rendite?</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<h1>Was ist die innere Rendite?</h1>
+<p class="sub">Lektion 1 · etwa 10 Minuten · Strategie „Rückflussrendite"</p>
+
+<div class="win"><strong>Dein Gewinn in dieser Lektion:</strong> Du kannst bei einer Aktie aus Kurs, Rückfluss und
+Wachstum im Kopf die ungefähre innere Rendite ausrechnen und sagen, warum sie bei steigendem Kurs sinkt.</div>
+
+<h2>1. Die Frage hinter der Strategie</h2>
+<p>Du kaufst eine Aktie für 100 €. Sie zahlt dir jedes Jahr 5 € aus, als Dividende oder über Aktienrückkäufe. Die
+Strategie nennt das <em>Rückfluss</em>. Welche Rendite bekommst du auf dein Geld? Hier: 5 von 100, also 5 % pro Jahr.</p>
+<p>Das ist schon die ganze Idee. Die Strategie rechnet nur genauer: Die Rückflüsse sollen wachsen, sie können ausfallen,
+und sie kommen über viele Jahre. Die Zahl, die dabei herauskommt, heißt <strong>innere Rendite</strong>. Die
+Spezifikation definiert sie so:</p>
+<blockquote>Zinssatz, bei dem der Barwert der erwarteten Rückflüsse dem aktuellen Kurs entspricht.
+<span class="note">(<a href="../../docs/SPEZIFIKATION.md">Spezifikation</a>, Abschnitt 3, Begriffe)</span></blockquote>
+<p>Bleibt ein Wort: <strong>Barwert</strong>.</p>
+
+<h2>2. Barwert: Geld von morgen ist heute weniger wert</h2>
+<p>5 € in einem Jahr sind weniger wert als 5 € heute, denn heute kannst du sie schon anlegen. Wenn dein Geld mit
+5 % pro Jahr arbeiten kann, sind 5 € in einem Jahr heute nur <span class="num">5 / 1,05 = 4,76 €</span> wert. Das ist
+das <em>Abzinsen</em>. Für das Jahr <span class="num">t</span> teilst du durch <span class="num">1,05</span>
+<span class="num">t</span>-mal:</p>
+<div class="formula">Barwert = Rückfluss / (1 + r)<sup>t</sup></div>
+<p>Hier die ersten Jahre unserer Aktie, abgezinst mit <span class="num">r = 5 %</span>:</p>
+<table id="pv-table"><thead><tr><th>Jahr</th><th>Rückfluss</th><th>Barwert</th></tr></thead><tbody></tbody></table>
+<p>Die Barwerte schrumpfen von Jahr zu Jahr. Zählst du <em>alle</em> Jahre bis ins Unendliche zusammen, ergibt die
+Summe genau 100 €, den Kurs. Darum ist 5 % hier die innere Rendite: Es ist der eine Zinssatz, bei dem die Rechnung
+„Summe aller abgezinsten Rückflüsse = Kurs" aufgeht.
+<span class="note">Das ist Buffetts Gedanke vom inneren Wert: die abgezinste Summe dessen, was ein Unternehmen über seine
+Restlaufzeit an den Eigentümer zahlen kann
+(<a href="https://www.berkshirehathaway.com/ownman.pdf">Owner's Manual, „Intrinsic Value"</a>). Die Strategie dreht die
+Frage um: Der Kurs steht fest, gesucht ist der Zinssatz.</span></p>
+
+<h2>3. Wachstum kommt obendrauf</h2>
+<p>Wächst der Rückfluss jedes Jahr um <span class="num">g</span>, bekommst du mehr als <span class="num">R / Kurs</span>.
+Für eine einfache Rechnung, in der das Wachstum dauerhaft gleich bleibt, gilt:</p>
+<div class="formula">innere Rendite ≈ Rückfluss / Kurs + Wachstum</div>
+<p>Die Spezifikation gibt die genaue Form für den Fall mit Wachstum bis 3 % an (Abschnitt 4, „Sonderfall"). Wir lassen
+die Ausfallwahrscheinlichkeit weg, sie kommt in einer späteren Lektion. Probiere es aus:</p>
+
+<div class="lab" id="lab">
+  <label>Kurs <span><span class="num" id="o-price"></span> €</span></label>
+  <input type="range" id="price" min="40" max="200" step="1" value="100">
+  <label>Rückfluss im kommenden Jahr <span><span class="num" id="o-payout"></span> €</span></label>
+  <input type="range" id="payout" min="1" max="10" step="0.5" value="5">
+  <label>Wachstum der Rückflüsse <span><span class="num" id="o-growth"></span> % pro Jahr</span></label>
+  <input type="range" id="growth" min="0" max="3" step="0.5" value="2">
+  <div class="result">Innere Rendite: <strong id="o-r"></strong></div>
+  <div class="note" id="o-split"></div>
+  <div class="note" id="o-check"></div>
+</div>
+<p class="note">Tipp: Schiebe den Kurs nach oben und lass Rückfluss und Wachstum stehen. Was passiert mit der Rendite?
+Sag es vorher laut, dann schau hin.</p>
+
+<h2>4. Teste dich</h2>
+<p>Rechne im Kopf. Wachstum ist, wenn nicht anders genannt, 0 %.</p>
+
+<div class="quiz" data-answer="C" data-explain="4 € von 80 € sind 5 %.">
+  <p class="q">1. Eine Aktie kostet 80 €, der Rückfluss beträgt 4 € pro Jahr. Wie hoch ist die innere Rendite?</p>
+  <ol><li>8 Prozent pro Jahr</li><li>4 Prozent pro Jahr</li><li>5 Prozent pro Jahr</li><li>2 Prozent pro Jahr</li></ol>
+</div>
+
+<div class="quiz" data-answer="A" data-explain="Du zahlst mehr für denselben Rückfluss, also bekommst du pro Euro weniger zurück.">
+  <p class="q">2. Der Kurs steigt, Rückfluss und Wachstum bleiben gleich. Was passiert mit der inneren Rendite?</p>
+  <ol><li>Sie sinkt deutlich</li><li>Sie steigt deutlich</li><li>Sie bleibt gleich</li></ol>
+</div>
+
+<div class="quiz" data-answer="D" data-explain="3 / 60 = 5 % Rückflussrendite, dazu 3 % Wachstum ergibt 8 %.">
+  <p class="q">3. Kurs 60 €, Rückfluss 3 €, Wachstum 3 % pro Jahr. Innere Rendite?</p>
+  <ol><li>3 Prozent pro Jahr</li><li>5 Prozent pro Jahr</li><li>11 Prozent pro Jahr</li><li>8 Prozent pro Jahr</li></ol>
+</div>
+
+<h2>Weiterlesen</h2>
+<p><strong>Primärquelle:</strong> Aswath Damodaran,
+<a href="https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch11.pdf">Investment Valuation, Kapitel 11</a>, zu
+Dividenden-Diskontierungsmodellen. Die Idee „Barwert der Rückflüsse = Kurs" ist dort das Fundament. Alle Quellen
+der Strategie stehen in <a href="../RESOURCES.md">RESOURCES.md</a>.</p>
+
+<p class="note"><strong>Frag deinen Lehrer.</strong> Wenn etwas unklar ist, etwa das Abzinsen oder warum die Summe
+genau den Kurs ergibt, frag nach. Ich erkläre es anders oder mit anderen Zahlen. Die nächste Lektion behandelt, was
+„Rückfluss" in der Strategie genau umfasst und warum Aktienrückkäufe mitzählen.</p>
+
+<nav class="foot">Lektion 1 · <a href="../NOTES.md">Notizen</a></nav>
+</main>
+<script src="../assets/quiz.js"></script>
+<script>
+// Tabelle: Barwerte der ersten fünf Jahre bei r = 5 %, Rückfluss 5 €
+const tbody = document.querySelector("#pv-table tbody");
+let sum = 0;
+for (let t = 1; t <= 5; t++) {
+  const pv = 5 / 1.05 ** t; sum += pv;
+  tbody.insertAdjacentHTML("beforeend", `<tr><td>${t}</td><td>5,00 €</td><td>${pv.toFixed(2).replace(".", ",")} €</td></tr>`);
+}
+tbody.insertAdjacentHTML("beforeend", `<tr><td>Summe Jahre 1–5</td><td></td><td>${sum.toFixed(2).replace(".", ",")} €</td></tr>`);
+tbody.insertAdjacentHTML("beforeend", `<tr><td>Summe aller Jahre</td><td></td><td>100,00 €</td></tr>`);
+
+// Labor: r = R/P + g (einstufig, ohne Ausfall); Gegenprobe: Barwert = R / (r - g) muss den Kurs ergeben
+const $ = (id) => document.getElementById(id);
+const pct = (x) => (x * 100).toFixed(2).replace(".", ",") + " %";
+const eur = (x) => x.toFixed(2).replace(".", ",") + " €";
+function update() {
+  const P = +$("price").value, R = +$("payout").value, g = +$("growth").value / 100;
+  const base = R / P, r = base + g;
+  $("o-price").textContent = P; $("o-payout").textContent = String(R).replace(".", ","); $("o-growth").textContent = String(g * 100).replace(".", ",");
+  $("o-r").textContent = pct(r);
+  $("o-split").textContent = `= Rückflussrendite ${pct(base)} (${String(R).replace(".", ",")} € / ${P} €) + Wachstum ${pct(g)}`;
+  $("o-check").textContent = `Gegenprobe: Barwert aller Rückflüsse bei ${pct(r)} = ${eur(R / (r - g))}, das ist der Kurs.`;
+}
+document.querySelectorAll("#lab input").forEach((el) => el.addEventListener("input", update));
+update();
+</script>
+</body>
+</html>
