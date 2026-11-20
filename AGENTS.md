@@ -26,7 +26,7 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
 - Änderungen, die das Zielportfolio ändern sollen (Rechenmodell, Profile, Auswahl), vor dem Commit mit dem Rückblick prüfen: auf `main`
   `pnpm run backtest --name main`, auf dem Zweig `pnpm run backtest --name aenderung --vergleich main` (derselbe Checkout, dieselbe
   Datenbank, derselbe Tag; mehrere Minuten, beim ersten Mal mit Netz für EZB und Yahoo; `--zufall 0 --ohne-index` ist die schnelle
-  Fassung). Median der Fenster, Anteil besserer Fenster, Umschlag und größten Rückgang in die Commit-Nachricht, dazu die Grenzen aus
+  Fassung). Median der Fenster, Anteil besserer Fenster, Güte (auch im schwachen Viertel), Umschlag und größten Rückgang in die Commit-Nachricht, dazu die Grenzen aus
   Spezifikation 15.1. Ein Vorsprung nur im Mittel oder in einem Zeitraum trägt keine Änderung. Refactorings ohne Wirkung brauchen das nicht.
 - Neue Logik bekommt Tests; `mise run check` bricht, wenn die Abdeckung unter die Schwellen in `vitest.config.ts` fällt.
 - `!` (Non-Null-Assertion) ist erlaubt: `noUncheckedIndexedAccess` ist an, `!` markiert geprüfte Stellen.

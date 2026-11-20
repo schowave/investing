@@ -47,15 +47,31 @@ nächste beginnt.
   Anwendung vorschlägt). `pnpm run forward` zeigt die Kursrendite seit dem Eintrag und die Überschneidung der Arme.
 - **Verproben:** Nach dem ersten Abgleich eines Monats stehen je Arm und Profil Einträge; ein zweiter Abgleich im selben Monat
   ändert nichts. Nach drei Monaten ist der Vergleich der Arme lesbar.
+- **Stand 20.11.2026:** Ausgeliefert (Version 882df8a im LXC, Tabelle `forward_log` angelegt, Protokoll noch leer); der erste Eintrag entsteht
+  mit dem nächsten nächtlichen Abgleich.
 - **Aussagekraft:** Mit zehn bis zwölf Titeln bleibt auch das ein Indiz. Erst nach etwa zwei Jahren ist ein Unterschied der Arme
   mehr als Rauschen; bis dahin dient das Protokoll dem Sammeln, nicht dem Entscheiden.
 
-### Stufe 3: Ziel und Gütemaß festlegen (geplant, noch nicht im Werkzeug)
+### Stufe 3: Ziel und Gütemaß festlegen
 
-- **Was:** Ein Gütemaß, das nicht auf einen Rohstoffzyklus passt: Rendite je Einheit Schwankung, größter Rückgang, nach Kosten, über
-  viele Startzeitpunkte, immer gegen Zufallsauswahl und MSCI World. Als Zahl in den Bericht des Werkzeugs.
-- **Verproben:** Das Maß setzt die bekannten Fälle in die erwartete Reihenfolge (Tauschschwelle 0 < 1 < 2 bis 3 Punkte; 5 Punkte
-  instabil).
+- **Was:** Ein Gütemaß, das nicht auf einen Rohstoffzyklus passt: Rendite über Bargeld je Schwankung und Rendite je größtem Rückgang,
+  nach Kosten, über die rollenden Fenster (Median und schwaches Viertel). Der Bericht stellt es neben Index und Zufallsauswahl
+  (die Läufe der Tabelle unten sind ohne beide gerechnet). Es steht im Bericht und im Vergleich
+  von `pnpm run backtest` (Spezifikation 15.1, `quality` in `src/backtest/report.ts`) und wird aus den gespeicherten Läufen gerechnet.
+- **Verproben (20.11.2026, Läufe ohne Zufall und Index, 2016-10 bis 2026-11):** Das Maß setzt die bekannten Fälle in die erwartete
+  Reihenfolge, 5 Punkte fallen im schwachen Viertel und im Fenstermedian zurück:
+
+  | Tauschschwelle | Gesamtrendite | Güte gesamt | Güte Fenstermedian | Güte schwaches Viertel | Rendite/Rückgang (Fenstermedian) | Umschlag |
+  | -------------- | ------------- | ----------- | ------------------ | ---------------------- | -------------------------------- | -------- |
+  | 0 Punkte       | +313 %        | 0,47        | 0,61               | 0,13                   | 0,66                             | 90 %     |
+  | 1 Punkt        | +356 %        | 0,51        | 0,62               | 0,21                   | 0,73                             | 84 %     |
+  | 2 Punkte       | +422 %        | 0,57        | 0,68               | 0,24                   | 0,85                             | 76 %     |
+  | 3 Punkte       | +562 %        | 0,68        | 0,72               | 0,30                   | 1,05                             | 68 %     |
+  | 5 Punkte       | +472 %        | 0,61        | 0,58               | 0,15                   | 0,91                             | 58 %     |
+
+- **Grenzen:** Das Maß misst auf derselben Reihe, an der die Tauschschwelle gewählt wurde; es bestätigt die Wahl nicht, es macht sie nur
+  lesbar. Die Fenster überlappen, und Sharpe-artige Zahlen mit drei Jahren Monatswerten sind unsicher. Es ist ein Maßstab zum Vergleichen
+  zweier Stände, kein Beleg für eine Renditeerwartung.
 
 ### Stufe 4: Kleine, erklärbare Parametersuche
 
@@ -91,6 +107,6 @@ nächste beginnt.
 
 - Die Anwendung macht Vorschläge; ein Mensch übernimmt sie über Spezifikation und Tests.
 - Kein automatischer Push: ein Push auf `main` ist ein Deployment.
-- Jede Strategieänderung nennt im Commit den Vergleich des Werkzeugs (Gesamtrendite, Schwankung, größter Rückgang, Umschlag,
+- Jede Strategieänderung nennt im Commit den Vergleich des Werkzeugs (Gesamtrendite, Schwankung, größter Rückgang, Güte, Umschlag,
   Anteil der Fenster, in denen sie besser ist) und die bekannten Grenzen.
 - Rückblick-Zahlen sind nie eine Renditeerwartung.

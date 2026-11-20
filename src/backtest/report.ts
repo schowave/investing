@@ -93,6 +93,57 @@ export function thirds(length: number): [number, number][] {
   ];
 }
 
+/** Gütemaß eines Laufs: Rendite über Bargeld je Einheit Schwankung (Sharpe-artig) und Rendite je größtem Rückgang (Calmar-artig). */
+export interface Quality {
+  /** Gesamter Zeitraum: (Rendite p. a. − Bargeldzins) / Schwankung; `NaN`, wenn die Schwankung 0 ist. */
+  sharpe: number;
+  /** Gesamter Zeitraum: Rendite p. a. / Betrag des größten Rückgangs (mindestens 1 %, damit ein ruhiger Verlauf nichts sprengt). */
+  calmar: number;
+  /** Median der Sharpe-Werte über die rollenden Fenster; `null` ohne Fenster. */
+  windowSharpe: number | null;
+  /** Schwaches Viertel der Fenster (25 %-Quantil des Sharpe-Werts): wie schlecht es in ungünstigen Zeiträumen wird. */
+  windowSharpeWeak: number | null;
+  /** Median der Calmar-Werte über die Fenster. */
+  windowCalmar: number | null;
+}
+
+const MIN_DRAWDOWN = 0.01;
+
+function sharpeOf(cagr: number, vol: number, cashRate: number): number {
+  return vol > 0 ? (cagr - cashRate) / vol : Number.NaN;
+}
+
+function calmarOf(cagr: number, maxDrawdown: number): number {
+  return cagr / Math.max(Math.abs(maxDrawdown), MIN_DRAWDOWN);
+}
+
+/** Jahresrendite eines Fensters aus seiner Gesamtrendite. */
+function windowCagr(total: number, windowMonths: number): number {
+  return (1 + total) ** (12 / windowMonths) - 1;
+}
+
+function optionNumber(r: BacktestSummary, key: string, fallback: number): number {
+  const value = ((r.meta.optionen ?? {}) as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : fallback;
+}
+
+/** Gütemaß der Strategie eines Laufs. Der Bargeldzins ist der des Laufs (`cashRate`), damit zwei Läufe gleich gemessen werden. */
+export function quality(r: BacktestSummary): Quality {
+  const cash = optionNumber(r, "cashRate", 0);
+  const windowMonths = optionNumber(r, "windowMonths", 36);
+  const f = r.full.strategy;
+  const sharpes = r.windows.map((w) => sharpeOf(windowCagr(w.strategy.total, windowMonths), w.strategy.vol, cash)).filter(Number.isFinite);
+  // Der Calmar-Wert braucht keine Schwankung und zählt daher alle Fenster; der Sharpe-Wert nur die mit Schwankung.
+  const calmars = r.windows.map((w) => calmarOf(windowCagr(w.strategy.total, windowMonths), w.strategy.maxDrawdown));
+  return {
+    sharpe: sharpeOf(f.cagr, f.vol, cash),
+    calmar: calmarOf(f.cagr, f.maxDrawdown),
+    windowSharpe: sharpes.length > 0 ? median(sharpes) : null,
+    windowSharpeWeak: sharpes.length > 0 ? quantile(sharpes, 0.25) : null,
+    windowCalmar: calmars.length > 0 ? median(calmars) : null,
+  };
+}
+
 export interface WindowResult {
   start: string;
   strategy: { total: number; vol: number; maxDrawdown: number; turnover: number };
@@ -134,6 +185,7 @@ export interface BacktestSummary {
 }
 
 const percent = (value: number, digits = 0) => `${value >= 0 ? "+" : ""}${(value * 100).toFixed(digits).replace(".", ",")} %`;
+const ratio = (value: number) => (Number.isFinite(value) ? value.toFixed(2).replace(".", ",") : "–");
 const plain = (value: number, digits = 0) => `${(value * 100).toFixed(digits).replace(".", ",")} %`;
 
 const LIMITS = [
@@ -173,6 +225,18 @@ export function describeResult(r: BacktestSummary): string[] {
       `${"Zufallsauswahl, Median".padEnd(24)} ${percent(r.random.median[last]! / 100 - 1).padStart(8)}  (5–95 %: ${percent(r.random.p5[last]! / 100 - 1)} bis ${percent(r.random.p95[last]! / 100 - 1)}; ${plain(r.random.shareBeatingStrategy)} der ${r.random.runs} Läufe schlagen die Strategie; Umschlag ${plain(r.random.turnover)})`,
     );
   }
+  const q = quality(r);
+  const cash = optionNumber(r, "cashRate", 0);
+  const bq = f.benchmark ? sharpeOf(f.benchmark.cagr, f.benchmark.vol, cash) : null;
+  lines.push(
+    "",
+    `Güte (Rendite über Bargeld je Schwankung): Strategie ${ratio(q.sharpe)}` +
+      (bq === null ? "" : `, Index ${ratio(bq)}`) +
+      (q.windowSharpe === null ? "" : `; Fenstermedian ${ratio(q.windowSharpe)}, schwaches Viertel ${ratio(q.windowSharpeWeak!)}`),
+    `Rendite je größtem Rückgang: Strategie ${ratio(q.calmar)}` +
+      (f.benchmark ? `, Index ${ratio(calmarOf(f.benchmark.cagr, f.benchmark.maxDrawdown))}` : "") +
+      (q.windowCalmar === null ? "" : `; Fenstermedian ${ratio(q.windowCalmar)}`),
+  );
   lines.push("", "Nach Zeitraum:");
   for (const p of r.periods)
     lines.push(
@@ -233,6 +297,13 @@ function comparability(a: BacktestSummary, b: BacktestSummary): { abort: string 
     notes.push(
       `ACHTUNG: Einstellungen unterscheiden sich (${environment.join(", ")}); ein Teil des Unterschieds kommt nicht von der Änderung.`,
     );
+  const unrated = [a, b].filter(
+    (r) => !["cashRate", "windowMonths"].every((k) => typeof (r.meta.optionen as Record<string, unknown> | undefined)?.[k] === "number"),
+  );
+  if (unrated.length > 0)
+    notes.push(
+      `ACHTUNG: In ${unrated.map((r) => `„${r.name}“`).join(" und ")} fehlen Bargeldzins oder Fensterlänge; die Güte rechnet dann mit 0 % und 36 Monaten.`,
+    );
   const changed = ["profile", "swap", "every"].filter(differs);
   if (changed.length > 0)
     notes.push(
@@ -265,7 +336,25 @@ export function compareResults(a: BacktestSummary, b: BacktestSummary): string[]
     `${"größter Rückgang".padEnd(24)} ${plain(a.full.strategy.maxDrawdown).padStart(9)} ${plain(b.full.strategy.maxDrawdown).padStart(9)}`,
     `${"Umschlag (zweiseitig)".padEnd(24)} ${plain(a.full.strategy.turnover).padStart(9)} ${plain(b.full.strategy.turnover).padStart(9)}`,
   );
+  const qa = quality(a);
+  const qb = quality(b);
+  lines.push(
+    `${"Güte (Rendite/Schwankung)".padEnd(24)} ${ratio(qa.sharpe).padStart(9)} ${ratio(qb.sharpe).padStart(9)}  ${ratio(qb.sharpe - qa.sharpe).padStart(9)}`,
+    `${"Rendite/Rückgang".padEnd(24)} ${ratio(qa.calmar).padStart(9)} ${ratio(qb.calmar).padStart(9)}  ${ratio(qb.calmar - qa.calmar).padStart(9)}`,
+  );
+  if (qa.windowSharpe !== null && qb.windowSharpe !== null)
+    lines.push(
+      `${"Güte, Fenstermedian".padEnd(24)} ${ratio(qa.windowSharpe).padStart(9)} ${ratio(qb.windowSharpe).padStart(9)}  ${ratio(qb.windowSharpe - qa.windowSharpe).padStart(9)}`,
+      `${"Güte, schwaches Viertel".padEnd(24)} ${ratio(qa.windowSharpeWeak!).padStart(9)} ${ratio(qb.windowSharpeWeak!).padStart(9)}  ${ratio(qb.windowSharpeWeak! - qa.windowSharpeWeak!).padStart(9)}`,
+    );
   if (pairs.length > 0) {
+    const sharpeIn = (r: BacktestSummary, w: WindowResult) =>
+      sharpeOf(windowCagr(w.strategy.total, optionNumber(r, "windowMonths", 36)), w.strategy.vol, optionNumber(r, "cashRate", 0));
+    const rated = pairs.filter((p) => Number.isFinite(sharpeIn(a, p.a)) && Number.isFinite(sharpeIn(b, p.b)));
+    if (rated.length > 0) {
+      const betterQuality = rated.filter((p) => sharpeIn(b, p.b) > sharpeIn(a, p.a)).length;
+      lines.push(`Güte besser in ${plain(betterQuality / rated.length)} der Fenster (${rated.length}).`);
+    }
     const better = pairs.filter((p) => p.b.strategy.total > p.a.strategy.total).length;
     const diffs = pairs.map((p) => p.b.strategy.total - p.a.strategy.total);
     lines.push(

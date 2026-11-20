@@ -642,12 +642,17 @@ Vergleichsgrößen:
   Kalenderjahr gewürfelt (gezogene Rendite 10 bis 30 %, gehaltene Titel behalten den Aufschlag der Tauschschwelle). 200 Läufe mit festen
   Startwerten; der Bericht nennt auch deren Umschlag. Sie zeigt, was das Ranking über Zufall hinaus beiträgt.
 - **Rollende Fenster:** Dreijahresfenster, Start alle drei Monate. Sie überlappen stark; unabhängig sind nur wenige Zeiträume.
+- **Güte:** Rendite über dem Bargeldzins des Laufs je Einheit Schwankung (Sharpe-artig) und Rendite p. a. je größtem Rückgang
+  (Calmar-artig; der Rückgang zählt mindestens 1 %). Der Bericht nennt beides für den ganzen Zeitraum (Strategie und Index) und für die
+  Fenster als Median und als schwaches Viertel (25 %-Quantil); der Vergleich zeigt sie für Stand und Änderung und den Anteil der Fenster,
+  in denen die Güte besser ist. Sie bewertet Rendite und Risiko zusammen; sie folgt der Gesamtrendite eng und filtert einen Gewinn aus einem
+  einzigen Zyklus nicht heraus, das leistet erst der Blick auf das schwache Viertel der Fenster und den Zeitraumvergleich. Das Maß wird aus den gespeicherten Läufen gerechnet; ältere Läufe lassen sich damit weiter vergleichen.
 
 Eine Änderung prüfen: auf `main` `pnpm run backtest --name main`, auf dem Zweig `pnpm run backtest --name aenderung --vergleich main`
 (beide Läufe im selben Checkout, mit derselben Datenbank und am selben Tag; der Vergleich bricht ab, wenn Zeitraum, Enddatum oder
 Fensterlänge abweichen, und warnt bei abweichenden Kosten, Hürde oder Datenbasis). Schnell geht es mit `--zufall 0 --ohne-index`.
-Gelesen wird der Median der Fenster vor dem Mittel, dazu der Anteil der Fenster, in denen die Änderung besser ist, der Umschlag und
-der größte Rückgang. Ein Vorsprung nur im Mittel oder nur in einem Zeitraum trägt keine Änderung. Das Ergebnis gehört in die
+Gelesen wird der Median der Fenster vor dem Mittel, dazu der Anteil der Fenster, in denen die Änderung besser ist, die Güte (auch im
+schwachen Viertel), der Umschlag und der größte Rückgang. Ein Vorsprung nur im Mittel oder nur in einem Zeitraum trägt keine Änderung. Das Ergebnis gehört in die
 Commit-Nachricht, zusammen mit den Grenzen.
 
 Grenzen: Survivorship-Bias (die Datenbank enthält fast nur heute geführte Titel; das hebt jedes Ergebnis), keine Urteile,

@@ -5,6 +5,7 @@ import {
   describeResult,
   median,
   metrics,
+  quality,
   quantile,
   randomScores,
   seededRandom,
@@ -224,5 +225,69 @@ describe("Vergleich zweier Läufe", () => {
     const text = compareResults(a, b).join("\n");
     expect(text).not.toContain("Rollende Fenster");
     expect(text).toContain("NaN");
+  });
+});
+
+describe("Gütemaß", () => {
+  it("rechnet Rendite über Bargeld je Schwankung und Rendite je größtem Rückgang für den ganzen Zeitraum", () => {
+    // Rendite p. a. 10 %, Bargeld 3,4 %, Schwankung 20 %, größter Rückgang 30 %
+    const q = quality(summary("a", 2, []));
+    expect(q.sharpe).toBeCloseTo((0.1 - 0.034) / 0.2, 10);
+    expect(q.calmar).toBeCloseTo(0.1 / 0.3, 10);
+    expect(q.windowSharpe).toBeNull();
+    expect(q.windowCalmar).toBeNull();
+  });
+
+  it("nimmt über die Fenster den Median und das schwache Viertel, mit der Jahresrendite aus der Fensterrendite", () => {
+    // 36-Monats-Fenster: (1+p.a.)^3 − 1 für 0 %, 5 %, 10 %, 15 %, 20 % p. a.; Bargeld 3,4 %, Schwankung 20 %
+    const totals = [0, 0.157625, 0.331, 0.520875, 0.728];
+    const q = quality(
+      summary(
+        "a",
+        2,
+        totals.map((t, i) => [`2017-0${i + 1}`, t, null]),
+      ),
+    );
+    const sharpe = (cagr: number) => (cagr - 0.034) / 0.2;
+    // sortiert: −0,17, 0,08, 0,33, 0,58, 0,83; Median Index 2, schwaches Viertel Index 1
+    expect(q.windowSharpe).toBeCloseTo(sharpe(0.1), 6);
+    expect(q.windowSharpeWeak).toBeCloseTo(sharpe(0.05), 6);
+    expect(q.windowCalmar).toBeCloseTo(0.1 / 0.1, 6);
+  });
+
+  it("lässt Fenster ohne Schwankung beim Sharpe-Wert aus und begrenzt den Rückgang nach unten", () => {
+    const flat = summary("a", 2, [["2016-10", 0.1, null]]);
+    flat.windows[0]!.strategy.vol = 0;
+    flat.windows[0]!.strategy.maxDrawdown = 0;
+    const q = quality(flat);
+    expect(q.windowSharpe).toBeNull();
+    // ohne Rückgang gilt 1 % als Nenner statt Division durch 0
+    expect(q.windowCalmar).toBeCloseTo((1.1 ** (12 / 36) - 1) / 0.01, 6);
+    expect(Number.isNaN(quality({ ...flat, full: { ...flat.full, strategy: { ...flat.full.strategy, vol: 0 } } }).sharpe)).toBe(true);
+  });
+
+  it("steht im Bericht und im Vergleich", () => {
+    const a = summary("main", 2, [
+      ["2016-10", 0.331, null],
+      ["2017-01", 0.331, null],
+    ]);
+    const b = summary("änderung", 2, [
+      ["2016-10", 0.728, null],
+      ["2017-01", 0.1, null],
+    ]);
+    const text = describeResult(a).join("\n");
+    expect(text).toContain("Güte (Rendite über Bargeld je Schwankung): Strategie 0,33, Index 0,33; Fenstermedian 0,33");
+    expect(text).toContain("Rendite je größtem Rückgang: Strategie 0,33, Index 0,33; Fenstermedian 1,00");
+    const compared = compareResults(a, b).join("\n");
+    expect(compared).toContain("Güte besser in 50 % der Fenster (2).");
+    expect(compared).toContain("Güte, Fenstermedian");
+    expect(compared).toContain("Güte, schwaches Viertel");
+  });
+
+  it("warnt im Vergleich, wenn ein Lauf Bargeldzins oder Fensterlänge nicht kennt", () => {
+    const a = summary("main", 2, [["2016-10", 0.3, null]]);
+    const old = { ...summary("alt", 2, [["2016-10", 0.3, null]]), meta: { optionen: { ...OPTIONS, cashRate: undefined } } };
+    expect(compareResults(a, old).join("\n")).toContain("In „alt“ fehlen Bargeldzins oder Fensterlänge");
+    expect(compareResults(a, a).join("\n")).not.toContain("fehlen Bargeldzins");
   });
 });
