@@ -11,6 +11,7 @@ import {
   innerReturn,
   isCandidate,
   levelFromAverage,
+  lossesAtEnd,
   lowerGrowth,
   netBuybacksPerShare,
   PROFILE_FOCUSED,
@@ -198,6 +199,7 @@ describe("Eingaben", () => {
       value: 0.05,
       shrinking: false,
       retentionCap: null,
+      fromRevenue: false,
     });
   });
 
@@ -209,11 +211,28 @@ describe("Eingaben", () => {
     expect(growthProposal({ historicalGrowth: -0.12, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 }).value).toBe(-0.05);
   });
 
-  it("macht ohne bestimmbares Wachstum keinen Vorschlag", () => {
+  it("macht ohne bestimmbares Gewinn- und Umsatzwachstum keinen Vorschlag", () => {
     expect(growthProposal({ historicalGrowth: null, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 })).toMatchObject({
       value: null,
       shrinking: false,
+      fromRevenue: false,
     });
+  });
+
+  it("nimmt ohne bestimmbares Gewinnwachstum den Umsatz, begrenzt auf −5 % bis 3 %, bei Verlusten am Ende bis 0 %", () => {
+    const args = { historicalGrowth: null, payoutLevel: 1, earningsLevel: null, equityPerShare: 20 };
+    expect(growthProposal({ ...args, revenueGrowth: 0.18 })).toMatchObject({ value: 0.03, fromRevenue: true, shrinking: false });
+    expect(growthProposal({ ...args, revenueGrowth: 0.01 }).value).toBeCloseTo(0.01);
+    expect(growthProposal({ ...args, revenueGrowth: -0.3 }).value).toBe(-0.05);
+    expect(growthProposal({ ...args, revenueGrowth: 0.18, lossesAtEnd: true }).value).toBe(0);
+    expect(growthProposal({ ...args, revenueGrowth: -0.02, lossesAtEnd: true }).value).toBe(-0.02);
+    // Die Grenze aus Einbehaltung gilt weiter: Gewinnniveau 4, alles ausgeschüttet, also nur Preissteigerungen.
+    expect(growthProposal({ ...args, earningsLevel: 4, payoutLevel: 4, revenueGrowth: 0.18 }).value).toBeCloseTo(0.02);
+  });
+
+  it("erkennt Verluste am Ende der Reihe", () => {
+    expect(lossesAtEnd([7.4, -14.8, -4.6, -11.3, 73.8])).toBe(false);
+    expect(lossesAtEnd([5, 4, 3, -2, -4])).toBe(true);
   });
 });
 

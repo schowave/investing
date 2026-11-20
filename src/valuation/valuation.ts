@@ -13,6 +13,7 @@ import {
   growthProposal,
   historicalGrowth,
   innerReturn,
+  lossesAtEnd,
   lowerGrowth,
   MANUAL_FOR_FINANCIALS,
   MIN_YEARS,
@@ -302,17 +303,25 @@ export function proposeInputs(
       ? lowerGrowth(historicalGrowth(revenuePerShare), historicalGrowth(revenuePerShare.map((r, i) => r * shares[i]!)))
       : null;
     details.revenueGrowth = revenueGrowth;
+    const endLosses = lossesAtEnd(eps);
     const growth = growthProposal({
       historicalGrowth: growthHistory,
       revenueGrowth,
       payoutLevel: payout,
       earningsLevel: level,
       equityPerShare,
+      lossesAtEnd: endLosses,
     });
     details.retentionCap = growth.retentionCap;
     if (growth.value !== null) values.growth = growth.value;
     else
-      notes.push("Historisches Wachstum nicht bestimmbar (Verluste am Anfang oder Ende der Reihe), Wachstum muss von Hand gesetzt werden.");
+      notes.push(
+        "Historisches Wachstum nicht bestimmbar (Verluste am Anfang oder Ende der Reihe, Umsatz unvollständig), Wachstum muss von Hand gesetzt werden.",
+      );
+    if (growth.fromRevenue)
+      notes.push(
+        `Gewinnwachstum nicht bestimmbar (Verluste am ${endLosses ? "Ende" : "Anfang"} der Reihe): Vorschlag aus dem Umsatzwachstum je Aktie von ${(revenueGrowth! * 100).toFixed(1).replace(".", ",").replace("-", "−")} %, begrenzt auf −5 % bis ${endLosses ? "0 %" : "3 %"}.`,
+      );
     if (growth.shrinking)
       notes.push(
         `Gewinn schrumpft: Vorschlag ist das gemessene Wachstum von ${(growth.value! * 100).toFixed(1).replace(".", ",").replace("-", "−")} % (Untergrenze −5 %), der Rückfluss schrumpft damit dauerhaft.`,

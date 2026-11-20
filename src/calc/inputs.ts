@@ -141,9 +141,25 @@ export interface GrowthParams {
   minGrowth: number;
   /** Wachstum ohne zusätzliches Kapital (Preissteigerungen). */
   inflationAllowance: number;
+  /**
+   * Obergrenze, wenn das Gewinnwachstum nicht bestimmbar ist und der Vorschlag aus dem Umsatz kommt: das Endwachstum.
+   * Die Geschichte sagt dann nichts Verlässliches über überdurchschnittliches Wachstum.
+   */
+  maxGrowthFromRevenue: number;
 }
 
-export const DEFAULT_GROWTH_PARAMS: GrowthParams = { maxGrowth: 0.085, minGrowth: -0.05, inflationAllowance: 0.02 };
+export const DEFAULT_GROWTH_PARAMS: GrowthParams = {
+  maxGrowth: 0.085,
+  minGrowth: -0.05,
+  inflationAllowance: 0.02,
+  maxGrowthFromRevenue: 0.03,
+};
+
+/** Der Durchschnitt der späteren Hälfte der Reihe ist nicht positiv: Das Unternehmen macht heute Verluste. */
+export function lossesAtEnd(series: readonly number[]): boolean {
+  requireYears(series);
+  return !(mean(series.slice(-Math.floor(series.length / 2))) > 0);
+}
 
 export interface GrowthProposal {
   /** `null`: kein Vorschlag möglich, der Wert muss manuell gesetzt werden. */
@@ -152,6 +168,8 @@ export interface GrowthProposal {
   shrinking: boolean;
   /** Obergrenze aus Einbehaltung; `null` bei negativem Eigenkapital oder fehlendem Gewinnniveau. */
   retentionCap: number | null;
+  /** Das Gewinnwachstum war nicht bestimmbar; der Vorschlag kommt aus dem Umsatzwachstum. */
+  fromRevenue: boolean;
 }
 
 /** Wachstum g0 mit Obergrenzen. */
@@ -163,6 +181,8 @@ export function growthProposal(
     payoutLevel: number;
     earningsLevel: number | null;
     equityPerShare: number;
+    /** Verluste am Ende der Reihe (`lossesAtEnd`); begrenzt den Vorschlag aus dem Umsatz auf 0. */
+    lossesAtEnd?: boolean;
   },
   params: GrowthParams = DEFAULT_GROWTH_PARAMS,
 ): GrowthProposal {
@@ -171,12 +191,20 @@ export function growthProposal(
     const retention = Math.max(0, 1 - args.payoutLevel / args.earningsLevel);
     retentionCap = retention * (args.earningsLevel / args.equityPerShare) + params.inflationAllowance;
   }
-  if (args.historicalGrowth === null) return { value: null, shrinking: false, retentionCap };
+  if (args.historicalGrowth === null) {
+    // Verluste am Anfang oder Ende der Reihe: Statt des Gewinns trägt der Umsatz, aber nur bis zum Endwachstum,
+    // damit Zykliker nicht vom Tief aus hochgerechnet werden. Bei Verlusten am Ende höchstens 0 (vorsichtigste Annahme).
+    if (args.revenueGrowth == null) return { value: null, shrinking: false, retentionCap, fromRevenue: false };
+    const cap = Math.min(args.lossesAtEnd ? 0 : params.maxGrowthFromRevenue, retentionCap ?? Infinity);
+    const value = Math.max(params.minGrowth, Math.min(args.revenueGrowth, cap));
+    return { value, shrinking: false, retentionCap, fromRevenue: true };
+  }
   // Schrumpfender Gewinn: Der Rückfluss schrumpft mit, dauerhaft. Das ist die vorsichtigste Annahme; die Obergrenzen
   // greifen hier nicht, sie liegen alle bei 0 oder darüber.
-  if (args.historicalGrowth < 0) return { value: Math.max(args.historicalGrowth, params.minGrowth), shrinking: true, retentionCap };
+  if (args.historicalGrowth < 0)
+    return { value: Math.max(args.historicalGrowth, params.minGrowth), shrinking: true, retentionCap, fromRevenue: false };
   // Gewinn kann auf Dauer nicht schneller wachsen als der Umsatz; schrumpft dieser, bleibt es bei 0.
   const revenueCap = args.revenueGrowth == null ? Infinity : Math.max(0, args.revenueGrowth);
   const value = Math.min(args.historicalGrowth, params.maxGrowth, retentionCap ?? Infinity, revenueCap);
-  return { value, shrinking: false, retentionCap };
+  return { value, shrinking: false, retentionCap, fromRevenue: false };
 }

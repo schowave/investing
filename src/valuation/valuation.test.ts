@@ -102,10 +102,39 @@ describe("proposeInputs", () => {
     expect(notes.some((n) => n.includes("Gewinn schrumpft"))).toBe(true);
   });
 
-  it("gibt bei Verlusten am Anfang der Reihe keinen Wachstumsvorschlag", () => {
+  it("schätzt bei Verlusten am Anfang oder Ende der Reihe das Wachstum aus dem Umsatz, höchstens 3 % bzw. 0 %", () => {
+    const growingRevenue = (y: { revenue: number | null }, i: number) => (y.revenue = 1000 * 1.1 ** i);
+    const recovery = proposeInputs(
+      stock,
+      steadyYears((y, i) => {
+        y.epsDiluted = i < 5 ? -1 : 2;
+        growingRevenue(y, i);
+      }),
+      1,
+      2026,
+    );
+    expect(recovery.values.growth).toBeCloseTo(0.03);
+    expect(recovery.notes.some((n) => n.includes("Verluste am Anfang") && n.includes("bis 3 %"))).toBe(true);
+    const losses = proposeInputs(
+      stock,
+      steadyYears((y, i) => {
+        y.epsDiluted = i < 5 ? 2 : -1;
+        growingRevenue(y, i);
+      }),
+      1,
+      2026,
+    );
+    expect(losses.values.growth).toBe(0);
+    expect(losses.notes.some((n) => n.includes("Verluste am Ende") && n.includes("bis 0 %"))).toBe(true);
+  });
+
+  it("gibt ohne bestimmbares Gewinnwachstum und ohne vollständigen Umsatz keinen Wachstumsvorschlag", () => {
     const { values, notes } = proposeInputs(
       stock,
-      steadyYears((y, i) => (y.epsDiluted = i < 5 ? -1 : 2)),
+      steadyYears((y, i) => {
+        y.epsDiluted = i < 5 ? -1 : 2;
+        if (i === 3) y.revenue = null;
+      }),
       1,
       2026,
     );

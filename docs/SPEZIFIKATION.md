@@ -172,8 +172,12 @@ Rückfluss schrumpft dann dauerhaft mit diesem Satz; das ist die vorsichtigste A
 Gelegenheiten, statt solche Titel ganz auszublenden. Die Oberfläche nennt das Schrumpfen.
 
 Bei negativem Eigenkapital entfällt die Grenze aus Einbehaltung, die Oberfläche weist darauf hin. Ist
-das historische Wachstum nicht bestimmbar (Durchschnitt am Anfang oder Ende der Reihe nicht positiv, meist wegen
-Verlustjahren), gibt es keinen Vorschlag; der Wert muss manuell gesetzt werden.
+das historische Gewinnwachstum nicht bestimmbar (Durchschnitt am Anfang oder Ende der Reihe nicht positiv, meist wegen
+Verlustjahren), kommt der Vorschlag aus dem Umsatzwachstum je Aktie (niedrigerer Wert aus je Aktie und Gesamtunternehmen),
+begrenzt auf −5 % bis 3 %, das Endwachstum: Die Geschichte sagt dann nichts Verlässliches über überdurchschnittliches
+Wachstum, und bei Zyklikern misst der Umsatz oft nur den Weg vom Tief zum Hoch. Liegen die Verluste am Ende der Reihe,
+gilt höchstens 0 %, die vorsichtigste Annahme wie beim schrumpfenden Gewinn. Die Grenze aus Einbehaltung gilt weiter.
+Nur wenn auch der Umsatz unvollständig ist, gibt es keinen Vorschlag; der Wert muss manuell gesetzt werden.
 
 ## 6. Risikobewertung
 
@@ -461,6 +465,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 | Untergrenze der inneren Rendite                                                 | Anleiherendite ohne Aufschlag, Basisfall                                                                                  | Interview: kein Renditeziel, aber Aktien müssen Anleihen schlagen                         |
 | Obergrenze für den Wachstumsvorschlag                                           | 8,5 %                                                                                                                     | Buch setzt bei BASF und Wal-Mart 8,5 % statt der historischen Werte an                    |
 | Untergrenze für den Wachstumsvorschlag bei schrumpfendem Gewinn                 | −5 %                                                                                                                      | Buch rechnet nur wachsende Titel; ein dauerhafter Rückgang über 5 % ist kein Dauerzustand |
+| Wachstumsvorschlag bei nicht bestimmbarem Gewinnwachstum                        | Umsatzwachstum je Aktie, −5 % bis 3 %; bei Verlusten am Ende der Reihe höchstens 0 %                                      | sonst bliebe gut ein Drittel der Titel ohne Rendite; 3 % ist das Endwachstum              |
 | Tragbarer Rückfluss bei Immobilienwerten                                        | operativer Cashflow statt freier Cashflow, Fünfjahresdurchschnitt                                                         | Objektkäufe gelten beim Anbieter als Investition; Näherung für FFO                        |
 | Lücken in der Aktienzahl                                                        | gemeldete Aktienzahl desselben Jahres, sonst Nachbarjahr bis zwei Jahre                                                   | eine einzelne Lücke sperrt sonst die ganze Zehnjahresreihe                                |
 | Netto-Rückkäufe als Fünfjahresdurchschnitt, abzüglich aktienbasierter Vergütung | –                                                                                                                         | Folien zählen Rückkäufe als Rückfluss, ohne Methode                                       |
@@ -491,7 +496,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 - **Steuern beim Tausch:** Abgeltungsteuer auf realisierte Gewinne in der Tauschschwelle berücksichtigen.
 - **Treffsicherheit von Jev:** Vorschläge an Titeln prüfen, deren späterer Verlauf bekannt ist; die Sicherheit laut Jev ist nicht an echten Ergebnissen geeicht.
 - **Basislimits gegen die Wikifolios:** Die Folien (Stand 23.11.26) zeigen im globalen Depot drei Positionen über dem Basislimit von 6,5 % (Comcast 8,7 %, Charter 8,3 %, Universal Health 7,8 %) und im fokussierten Charter mit 15,8 %. Mit dem Buchwert von 12,5 % träfe das Limit Comcast und Charter fast genau. Der Autor füllt aber nur die oberen Positionen auf; unser Verfahren füllt jede bis zum Limit und käme dann auf halb so viele Titel.
-- **Wachstum ohne Vorschlag:** Bei negativem oder nicht bestimmbarem Gewinnwachstum (Höegh Autoliners, Stalexport, Safe Bulkers) bleibt das Wachstum von Hand zu setzen; bis dahin gibt es keine Rendite und keinen Rang.
+- **Wachstum aus dem Umsatz:** Bei nicht bestimmbarem Gewinnwachstum (Sandisk, Höegh Autoliners, Safe Bulkers) kommt der Vorschlag aus dem Umsatz, höchstens 3 %. Offen ist, ob Zykliker damit zu günstig oder zu streng wegkommen; ein über den Zyklus gemitteltes Rückflussniveau wäre genauer.
 - **Zykliker im Risikoraster:** Safe Bulkers kommt allein aus Zahlen auf 68 % und fiele mit jedem Abzug im Urteil über 75 %; der Autor hält den Titel.
 - **Unternehmen ohne Ausschüttung:** Der Autor bewertet sie über den Gewinn und eine spätere Ausschüttung; bei Rückfluss 0 rechnet die Anwendung keine Rendite.
 - **Analystenschätzungen:** Der Autor stützt Niveau und monatlichen Abgleich auf Schätzungen; die Anwendung rechnet nur aus Abschlüssen.

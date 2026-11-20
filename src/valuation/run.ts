@@ -16,7 +16,7 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  * rechnet dann alle gespeicherten Stände neu (`recomputeAll`), und „Bewertung prüfen“ sagt dazu, dass Verschiebungen
  * seit der Bewertung auch aus der neuen Rechnung kommen können.
  */
-export const CALC_VERSION = 1;
+export const CALC_VERSION = 2;
 
 /** Gespeicherter Tagesstand; nur `calcVersion` und die Vorschläge werden wieder gelesen. */
 const StoredDetails = z.object({
