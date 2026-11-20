@@ -56,8 +56,11 @@ export function inflationGapOf(db: Database, stock: Stock): { gap: number; missi
   return local !== null && euro !== null ? { gap: local - euro, missing: false } : { gap: 0, missing: true };
 }
 
-/** Rechnet die Bewertung, ohne etwas zu speichern. @param date ISO-Datum der Bewertung, z. B. 2026-11-19. */
-export function computeValuation(db: Database, stock: Stock, date: string): StockValuation {
+/**
+ * Rechnet die Bewertung, ohne etwas zu speichern. @param date ISO-Datum der Bewertung, z. B. 2026-11-19.
+ * @param options.manual `false` lässt die Eingaben von Hand (und damit die übernommenen Jev-Urteile) weg: nur Zahlen.
+ */
+export function computeValuation(db: Database, stock: Stock, date: string, options: { manual?: boolean } = {}): StockValuation {
   const reportingPerEur = db.latestFxRate(stock.reportingCurrency);
   const payments = db.dividends(stock.id);
   const history = {
@@ -73,7 +76,7 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
   const manual: InputValues = {};
   // Jedes Speichern der Bewertung setzt das Datum aller Eingaben von Hand neu; das jüngste ist der Tag der Bewertung.
   let assessedOn: string | null = null;
-  for (const input of db.manualInputs(stock.id)) {
+  for (const input of options.manual === false ? [] : db.manualInputs(stock.id)) {
     if (!(INPUT_KEYS as string[]).includes(input.key)) continue;
     manual[input.key as InputKey] = input.value;
     const setOn = input.updatedAt.slice(0, 10);

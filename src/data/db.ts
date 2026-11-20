@@ -52,6 +52,8 @@ export interface Stock {
   watched: boolean;
   /** Sektor nach GICS laut Anbieter; fehlt bei Titeln ohne Anbieterdaten. */
   gicSector?: string | null;
+  /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock"; `null`, wenn unbekannt. */
+  securityType?: string | null;
 }
 
 export interface Price {
@@ -109,6 +111,22 @@ export interface CoverageRow {
 }
 
 export type RatingGap = "kurs-nicht-abrufbar" | "kein-kurs" | "rueckfluss-fehlt" | "rueckfluss-null" | "wachstum-fehlt" | "keine-loesung";
+
+/** Eine Position im Zielportfolio des Vorwärtsprotokolls. */
+export interface ForwardLogRow {
+  stockId: string;
+  weight: number;
+  innerReturn: number;
+  riskScore: number;
+  priceEur: number;
+}
+
+export interface ForwardLogEntry extends ForwardLogRow {
+  date: string;
+  arm: string;
+  profile: string;
+  calcVersion: number;
+}
 
 export interface ScreeningRow {
   stockId: string;
@@ -211,6 +229,7 @@ function toStock(r: StockRow): Stock {
     isFinancial: r.isFinancial,
     watched: r.watched,
     gicSector: r.gicSector,
+    securityType: r.securityType,
   };
 }
 
@@ -1089,5 +1108,58 @@ export class Database {
         for (const field of FUNDAMENTAL_FIELDS) year[field] = r[field];
         return year;
       });
+  }
+
+  /**
+   * Schreibt das Zielportfolio eines Tages in das Vorwärtsprotokoll; ein früherer Eintrag desselben Tages wird ersetzt.
+   * `done` ist die Einstellung, die den Eintrag als erledigt markiert; sie wird in derselben Transaktion gesetzt.
+   */
+  saveForwardLog(
+    date: string,
+    arm: string,
+    profile: string,
+    calcVersion: number,
+    rows: readonly ForwardLogRow[],
+    done: { key: string; value: string },
+  ): void {
+    this.#db.transaction((tx) => {
+      tx.delete(t.forwardLog)
+        .where(and(eq(t.forwardLog.date, date), eq(t.forwardLog.arm, arm), eq(t.forwardLog.profile, profile)))
+        .run();
+      for (const row of rows)
+        tx.insert(t.forwardLog)
+          .values({ date, arm, profile, calcVersion, ...row })
+          .run();
+      const updatedAt = new Date().toISOString();
+      tx.insert(t.settings)
+        .values({ key: done.key, value: done.value, updatedAt })
+        .onConflictDoUpdate({ target: t.settings.key, set: { value: done.value, updatedAt } })
+        .run();
+    });
+  }
+
+  /** Gewichte des jüngsten Eintrags vor `before` (ohne ihn); leer, wenn es keinen gibt. */
+  forwardLogWeights(arm: string, profile: string, before: string): Map<string, number> {
+    const latest = this.#db
+      .select({ date: max(t.forwardLog.date) })
+      .from(t.forwardLog)
+      .where(and(eq(t.forwardLog.arm, arm), eq(t.forwardLog.profile, profile), sql`${t.forwardLog.date} < ${before}`))
+      .get();
+    if (!latest?.date) return new Map();
+    const rows = this.#db
+      .select({ stockId: t.forwardLog.stockId, weight: t.forwardLog.weight })
+      .from(t.forwardLog)
+      .where(and(eq(t.forwardLog.arm, arm), eq(t.forwardLog.profile, profile), eq(t.forwardLog.date, latest.date)))
+      .all();
+    return new Map(rows.map((r) => [r.stockId, r.weight]));
+  }
+
+  /** Das ganze Vorwärtsprotokoll, älteste Einträge zuerst. */
+  forwardLog(): ForwardLogEntry[] {
+    return this.#db
+      .select()
+      .from(t.forwardLog)
+      .orderBy(t.forwardLog.date, t.forwardLog.arm, t.forwardLog.profile, desc(t.forwardLog.weight))
+      .all();
   }
 }

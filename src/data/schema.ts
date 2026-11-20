@@ -287,3 +287,26 @@ export const settings = sqliteTable("settings", {
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * Vorwärtsprotokoll: Was die Anwendung zum Monatsanfang als Zielportfolio vorgeschlagen hätte, mit dem Kurs von damals.
+ * Daran lässt sich später ohne Rückschaufehler messen, was die Urteile (Jev, Handeingaben) gebracht haben.
+ * `arm`: "zahlen" (Datenvorrat, nur Zahlenfaktoren) oder "urteil" (Watchlist mit allen Risikofaktoren, wie in der Anwendung).
+ */
+export const forwardLog = sqliteTable(
+  "forward_log",
+  {
+    date: text("date").notNull(),
+    arm: text("arm").notNull(),
+    profile: text("profile").notNull(),
+    stockId: stockId(),
+    /** Anteil am Portfolio; der Rest zu 1 ist Bargeld. */
+    weight: real("weight").notNull(),
+    innerReturn: real("inner_return").notNull(),
+    riskScore: real("risk_score").notNull(),
+    /** Kurs in Euro am Tag des Eintrags. */
+    priceEur: real("price_eur").notNull(),
+    calcVersion: integer("calc_version").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.arm, t.profile, t.stockId] })],
+);

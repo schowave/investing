@@ -6,6 +6,7 @@
 // Deployment nicht bis zum nächsten Abgleich die alte Rechnung.
 
 import type { Database, ScreeningRow } from "../data/db.ts";
+import { logForward } from "./forwardLog.ts";
 import { loadPortfolio } from "./portfolioRun.ts";
 import type { StockValuation } from "./run.ts";
 import { CALC_VERSION, computeValuation, storedBaseline, valueStock } from "./run.ts";
@@ -71,6 +72,12 @@ export function recomputeAll(db: Database, date: string): RecomputeReport {
   }
   db.saveScreening(screening);
   report.screened = screening.filter((r) => r.innerReturn !== null).length;
+  try {
+    logForward(db, date, valued);
+  } catch (error) {
+    // Das Protokoll ist ein Nebenprodukt; die Tagesstände der Portfolios und die Version sollen trotzdem stehen.
+    report.valuationErrors.push({ id: "Vorwärtsprotokoll", error: error instanceof Error ? error.message : String(error) });
+  }
 
   for (const portfolio of db.portfolios()) {
     const { view } = loadPortfolio(db, portfolio, date, valued);
