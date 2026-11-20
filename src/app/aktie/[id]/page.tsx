@@ -27,6 +27,7 @@ import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { PendingButton } from "../../pendingButton.tsx";
 import { database, today, watchlistRanking } from "../../server.ts";
+import { guideFor } from "./guide.ts";
 import { LivePreview } from "./livePreview.tsx";
 
 export const dynamic = "force-dynamic";
@@ -205,57 +206,85 @@ export default async function StockPage(props: {
     // Jev-Vorschläge gibt es nur für Urteilsfaktoren; sie füllen das leere Feld vor, gelten aber erst nach dem Speichern.
     const jev = isOpen ? jevFor(key) : undefined;
     const prefill = isManual ? fieldNumber(v.inputs[key], opts.asPercent) : jev ? fieldNumber(jev.value, true) : "";
+    const guide = guideFor(key, !key.startsWith("risk.") || isJudgement(key.slice("risk.".length) as RiskFactorId));
+    const state = required ? "required" : isOpen ? "open" : isManual ? "manual" : "";
     return (
-      <tr key={key} className={required ? "required" : isOpen ? "open" : isManual ? "manual" : ""}>
-        <td>
-          <label htmlFor={key} className="factor">
-            {label}
-          </label>
-          <span className="hint">{hint}</span>
-        </td>
-        <td className="num wide-only">{opts.range}</td>
-        <td className="num wide-only">
-          {jev ? (
-            <>
-              {show(jev.value)}
-              <small className={jev.confidence < 0.5 ? "unsure" : ""} title="Vorschlag von Jev und wie sicher Jev sich ist">
-                Jev · {percent(jev.confidence, 0)}
-              </small>
-            </>
-          ) : proposals.values[key] === undefined ? (
-            <span className="meta">keiner</span>
-          ) : (
-            show(proposals.values[key])
-          )}
-        </td>
-        <td className="num">
-          <span className="field">
-            <input
-              id={key}
-              name={key}
-              type="number"
-              inputMode="decimal"
-              min={opts.min}
-              max={opts.max}
-              step={opts.step}
-              autoComplete="off"
-              defaultValue={prefill}
-              placeholder={isOpen ? "offen" : "Vorschlag"}
-            />
-            <span className="unit">{opts.unit}</span>
-          </span>
-        </td>
-        <td className="num">
-          {isOpen ? (
-            <span className={`tag ${required ? "bad" : "warn"}`}>{required ? "Pflicht" : "offen"}</span>
-          ) : (
-            <>
-              <strong>{show(v.inputs[key])}</strong>
-              {required && <span className="tag bad">über 0 nötig</span>}
-            </>
-          )}
-        </td>
-      </tr>
+      <Fragment key={key}>
+        <tr className={guide ? `${state} has-guide` : state}>
+          <td>
+            <label htmlFor={key} className="factor">
+              {label}
+            </label>
+            <span className="hint">{hint}</span>
+          </td>
+          <td className="num wide-only">{opts.range}</td>
+          <td className="num wide-only">
+            {jev ? (
+              <>
+                {show(jev.value)}
+                <small className={jev.confidence < 0.5 ? "unsure" : ""} title="Vorschlag von Jev und wie sicher Jev sich ist">
+                  Jev · {percent(jev.confidence, 0)}
+                </small>
+              </>
+            ) : proposals.values[key] === undefined ? (
+              <span className="meta">keiner</span>
+            ) : (
+              show(proposals.values[key])
+            )}
+          </td>
+          <td className="num">
+            <span className="field">
+              <input
+                id={key}
+                name={key}
+                type="number"
+                inputMode="decimal"
+                min={opts.min}
+                max={opts.max}
+                step={opts.step}
+                autoComplete="off"
+                defaultValue={prefill}
+                placeholder={isOpen ? "offen" : "Vorschlag"}
+              />
+              <span className="unit">{opts.unit}</span>
+            </span>
+          </td>
+          <td className="num">
+            {isOpen ? (
+              <span className={`tag ${required ? "bad" : "warn"}`}>{required ? "Pflicht" : "offen"}</span>
+            ) : (
+              <>
+                <strong>{show(v.inputs[key])}</strong>
+                {required && <span className="tag bad">über 0 nötig</span>}
+              </>
+            )}
+          </td>
+        </tr>
+        {guide && (
+          <tr className={`${state} guide-row`}>
+            <td colSpan={5}>
+              <details className="guide">
+                <summary>Wo nachsehen?</summary>
+                <ul>
+                  {guide.sources.map((source) => (
+                    <li key={source}>{source}</li>
+                  ))}
+                </ul>
+                {guide.levels && (
+                  <dl>
+                    {guide.levels.map((level) => (
+                      <div key={level.value}>
+                        <dt>{percent(level.value, 0)}</dt>
+                        <dd>{level.text}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </details>
+            </td>
+          </tr>
+        )}
+      </Fragment>
     );
   };
   const riskRow = (factorId: RiskFactorId) => {
