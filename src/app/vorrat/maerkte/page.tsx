@@ -39,8 +39,19 @@ const EXCHANGES: Record<string, string> = {
   KQ: "Korea (KOSDAQ)",
   SA: "São Paulo",
   MX: "Mexiko",
-  TA: "Tel Aviv",
   JSE: "Johannesburg",
+  TW: "Taiwan",
+  TWO: "Taiwan (OTC)",
+  SHG: "Schanghai",
+  SHE: "Shenzhen",
+  KLSE: "Kuala Lumpur",
+  BK: "Bangkok",
+  JK: "Jakarta",
+  AT: "Athen",
+  RO: "Bukarest",
+  SN: "Santiago de Chile",
+  LIM: "Lima",
+  BA: "Buenos Aires",
 };
 
 const number = (value: number) => value.toLocaleString("de-DE");
