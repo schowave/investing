@@ -11,7 +11,7 @@ import { evaluate, priceSensitivity } from "./valuation.ts";
 function valued(
   id: string,
   base: number | null,
-  options: { complete?: boolean; riskScore?: number; review?: boolean; payoutLevel?: number } = {},
+  options: { complete?: boolean; riskScore?: number; riskFloor?: number; review?: boolean; payoutLevel?: number } = {},
 ): StockValuation {
   const returns = base === null ? null : { cautious: base - 0.01, base, optimistic: base + 0.01 };
   return {
@@ -24,6 +24,7 @@ function valued(
       price: 40,
       complete: options.complete ?? true,
       riskScore: options.riskScore ?? 0.1,
+      riskFloor: options.riskFloor ?? options.riskScore ?? 0.1,
       returns,
     },
     review: { assessedOn: "2026-01-01", overdue: options.review ?? false, changes: [], calcChanged: false },
@@ -55,6 +56,15 @@ describe("rank", () => {
     expect(ranking.firstBelow).toBe(4);
     expect(ranking.open).toBe(3);
     expect(ranking.rows.find((r) => r.stock.id === "ZWEIFEL")).toMatchObject({ doubtful: true, clears: true });
+  });
+
+  it("schließt einen offenen Finanzwert nicht wegen seines Ersatzabzugs aus", () => {
+    // Risikowert mit Ersatzabzug über 75 %, ohne ihn darunter: Das Urteil entscheidet, er bleibt aussichtsreich.
+    const bank = valued("BANK", 0.08, { complete: false, riskScore: 0.8, riskFloor: 0.625 });
+    const lost = valued("VERLOREN", 0.08, { complete: false, riskScore: 0.8, riskFloor: 0.8 });
+    const ranking = rank([bank, lost], 0.05);
+    expect(ranking.promising.map((r) => r.stock.id)).toEqual(["BANK"]);
+    expect(ranking.incomplete.map((r) => r.stock.id)).toEqual(["BANK"]);
   });
 
   it("schlägt ohne aussichtsreiche Bewertung die erste unvollständige vor", () => {

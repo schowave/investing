@@ -49,14 +49,14 @@ export function rank(valued: readonly StockValuation[], hurdle: number): Ranking
     return {
       ...r,
       doubtful: doubtfulNumbers(r.valuation, r.proposals) !== null,
-      clears: base >= hurdle && r.valuation.riskScore < EXCLUSION_SCORE,
+      clears: base >= hurdle && r.valuation.riskFloor < EXCLUSION_SCORE,
     };
   });
   const order = (r: RankedStock) => (r.doubtful ? -0.5 : (r.valuation.returns?.base ?? -1));
   const rows = ranked.sort((x, y) => order(y) - order(x));
 
   const candidates = rows.filter((r) => r.valuation.complete && r.clears && !r.doubtful);
-  const incomplete = rows.filter((r) => !r.valuation.complete && r.valuation.riskScore < EXCLUSION_SCORE);
+  const incomplete = rows.filter((r) => !r.valuation.complete && r.valuation.riskFloor < EXCLUSION_SCORE);
   const promising = incomplete.filter((r) => r.clears && !r.doubtful);
   const toReview = rows.filter((r) => r.valuation.complete && needsReview(r.review));
   return {

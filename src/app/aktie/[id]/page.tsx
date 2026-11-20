@@ -100,7 +100,7 @@ export default async function StockPage(props: {
   const history = db.valuationHistory(stock.id, 12);
   const d = proposals.details;
   const hurdle = rankingHurdle(db);
-  const excluded = v.riskScore >= EXCLUSION_SCORE;
+  const excluded = v.riskFloor >= EXCLUSION_SCORE;
   const { payoutLevel, growth } = v.inputs;
   const currency = stock.reportingCurrency;
   const von = safeOrigin(query.von);
@@ -136,6 +136,14 @@ export default async function StockPage(props: {
   const judged = RISK_FACTOR_IDS.filter(isJudgement);
   const computed = RISK_FACTOR_IDS.filter((factorId) => !isJudgement(factorId));
   const openJudgements = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined).length;
+  // Offene Faktoren mit Ersatzabzug (Finanzwerte: 2, 8, 9) zählen schon im Risikowert; nur die übrigen machen ihn zur Untergrenze.
+  const openWithoutStandIn = judged.filter(
+    (factorId) => v.inputs[`risk.${factorId}`] === undefined && v.standIns[`risk.${factorId}`] === undefined,
+  ).length;
+  const standInSum = Object.values(v.standIns).reduce((sum, value) => sum + value, 0);
+  const standInFactors = RISK_FACTOR_IDS.filter((factorId) => v.standIns[`risk.${factorId}`] !== undefined).map(
+    (factorId) => RISK_FACTORS[factorId].label,
+  );
   const openWithJev = judged.filter((factorId) => v.inputs[`risk.${factorId}`] === undefined && jevFor(`risk.${factorId}`)).length;
   const computedSum = computed.reduce((sum, factorId) => sum + (v.inputs[`risk.${factorId}`] ?? 0), 0);
   const computedNeedsAttention = computed.some(
@@ -160,13 +168,14 @@ export default async function StockPage(props: {
     inflationGap: v.inflationGap,
     earningsLevel: d.earningsLevel,
     payoutEarningsLevel: d.payoutEarningsLevel ?? null,
+    standIns: proposals.standIns,
     saved: summary(v),
     initial: summary(withJev ?? v),
   };
 
   let finding: ReactNode;
   if (excluded)
-    finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskScore, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
+    finding = `Ausgeschlossen: Der Risikowert liegt bei ${percent(v.riskFloor, 0)}, ab ${percent(EXCLUSION_SCORE, 0)} gilt ein Titel als Spekulation.`;
   else if (base === null) {
     // Die Rendite braucht Kurs, einen Rückfluss über 0 und Wachstum; die Urteile (Risiko) sind dafür nicht nötig.
     const reasons: { key: string; text: string; anchor?: string }[] = [];
@@ -235,7 +244,12 @@ export default async function StockPage(props: {
                 </small>
               </>
             ) : proposals.values[key] === undefined ? (
-              <span className="meta">keiner</span>
+              <span
+                className="meta"
+                title={isOpen && v.standIns[key] !== undefined ? "Ersatzabzug in der vorläufigen Rechnung, bis du urteilst" : undefined}
+              >
+                {isOpen && v.standIns[key] !== undefined ? `keiner, Ersatz ${percent(v.standIns[key], 1)}` : "keiner"}
+              </span>
             ) : (
               show(proposals.values[key])
             )}
@@ -429,10 +443,11 @@ export default async function StockPage(props: {
           <span className="sub">{v.price === null ? "kein Kurs oder kein Wechselkurs" : `${currency}, ${isoDate(priceDate)}`}</span>
         </div>
         <div className="figure">
-          <dt>Risikowert{openJudgements > 0 ? ", Untergrenze" : ""}</dt>
+          <dt>Risikowert{openWithoutStandIn > 0 ? ", Untergrenze" : ""}</dt>
           <dd>{percent(v.riskScore, 0)}</dd>
           <span className="sub">
             {v.riskClass}, Ausfall {percent(v.defaultProbability)} pro Jahr
+            {standInSum > 0 ? `; darin ${percent(standInSum, 1)} Ersatzabzug für ${standInFactors.join(", ")}, bis du sie beurteilst` : ""}
           </span>
         </div>
         <div className="figure">

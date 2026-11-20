@@ -130,7 +130,7 @@ export default function Ranking() {
                   const { stock, valuation: v, review } = row;
                   const suspect = row.doubtful;
                   const base = v.returns?.base ?? null;
-                  const excluded = v.riskScore >= EXCLUSION_SCORE;
+                  const excluded = v.riskFloor >= EXCLUSION_SCORE;
                   const link = stockPath(stock.id);
                   return [
                     index === firstBelow && firstBelow > 0 ? (
@@ -214,7 +214,7 @@ export default function Ranking() {
       </section>
       <p className="meta" style={{ marginTop: 10 }}>
         Limit: höchstes Gewicht im fokussierten Profil. Solange Eingaben offen sind, ist die Rendite vorläufig und der Risikowert eine
-        Untergrenze.
+        Untergrenze; bei Finanzwerten enthält er für offene Faktoren 2, 8, 9 einen Ersatzabzug.
       </p>
     </>
   );

@@ -4,6 +4,7 @@ import type { FundamentalsYear } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
+import { recomputeAll } from "./recompute.ts";
 import { computeValuation, inflationGapOf, valueStock } from "./run.ts";
 import type { InputValues } from "./valuation.ts";
 import {
@@ -93,6 +94,14 @@ describe("proposeInputs", () => {
     expect(values["risk.ebitMargin"]).toBeUndefined();
     expect(details.sustainablePayout).toBeCloseTo(5.9);
     expect(values.payoutLevel).toBeCloseTo(3);
+  });
+
+  it("gibt Finanzwerten Ersatzabzüge für die drei offenen Faktoren, anderen Titeln keine", () => {
+    const bank = proposeInputs({ ...stock, isFinancial: true }, steadyYears(), 1, 2026);
+    expect(bank.standIns).toEqual({ "risk.financing": 0.1, "risk.returnOnCapital": 0.05, "risk.ebitMargin": 0.025 });
+    // Auch ohne brauchbare Reihe: Der Risikowert soll nicht mit dem besten Ergebnis rechnen.
+    expect(proposeInputs({ ...stock, isFinancial: true }, [], 1, 2026).standIns).toEqual(bank.standIns);
+    expect(proposeInputs(stock, steadyYears(), 1, 2026).standIns).toEqual({});
   });
 
   it("schlägt bei fallendem Gewinn das negative Wachstum vor", () => {
@@ -283,6 +292,47 @@ describe("evaluate", () => {
     expect(evaluate(imperial, {}, null).complete).toBe(false);
   });
 
+  it("rechnet offene Faktoren mit Ersatzabzug, lässt sie aber offen; ein gesetzter Wert geht vor", () => {
+    const { "risk.financing": _f, "risk.returnOnCapital": _r, "risk.ebitMargin": _e, ...bank } = imperial;
+    const standIns: InputValues = { "risk.financing": 0.1, "risk.returnOnCapital": 0.05, "risk.ebitMargin": 0.025 };
+    const without = evaluate(bank, {}, 30);
+    const v = evaluate(bank, {}, 30, 0, null, null, standIns);
+    expect(without.riskScore).toBeCloseTo(0);
+    expect(v.riskScore).toBeCloseTo(0.175);
+    expect(v.standIns).toEqual(standIns);
+    expect(v.defaultProbability).toBeCloseTo(0.005 + 0.05 * 0.175);
+    expect(v.missing).toEqual(["risk.financing", "risk.returnOnCapital", "risk.ebitMargin"]);
+    expect(v.complete).toBe(false);
+    expect(v.returns!.base!).toBeLessThan(without.returns!.base!);
+
+    // Ein Urteil ersetzt den Ersatzabzug, auch ein Bonus.
+    const judged = evaluate(bank, { "risk.returnOnCapital": -0.05 }, 30, 0, null, null, standIns);
+    expect(judged.riskScore).toBeCloseTo(0.075);
+    expect(judged.standIns).toEqual({ "risk.financing": 0.1, "risk.ebitMargin": 0.025 });
+
+    // Der Ausschluss prüft ohne Ersatzabzug: Ein Urteil kann ihn wieder senken.
+    expect(v.riskFloor).toBeCloseTo(0);
+    expect(judged.riskFloor).toBeCloseTo(0);
+
+    // Gesetzt sind alle Faktoren: kein Ersatzabzug mehr, Risikowert und Untergrenze fallen zusammen (Zielportfolio).
+    const complete = evaluate(imperial, {}, 30, 0, null, null, standIns);
+    expect(complete.standIns).toEqual({});
+    expect(complete.riskScore).toBe(complete.riskFloor);
+    expect(complete.complete).toBe(true);
+
+    // Boni anderer Faktoren verrechnen sich mit dem Ersatzabzug, der Risikowert bleibt mindestens 0.
+    const bonus = evaluate({ ...bank, "risk.moat": -0.2, "risk.management": -0.1 }, {}, 30, 0, null, null, standIns);
+    expect(bonus.riskFloor).toBe(0);
+    expect(bonus.riskScore).toBe(0);
+    const someBonus = evaluate({ ...bank, "risk.moat": -0.1 }, {}, 30, 0, null, null, standIns);
+    expect(someBonus.riskScore).toBeCloseTo(0.075);
+
+    // Vorschau beim Tippen und Vorschau mit Vorschlägen rechnen genauso.
+    const typed = evaluateFields({ "risk.financing": "0" }, bank, 30, 0, null, null, standIns);
+    expect("error" in typed ? null : typed.riskScore).toBeCloseTo(0.075);
+    expect(withSuggestions(v, { "risk.ebitMargin": 0 })!.riskScore).toBeCloseTo(0.15);
+  });
+
   it("nimmt mit Gewinnniveau eine steigende Ausschüttungsquote an und weist sie aus", () => {
     const plain = evaluate(imperial, {}, 30);
     expect(plain.payoutRatio).toBeNull();
@@ -354,6 +404,28 @@ describe("Datenbank", () => {
     expect(stored.date).toBe("2026-11-19");
     expect(stored.complete).toBe(false);
     expect(stored.innerReturn).toBeCloseTo(result.valuation.returns!.base!);
+    db.close();
+  });
+
+  it("rechnet einen Finanzwert ohne Urteil mit Ersatzabzug, im Screening wie auf der Aktienseite", () => {
+    const db = new Database(":memory:");
+    const bank = { ...stock, id: "BANK.US", isFinancial: true, watched: false };
+    db.addStockIfMissing(bank);
+    db.saveFundamentals(bank.id, steadyYears(), "eodhd");
+    db.saveRawCloses(bank.id, [{ date: "2026-11-18", close: 40 }]);
+
+    const { valuation, proposals } = computeValuation(db, bank, "2026-11-19");
+    expect(valuation.standIns).toEqual({ "risk.financing": 0.1, "risk.returnOnCapital": 0.05, "risk.ebitMargin": 0.025 });
+    // Wie gesetzte Werte im Risikowert, verrechnet mit dem Bonus für stetig steigenden Gewinn; die Untergrenze ohne sie.
+    expect(valuation.riskScore).toBeCloseTo(evaluate({ ...proposals.values, ...valuation.standIns }, {}, 40).riskScore);
+    expect(valuation.riskScore).toBeGreaterThan(valuation.riskFloor);
+    expect(valuation.missing).toEqual(expect.arrayContaining(["risk.financing", "risk.returnOnCapital", "risk.ebitMargin"]));
+    expect(valuation.complete).toBe(false);
+
+    recomputeAll(db, "2026-11-19");
+    const { row } = db.screening({ includeImplausible: true }, 10).find((r) => r.stock.id === bank.id)!;
+    expect(row.riskScore).toBeCloseTo(valuation.riskScore);
+    expect(row.innerReturn).toBeCloseTo(valuation.returns!.base!);
     db.close();
   });
 });

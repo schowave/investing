@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FINANCIAL_STAND_INS } from "../../calc/risk.ts";
 import type { RatingGap } from "../../data/db.ts";
 import { MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS } from "../../valuation/valuation.ts";
 import { addStocks, setWatched } from "../actions.ts";
@@ -95,7 +96,9 @@ export default async function Stockpile(props: {
           <h1>Datenvorrat</h1>
           <p className="finding">
             Alle gespeicherten Titel nach vorläufiger innerer Rendite, gerechnet allein aus den Vorschlägen. Dein Urteil fehlt noch, der
-            Risikowert ist deshalb eine Untergrenze.
+            Risikowert ist deshalb eine Untergrenze. Ausnahme Finanzwerte: Für Finanzierung, Kapitalrendite und EBIT-Marge gibt es dort
+            keinen Vorschlag, bis zu deinem Urteil zählen sie mit einem Ersatzabzug von zusammen{" "}
+            {percent(Object.values(FINANCIAL_STAND_INS).reduce((sum, value) => sum + value, 0))}.
           </p>
         </div>
         <Link href="/vorrat/maerkte">Abgedeckte Märkte →</Link>

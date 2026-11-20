@@ -54,7 +54,8 @@ export function loadPortfolio(
         sector: stock.sector,
         region: stock.region,
         innerReturn: valuation.returns?.base ?? null,
-        riskScore: valuation.riskScore,
+        // Ohne Ersatzabzüge: Ein Urteil kann sie wieder senken. Bei vollständiger Bewertung (Zielportfolio) derselbe Wert.
+        riskScore: valuation.riskFloor,
         complete: valuation.complete,
         shares: holdings.get(stock.id) ?? 0,
         priceEur: price && perEur ? price.close / perEur : null,

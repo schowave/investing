@@ -14,9 +14,10 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
 /**
  * Version der Rechnung. Erhöhen, wenn sich Vorschläge oder Bewertung für gespeicherte Daten ändern: Der Worker
  * rechnet dann alle gespeicherten Stände neu (`recomputeAll`), und „Bewertung prüfen“ sagt dazu, dass Verschiebungen
- * seit der Bewertung auch aus der neuen Rechnung kommen können.
+ * seit der Bewertung auch aus der neuen Rechnung kommen können. Ältere Tagesstände im Verlauf bleiben, wie sie gerechnet
+ * wurden; an der Versionsgrenze kann der Verlauf deshalb springen.
  */
-export const CALC_VERSION = 8;
+export const CALC_VERSION = 9;
 
 /** Gespeicherter Tagesstand; nur `calcVersion` und die Vorschläge werden wieder gelesen. */
 const StoredDetails = z.object({
@@ -90,6 +91,7 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
     inflationGap,
     proposals.details.earningsLevel,
     proposals.details.payoutEarningsLevel ?? null,
+    proposals.standIns,
   );
 
   // Verglichen wird mit dem Tagesstand vom Tag der Bewertung. Ihn speichern der Abgleich und das Speichern der Bewertung.

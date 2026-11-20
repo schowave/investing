@@ -9,6 +9,7 @@ import {
   dividendLevel,
   dividendWasCut,
   earningsLevel,
+  FINANCIAL_STAND_INS,
   FULL_YEARS,
   growthParamsFor,
   growthProposal,
@@ -55,6 +56,11 @@ export type InputValues = Partial<Record<InputKey, number>>;
 export interface Proposals {
   /** Automatische Vorschläge; ein fehlender Schlüssel bedeutet: kein Vorschlag möglich. */
   values: InputValues;
+  /**
+   * Ersatzabzüge für Risikofaktoren ohne Vorschlag, die bei fehlendem Urteil in die vorläufige Rechnung eingehen, statt als 0
+   * zu zählen (bei Finanzwerten die Faktoren 2, 8, 9). Kein Vorschlag: Sie füllen kein Feld vor, die Eingabe bleibt offen.
+   */
+  standIns: InputValues;
   /** Zwischenwerte je Aktie in Berichtswährung, zur Anzeige und Kontrolle. */
   details: {
     fiscalYears: number[];
@@ -186,6 +192,13 @@ export function proposeInputs(
   inflationGap = 0,
 ): Proposals {
   const values: InputValues = {};
+  // Bei Finanzwerten haben die Faktoren 2, 8, 9 keinen Vorschlag; bis zum Urteil rechnet die vorläufige Rendite mit Ersatzabzügen.
+  const standIns: InputValues = {};
+  if (stock.isFinancial)
+    for (const id of MANUAL_FOR_FINANCIALS) {
+      const standIn = FINANCIAL_STAND_INS[id];
+      if (standIn !== undefined) standIns[`risk.${id}`] = standIn;
+    }
   const notes: string[] = [];
   const details: Proposals["details"] = {
     fiscalYears: [],
@@ -218,7 +231,7 @@ export function proposeInputs(
   details.fiscalYears = ten.map((y) => y.fiscalYear);
   if (ten.length < MIN_YEARS) {
     notes.push(`Nur ${ten.length} Geschäftsjahre vorhanden, mindestens ${MIN_YEARS} sind nötig.`);
-    return { values, details, notes };
+    return { values, standIns, details, notes };
   }
   // Der Autor bewertet auch junge Börsenwerte (Höegh Autoliners, Kaspi). Eine kürzere Reihe trägt die Vorschläge,
   // aber nichts, was Stetigkeit über zehn Jahre belegen soll.
@@ -235,7 +248,7 @@ export function proposeInputs(
   const shares = ten.map((y) => y.shares);
   if (!allNumbers(eps) || !allNumbers(shares) || shares.some((s) => !(s > 0))) {
     notes.push("Gewinn je Aktie oder Aktienzahl fehlt in mindestens einem Jahr.");
-    return { values, details, notes };
+    return { values, standIns, details, notes };
   }
 
   // Rückflussniveau
@@ -495,7 +508,7 @@ export function proposeInputs(
   });
 
   for (const id of MANUAL_FOR_FINANCIALS) if (stock.isFinancial) delete values[`risk.${id}`];
-  return { values, details, notes };
+  return { values, standIns, details, notes };
 }
 
 export interface Valuation {
@@ -506,15 +519,25 @@ export interface Valuation {
   /** Eingaben ohne Wert. Solange eine fehlt, ist die Bewertung unvollständig. */
   missing: InputKey[];
   complete: boolean;
-  /** Summe der gesetzten Risikofaktoren; bei fehlenden Faktoren eine Untergrenze. */
+  /**
+   * Summe der gesetzten Risikofaktoren und der Ersatzabzüge für offene Faktoren; fehlen Faktoren ohne Ersatzabzug, eine
+   * Untergrenze.
+   */
   riskScore: number;
+  /** Ersatzabzüge, die im Risikowert stecken, weil der Faktor offen ist (Proposals.standIns). */
+  standIns: InputValues;
+  /**
+   * Risikowert ohne Ersatzabzüge, also nur aus gesetzten Faktoren. Gegen ihn prüft der Ausschluss (ab 75 %), solange Faktoren
+   * offen sind: Ein Urteil kann den Ersatzabzug wieder senken. Bei vollständiger Bewertung gleich `riskScore`.
+   */
+  riskFloor: number;
   riskClass: RiskClass;
   defaultProbability: number;
   /** Kurs je Aktie in Berichtswährung; `null`, wenn Kurs oder Wechselkurs fehlen. */
   price: number | null;
   /**
    * Innere Rendite mit Bandbreite, mit dem Euro vergleichbar gemacht; bei unvollständiger Bewertung vorläufig
-   * (fehlende Risikofaktoren als 0).
+   * (fehlende Risikofaktoren mit Ersatzabzug, sonst als 0).
    */
   returns: ScenarioReturns | null;
   /** Innere Rendite im Basisfall in Berichtswährung, vor dem Währungsabgleich. */
@@ -540,6 +563,7 @@ export interface Valuation {
  * @param earningsLevel Gewinnniveau je Aktie aus den Vorschlägen; ohne es bleibt die Ausschüttungsquote in der Rechnung fest.
  * @param cappedEarningsLevel Gekürztes Gewinnniveau (`payoutEarningsLevel`), wenn ein Deckel den vorgeschlagenen Rückfluss
  *   gesenkt hat. Es gilt nur für den Vorschlag; ist der Rückfluss von Hand gesetzt, gilt `earningsLevel`.
+ * @param standIns Ersatzabzüge für offene Risikofaktoren (`Proposals.standIns`); ein gesetzter Wert geht immer vor.
  */
 export function evaluate(
   proposals: InputValues,
@@ -548,19 +572,26 @@ export function evaluate(
   inflationGap = 0,
   earningsLevel: number | null = null,
   cappedEarningsLevel: number | null = null,
+  standIns: InputValues = {},
 ): Valuation {
   const inputs: InputValues = { ...proposals, ...manualValues };
   const ratioEarnings = manualValues.payoutLevel === undefined && cappedEarningsLevel !== null ? cappedEarningsLevel : earningsLevel;
   const manual = INPUT_KEYS.filter((key) => manualValues[key] !== undefined);
   const missing = INPUT_KEYS.filter((key) => inputs[key] === undefined);
 
+  // Ersatzabzüge zählen im Risikowert, die Faktoren bleiben aber offen (`missing`, `complete`).
   const ratings: RiskRatings = {};
+  const withStandIns: RiskRatings = {};
+  const usedStandIns: InputValues = {};
   for (const id of RISK_FACTOR_IDS) {
-    const rating = inputs[`risk.${id}`];
-    if (rating !== undefined) ratings[id] = rating;
+    const key = `risk.${id}` as const;
+    const rating = inputs[key];
+    if (rating !== undefined) ratings[id] = withStandIns[id] = rating;
+    else if (standIns[key] !== undefined) withStandIns[id] = usedStandIns[key] = standIns[key];
   }
-  const risk = assessRisk(ratings);
-  const probability = defaultProbability(risk.score);
+  const score = assessRisk(withStandIns).score;
+  const floor = assessRisk(ratings).score;
+  const probability = defaultProbability(score);
   const { payoutLevel, growth } = inputs;
   const returnInputs =
     payoutLevel !== undefined && growth !== undefined
@@ -580,8 +611,10 @@ export function evaluate(
     manual,
     missing,
     complete: missing.length === 0 && price !== null && returns?.base != null,
-    riskScore: risk.score,
-    riskClass: riskClass(risk.score),
+    riskScore: score,
+    standIns: usedStandIns,
+    riskFloor: floor,
+    riskClass: riskClass(score),
     defaultProbability: probability,
     price,
     returns,
@@ -611,7 +644,15 @@ export function withSuggestions(valuation: Valuation, suggestions: InputValues):
   if (filled.length === 0) return null;
   const inputs: InputValues = { ...valuation.inputs };
   for (const key of filled) inputs[key] = suggestions[key];
-  return evaluate(inputs, {}, valuation.price, valuation.inflationGap, valuation.returnInputs?.earningsLevel ?? null);
+  return evaluate(
+    inputs,
+    {},
+    valuation.price,
+    valuation.inflationGap,
+    valuation.returnInputs?.earningsLevel ?? null,
+    null,
+    valuation.standIns,
+  );
 }
 
 /**
@@ -625,6 +666,7 @@ export function evaluateFields(
   inflationGap: number,
   earningsLevel: number | null,
   cappedEarningsLevel: number | null = null,
+  standIns: InputValues = {},
 ): Valuation | { error: string } {
   const manualValues: InputValues = {};
   for (const key of INPUT_KEYS) {
@@ -634,7 +676,7 @@ export function evaluateFields(
     if ("error" in parsed) return parsed;
     manualValues[key] = parsed.value;
   }
-  return evaluate(proposals, manualValues, price, inflationGap, earningsLevel, cappedEarningsLevel);
+  return evaluate(proposals, manualValues, price, inflationGap, earningsLevel, cappedEarningsLevel, standIns);
 }
 
 /**

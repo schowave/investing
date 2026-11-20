@@ -25,6 +25,19 @@ export const RISK_FACTOR_IDS = Object.keys(RISK_FACTORS) as RiskFactorId[];
 /** Faktoren, die bei Banken und Versicherern keinen Vorschlag bekommen. */
 export const MANUAL_FOR_FINANCIALS: readonly RiskFactorId[] = ["financing", "returnOnCapital", "ebitMargin"];
 
+/**
+ * Ersatzabzug für diese drei Faktoren, solange bei einem Finanzwert kein Urteil gesetzt ist (Spezifikation 6.1). Etwa der
+ * mittlere Abzug der Nicht-Finanzwerte mit berechenbarer, plausibler Rendite (Finanzierung 9,9 %, Kapitalrendite 4,7 %,
+ * EBIT-Marge 2,7 %, Stand 20.11.2026; über alle Nicht-Finanzwerte wären es 16,5 %, 9,1 %, 6,5 %). Vergleichsgruppe sind
+ * also die Titel, mit denen ein Finanzwert in der Rangliste konkurriert; fehlende Information zählt nicht wie das beste
+ * Ergebnis. Gilt nur für die vorläufige Rechnung; die Bewertung bleibt unvollständig, der Ausschluss prüft ohne ihn.
+ */
+export const FINANCIAL_STAND_INS: Readonly<Partial<Record<RiskFactorId, number>>> = {
+  financing: 0.1,
+  returnOnCapital: 0.05,
+  ebitMargin: 0.025,
+};
+
 export type RiskRatings = Partial<Record<RiskFactorId, number>>;
 
 export interface RiskAssessment {
