@@ -418,9 +418,9 @@ describe("Zielportfolio", () => {
     // Ein Platz frei: Limit 100 %, damit nur der erste Titel aufgenommen wird.
     const onePlace = { ...PROFILE_FOCUSED, baseLimit: 1.25 };
     const held = stock("alt", 0.1, { heldWeight: 1 });
-    const slightlyBetter = targetPortfolio([held, stock("neu", 0.105)], onePlace);
+    const slightlyBetter = targetPortfolio([held, stock("neu", 0.125)], onePlace); // 2,5 Punkte Abstand: unter der Schwelle von 3
     expect(slightlyBetter.positions.map((p) => p.id)).toEqual(["alt"]);
-    const clearlyBetter = targetPortfolio([held, stock("neu", 0.12)], onePlace);
+    const clearlyBetter = targetPortfolio([held, stock("neu", 0.14)], onePlace);
     expect(clearlyBetter.positions.map((p) => p.id)).toEqual(["neu"]);
   });
 

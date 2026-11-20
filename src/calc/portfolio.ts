@@ -24,7 +24,8 @@ export const PROFILE_FOCUSED: Profile = {
   maxPerSectorAndRegion: null,
   maxSectorShare: null,
   maxRegionShare: null,
-  swapThreshold: 0.01,
+  // 3 Punkte statt 1: Rückblick 2016 bis 2026, siehe Spezifikation 7.3.
+  swapThreshold: 0.03,
   minReturn: 0.03,
 };
 

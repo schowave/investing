@@ -368,16 +368,25 @@ Renditen in Fremdwährung werden vor dem Vergleich um den Unterschied zwischen d
 
 Regeln gelten je Portfolio. Zwei Vorlagen, alle Werte einstellbar:
 
-| Parameter                                  | Fokussiert     | Global          |
-| ------------------------------------------ | -------------- | --------------- |
-| Basislimit                                 | 15 %           | 6,5 %           |
-| Erwartete Positionszahl                    | etwa 6 bis 12  | etwa 20 bis 25  |
-| Mindestposition                            | 3 %            | 2 %             |
-| Höchstens 2 Titel je Branche und Kontinent | aus            | an              |
-| Höchstanteil je Branche                    | –              | 20 %            |
-| Höchstanteil je Region                     | –              | 40 %            |
-| Tauschschwelle                             | 1 Prozentpunkt | 2 Prozentpunkte |
-| Untergrenze                                | Anleiherendite | Anleiherendite  |
+| Parameter                                  | Fokussiert      | Global          |
+| ------------------------------------------ | --------------- | --------------- |
+| Basislimit                                 | 15 %            | 6,5 %           |
+| Erwartete Positionszahl                    | etwa 6 bis 12   | etwa 20 bis 25  |
+| Mindestposition                            | 3 %             | 2 %             |
+| Höchstens 2 Titel je Branche und Kontinent | aus             | an              |
+| Höchstanteil je Branche                    | –               | 20 %            |
+| Höchstanteil je Region                     | –               | 40 %            |
+| Tauschschwelle                             | 3 Prozentpunkte | 2 Prozentpunkte |
+| Untergrenze                                | Anleiherendite  | Anleiherendite  |
+
+**Herkunft der Tauschschwelle (fokussiert):** Ein Rückblick hat 0, 1, 2, 3 und 5 Punkte verglichen (Euro, vierteljährlich umgeschichtet, 0,25 % Kosten je Handelsumsatz, ohne Steuern). Grundlage sind 29 rollende Dreijahresfenster mit Starts von Oktober 2016 bis Oktober 2023 und die Läufe von jedem Startjahr bis heute. Die Fenster überlappen stark; es sind nur etwa sieben unabhängige Dreijahreszeiträume.
+
+- 0 Punkte waren in allen 29 Fenstern schlechter als 1 Punkt.
+- 3 Punkte lagen in 76 % der Fenster über 1 Punkt (Median der Differenz +5,9 Punkte) und waren bei 7 von 8 Startjahren, gerechnet bis heute, die beste der fünf Schwellen. Die mediane Dreijahresrendite ist aber fast gleich (+67 % gegen +66 %); der Vorsprung kommt aus dem Mittel (+90 % gegen +67 %) und den guten Fenstern.
+- 5 Punkte lagen bei den Starts 2018 bis 2020 vorn, davor und danach hinten (Median der Dreijahresrendite +44 %). Die Rangfolge ist darüber hinaus nicht stabil.
+- Der Umschlag sank von 95 auf 74 % je Quartal. Die Kostenersparnis erklärt davon nur etwa 0,2 Punkte Rendite im Jahr. Dass der Rest vom längeren Halten gestiegener Titel kommt, ist eine Vermutung und nicht getestet.
+
+Die Evidenz ist schwach: Survivorship-Bias, nur Zahlenfaktoren ohne Urteile, heutige Werte für Hürde und Inflationsabstand, und die Schwelle wurde nach einem ersten Dreijahrestest ausgewählt. Gestützt ist allenfalls „höher als 0 bis 1 Punkt“; die genaue Zahl ist nicht belegt. Das globale Profil ist nicht getestet und bleibt bei 2 Punkten. Steuern beim Tausch bleiben offen (Abschnitt 13).
 
 ### 7.4 Vorschläge zum Ist-Bestand
 
@@ -553,7 +562,7 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 | Größe gemessen an der Bilanzsumme                                                  | 20 Mio. € bis 20 Mrd. €                                                                                                                                                           | Auslegung von „GK" in Abb. 32 als Gesamtkapital                                                                                                                                                |
 | Basislimits der Profile                                                            | 15 % und 6,5 %                                                                                                                                                                    | Buch nennt 12,5 % und 15 %; Wikifolios nennen nur Positionszahlen                                                                                                                              |
 | Höchstanteil je Region                                                             | 40 %                                                                                                                                                                              | Buch nennt nur „ausgewogen"                                                                                                                                                                    |
-| Tauschschwelle                                                                     | 1 und 2 Prozentpunkte                                                                                                                                                             | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"                                                                                                                                       |
+| Tauschschwelle                                                                     | 3 und 2 Prozentpunkte                                                                                                                                                             | Übersetzung der Buchregel „kein Tausch wegen 5 bis 10 %"; fokussiert nach Rückblick auf 3 Punkte angehoben (7.3)                                                                               |
 | Mindestposition                                                                    | 3 % und 2 %                                                                                                                                                                       | Buch nennt einen Mindestanteil ohne Zahl                                                                                                                                                       |
 | Überfällige Bewertungen bleiben zulässig                                           | –                                                                                                                                                                                 | Buch verlangt die jährliche Prüfung, nennt keine Folge                                                                                                                                         |
 | Schwellen für „Bewertung prüfen“                                                   | Bandbreite aus 4.1, beim Risiko aus Zahlen fünf Punkte                                                                                                                            | Interview nennt „plus minus wenige Prozent“, keine Zahl                                                                                                                                        |
