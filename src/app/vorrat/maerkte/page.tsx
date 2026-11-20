@@ -180,9 +180,10 @@ export default function Markets() {
       <section className="card card-body">
         <h2>Was fehlt</h2>
         <p>
-          Tokio, Hongkong und Mailand führt der Anbieter nicht. Mailänder Titel kommen über ihre deutsche Notiz, japanische und chinesische
-          nur, soweit sie in den USA oder London notieren. Weitere Indizes und Börsen lassen sich auf der Seite{" "}
-          <Link href="/abgleich">Abgleich</Link> laden, solange der Tarif Fundamentaldaten enthält (rund 10 Abrufe je Titel).
+          Tokio, Hongkong, Mailand, Tel Aviv und die indischen Börsen führt der Anbieter nicht. Mailänder Titel kommen über ihre deutsche
+          Notiz; japanische, israelische und indische nur, soweit sie in den USA oder London notieren. Ägypten liefert keine Abschlüsse, die
+          Philippinen keinen freien Cashflow. Weitere Indizes und Börsen lassen sich auf der Seite <Link href="/abgleich">Abgleich</Link>{" "}
+          laden, solange der Tarif Fundamentaldaten enthält (rund 10 Abrufe je Titel).
         </p>
       </section>
     </>

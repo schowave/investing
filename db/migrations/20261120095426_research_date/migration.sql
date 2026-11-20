@@ -1,0 +1,1 @@
+ALTER TABLE `judgements` ADD `researched_at` text;

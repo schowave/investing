@@ -2,15 +2,17 @@
 // Aufruf: ppnpm run judge IMXI.US IMB.LSE          diese Titel
 //         ppnpm run judge --offen                  alle Titel der Watchlist ohne Vorschläge nach den heutigen Stufen
 //         ppnpm run judge IMXI.US --ohne-recherche  nur aus den gespeicherten Daten, ohne Suche im Netz
+//         ppnpm run judge IMXI.US --neu-recherchieren  auch eine Recherche nicht wiederverwenden, die jünger als 30 Tage ist
 // Die Vorschläge gelten erst, wenn du sie auf der Aktienseite speicherst.
 
 import { Database } from "../src/data/db.ts";
 import { LEVELS_VERSION } from "../src/judgement/factors.ts";
 import { judgeStock } from "../src/judgement/judge.ts";
-import { researchAvailable } from "../src/judgement/research.ts";
+import { researchAvailable, researchKeyName } from "../src/judgement/research.ts";
 
 const args = process.argv.slice(2);
 const research = !args.includes("--ohne-recherche");
+const freshResearch = args.includes("--neu-recherchieren");
 const db = new Database(process.env.INVESTING_DB ?? "data/investing.sqlite");
 const today = new Date().toISOString().slice(0, 10);
 
@@ -26,7 +28,7 @@ if (ids.length === 0) {
 }
 if (research && !researchAvailable()) {
   // Ohne Recherche sieht Jev keine Nachrichten; das soll eine bewusste Wahl sein, kein stiller Rückfall.
-  console.error("ANTHROPIC_API_KEY fehlt. Schlüssel setzen (im LXC: mise run deploy:env) oder --ohne-recherche angeben.");
+  console.error(`${researchKeyName()} fehlt. Schlüssel setzen (im LXC: mise run deploy:env) oder --ohne-recherche angeben.`);
   process.exit(1);
 }
 
@@ -39,14 +41,14 @@ for (const id of ids) {
     continue;
   }
   try {
-    const judgement = await judgeStock(db, stock, today, { research });
+    const judgement = await judgeStock(db, stock, today, { research, freshResearch });
     const summary = Object.entries(judgement.proposals)
       .map(([factor, p]) => `${factor} ${(p.value * 100).toFixed(1)} % (${Math.round(p.confidence * 100)} %)`)
       .join(", ");
     const filings = judgement.sources.filter((source) => source.kind === "sec").length;
     const web = judgement.sources.length - filings;
     console.log(
-      `${id}: ${summary}${filings > 0 ? `; ${filings} Mitteilungen an die SEC` : ""}${judgement.research ? `; ${web} Quellen` : ""}`,
+      `${id}: ${summary}${filings > 0 ? `; ${filings} Mitteilungen an die SEC` : ""}${judgement.research ? `; ${web} Quellen${judgement.researchedAt !== today ? ` (Recherche vom ${judgement.researchedAt})` : ""}` : ""}`,
     );
   } catch (error) {
     console.error(`${id}: ${error instanceof Error ? error.message : error}`);

@@ -23,7 +23,8 @@
     "backup": "node scripts/backup.ts",
     "judge": "node --env-file-if-exists=.env.local scripts/judge.ts",
     "worker": "node --env-file-if-exists=.env.local scripts/worker.ts",
-    "enqueue": "node scripts/enqueue.ts"
+    "enqueue": "node scripts/enqueue.ts",
+    "research": "node --env-file-if-exists=.env.local scripts/research.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
@@ -38,6 +39,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.10.0",
+    "@google/genai": "3.6.1",
     "drizzle-orm": "1.0.0-beta.22",
     "next": "16.4.6",
     "react": "19.3.1",

@@ -7,7 +7,7 @@ import { FUNDAMENTALS_KIND as RAW_KIND } from "../data/eodhdSnapshot.ts";
 import { fakeEodhd, fundamentalsAnswer, status, testContext } from "../test/eodhd.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
 import { consoleContext, eachParallel, reason, requireToken } from "./context.ts";
-import { refreshFundamentals, refreshStock } from "./fundamentals.ts";
+import { ingestFundamentals, refreshFundamentals, refreshStock } from "./fundamentals.ts";
 import { historyTodo, loadHistory } from "./history.ts";
 import { estimateHistory, estimateRefresh, isJobKind, runJob } from "./registry.ts";
 import { addByIsin, importStockpile, isinsIn, reparseArchive } from "./stockpile.ts";
@@ -181,6 +181,16 @@ describe("Datenvorrat", () => {
     expect(db.stock("IES.XETRA")).not.toBeNull();
     expect(log.join("\n")).toMatch(/ersatz ISP.MI/);
     expect(reparseArchive(ctx)).toEqual({ summary: "2 Aktien aus dem Archiv neu ausgewertet", ok: true });
+  });
+
+  it("markiert ausländische Aktien in Buenos Aires als CEDEAR, damit das Screening sie auslässt", () => {
+    const db = fresh();
+    const answer = (name: string, country: string) =>
+      JSON.stringify({ ...fundamentalsAnswer(name), General: { ...fundamentalsAnswer(name).General, AddressData: { Country: country } } });
+    ingestFundamentals(db, "WMT.BA", answer("Walmart", "United States"), { keepRaw: false });
+    ingestFundamentals(db, "GGAL.BA", answer("Galicia", "Argentina"), { keepRaw: false });
+    const listed = db.coverage().filter((r) => r.exchange === "BA");
+    expect(listed).toEqual([expect.objectContaining({ country: "AR", stocks: 1 })]);
   });
 
   it("nimmt Symbole und ISINs auf die Watchlist", async () => {

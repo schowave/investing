@@ -107,7 +107,10 @@ describe("Server Actions", () => {
     await expect(requestJudgement("UNBEKANNT", form({}))).rejects.toThrow(/^redirect:\/$/);
     judgeStock.mockResolvedValueOnce({});
     await expect(requestJudgement("IMB.LSE", form({ research: "off" }))).rejects.toThrow("redirect:/aktie/IMB.LSE#urteil");
-    expect(judgeStock.mock.calls.at(-1)?.[3]).toEqual({ research: false });
+    expect(judgeStock.mock.calls.at(-1)?.[3]).toEqual({ research: false, freshResearch: false });
+    judgeStock.mockResolvedValueOnce({});
+    await expect(requestJudgement("IMB.LSE", form({ research: "on", fresh: "1" }))).rejects.toThrow(/#urteil/);
+    expect(judgeStock.mock.calls.at(-1)?.[3]).toEqual({ research: true, freshResearch: true });
     judgeStock.mockRejectedValueOnce(new Error("Jev antwortet mit 503"));
     await expect(requestJudgement("IMB.LSE", form({ research: "on" }))).rejects.toThrow(/fehler=Jev\+antwortet\+mit\+503/);
   });
@@ -138,6 +141,7 @@ describe("Server Actions", () => {
       jevModel: "jev-test",
       researchModel: null,
       research: null,
+      researchedAt: null,
       sources: [],
       proposals: {
         moat: { value: -0.1, confidence: 0.7, probabilities: { "1": 1 } },
@@ -158,6 +162,7 @@ describe("Server Actions", () => {
       jevModel: "jev-test",
       researchModel: null,
       research: null,
+      researchedAt: null,
       sources: [],
       proposals: { moat: { value: -0.1, confidence: 0.7, probabilities: { "1": 1 } } },
       levelsVersion: LEVELS_VERSION - 1,

@@ -16,6 +16,17 @@ export class NoAnnualReportsError extends Error {
   }
 }
 
+/** Wertpapierart für argentinische Zertifikate auf ausländische Aktien; das Screening nimmt nur Stammaktien. */
+const CEDEAR = "CEDEAR";
+
+/**
+ * In Buenos Aires notieren ausländische Unternehmen als CEDEAR: ein Zertifikat mit eigenem Bezugsverhältnis, die
+ * Zahlen gehören aber zur ganzen Aktie des Mutterkonzerns. Der Anbieter führt sie als Stammaktie.
+ */
+function isCedear(symbol: string, country: string): boolean {
+  return symbol.endsWith(".BA") && country !== "" && country !== "AR";
+}
+
 /**
  * Der eine Weg, auf dem Fundamentaldaten ins System kommen, ob über den Datenvorrat, eine ISIN, das Auffrischen
  * oder das Archiv: Stammdaten anlegen oder ergänzen, auf Wunsch die Rohantwort bewahren, Abschlüsse speichern.
@@ -29,7 +40,8 @@ export function ingestFundamentals(db: Database, symbol: string, raw: string, op
   db.addStockIfMissing(derived);
   db.setSeatInStockpile(symbol, derived.country, derived.region);
   if (parsed.foundedYear !== null) db.setFoundedYearIfMissing(symbol, parsed.foundedYear);
-  if (parsed.securityType !== null) db.setSecurityType(symbol, parsed.securityType);
+  const securityType = isCedear(symbol, derived.country) ? CEDEAR : parsed.securityType;
+  if (securityType !== null) db.setSecurityType(symbol, securityType);
   if (parsed.gicSector !== null) db.setGicSector(symbol, parsed.gicSector);
   if (options.keepRaw) db.saveRawDocument(symbol, FUNDAMENTALS_KIND, raw);
   db.saveFundamentals(symbol, parsed.years, "eodhd");

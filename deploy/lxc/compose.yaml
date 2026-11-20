@@ -5,7 +5,7 @@ x-investing: &investing
   image: ghcr.io/schowave/investing:latest
   restart: unless-stopped
   env_file:
-    - path: .env # EODHD_API_TOKEN, optional TYPESAFE_API_KEY, ANTHROPIC_API_KEY, SEC_USER_AGENT
+    - path: .env # EODHD_API_TOKEN, optional TYPESAFE_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, RESEARCH_LLM, SEC_USER_AGENT
       required: false
   environment:
     # Die Proxmox-Sicherung hält ältere Stände; im LXC genügen drei tägliche Sicherungen.

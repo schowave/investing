@@ -14,7 +14,8 @@ import {
 import type { FundamentalsYear } from "../../../data/db.ts";
 import { storedSnapshot } from "../../../data/eodhdSnapshot.ts";
 import { currentProposals, LEVELS_VERSION } from "../../../judgement/factors.ts";
-import { researchAvailable } from "../../../judgement/research.ts";
+import { RESEARCH_MAX_AGE_DAYS, reusableResearchDate } from "../../../judgement/judge.ts";
+import { researchAvailable, researchKeyName } from "../../../judgement/research.ts";
 import { situationSignals } from "../../../judgement/situation.ts";
 import { rankingHurdle } from "../../../valuation/ranking.ts";
 import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
@@ -117,6 +118,8 @@ export default async function StockPage(props: {
   const jevFor = (key: InputKey) => jevProposals[key.replace(/^risk\./, "")];
   const canResearch = researchAvailable();
   const secFilings = judgement?.sources.filter((source) => source.kind === "sec") ?? [];
+  const reusableResearch = reusableResearchDate(judgement, today());
+  const researchDate = judgement?.research ? (judgement.researchedAt ?? judgement.createdAt.slice(0, 10)) : null;
   const webSources = judgement?.sources.filter((source) => source.kind !== "sec") ?? [];
   // Das 52-Wochen-Hoch von EODHD steht in der Börseneinheit (z. B. Pence), der gespeicherte Kurs ist schon umgerechnet.
   const latestClose = db.latestPrice(stock.id)?.close ?? null;
@@ -530,15 +533,23 @@ export default async function StockPage(props: {
               <p className="meta">
                 {judgement
                   ? judgement.research
-                    ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz (${judgement.researchModel}, ${webSources.length} Quellen)${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}.`
+                    ? `Eingestuft von ${judgement.jevModel} nach einer Recherche im Netz vom ${isoDate(researchDate)} (${judgement.researchModel}, ${webSources.length} Quellen)${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}.`
                     : `Eingestuft von ${judgement.jevModel} aus den gespeicherten Daten${secFilings.length > 0 ? ` und ${secFilings.length} Mitteilungen an die SEC` : ""}, ohne Recherche im Netz.`
                   : "Jev stuft die sechs Urteilsfaktoren ein. Vorher sucht Claude im Netz nach Belegen zu Management, Prognosen und aktueller Lage."}
                 {outdated && " Die Stufen wurden seitdem neu gefasst; diese Vorschläge gelten nicht mehr. Bitte neu einstufen."}
-                {!canResearch && " Für die Recherche fehlt ANTHROPIC_API_KEY in .env.local."}
+                {!canResearch && ` Für die Recherche fehlt ${researchKeyName()} in .env.local.`}
+                {canResearch &&
+                  reusableResearch &&
+                  ` Neu einstufen verwendet die Recherche vom ${isoDate(reusableResearch)} wieder (bis ${RESEARCH_MAX_AGE_DAYS} Tage alt).`}
               </p>
               <form className="row" action={requestJudgement.bind(null, stock.id)} style={{ marginTop: 12 }}>
                 {origin}
                 {canResearch ? <input type="hidden" name="research" value="on" /> : <input type="hidden" name="research" value="off" />}
+                {canResearch && reusableResearch && (
+                  <label className="meta">
+                    <input type="checkbox" name="fresh" value="1" /> neu recherchieren
+                  </label>
+                )}
                 <PendingButton
                   className={judgement && !outdated ? "quiet" : ""}
                   label={judgement ? "Neu einstufen" : "Vorschläge holen"}

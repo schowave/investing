@@ -43,7 +43,7 @@ export async function requestJudgement(stockId: string, form: FormData): Promise
   if (!stock) redirect("/");
   let failure: string | null = null;
   try {
-    await judgeStock(db, stock, today(), { research: form.get("research") !== "off" });
+    await judgeStock(db, stock, today(), { research: form.get("research") !== "off", freshResearch: form.get("fresh") === "1" });
   } catch (error) {
     failure = error instanceof Error ? error.message : String(error);
   }

@@ -247,6 +247,8 @@ export const judgements = sqliteTable("judgements", {
   jevModel: text("jev_model").notNull(),
   researchModel: text("research_model"),
   research: text("research"),
+  /** Tag der Recherche (YYYY-MM-DD); älter als `createdAt`, wenn eine gespeicherte Recherche wiederverwendet wurde. */
+  researchedAt: text("researched_at"),
   sources: text("sources", { mode: "json" }).notNull().$type<{ url: string; title: string; pageAge: string | null; kind?: "sec" }[]>(),
   proposals: text("proposals", { mode: "json" })
     .notNull()

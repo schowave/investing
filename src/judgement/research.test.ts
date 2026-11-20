@@ -22,6 +22,7 @@ const reply = (stop_reason: string, content: unknown[], extra: object = {}) => (
   model: "claude-opus-5-5",
   stop_reason,
   content,
+  usage: { input_tokens: 100, cache_read_input_tokens: 50, output_tokens: 10, server_tool_use: { web_search_requests: 2 } },
   ...extra,
 });
 
@@ -49,6 +50,7 @@ describe("researchCompany", () => {
       model: "claude-opus-5-5",
       text: "Teil 1. Teil 2.",
       sources: [{ url: "https://a.example", title: "A", pageAge: "2 days ago" }],
+      usage: { inputTokens: 300, outputTokens: 20, searches: 4 },
     });
     expect(requests).toHaveLength(2);
     expect(requests[1]!.messages).toHaveLength(2);

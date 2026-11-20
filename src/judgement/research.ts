@@ -2,6 +2,7 @@
 // Die Einstufung übernimmt Jev; die Recherche liefert ihm, was nicht in den Zahlen von EODHD steht.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { researchWithGemini } from "./researchGemini.ts";
 
 const RESEARCH_MODEL = "claude-opus-5-5";
 /** Höchstzahl der Suchen je Titel; jede Suche kostet extra. */
@@ -16,10 +17,19 @@ interface Source {
   pageAge: string | null;
 }
 
+/** Verbrauch einer Recherche, über alle Runden summiert; Denktokens zählen zur Ausgabe. */
+interface ResearchUsage {
+  inputTokens: number;
+  outputTokens: number;
+  searches: number;
+}
+
 export interface Research {
   model: string;
   text: string;
   sources: Source[];
+  /** Nur bei einer frischen Recherche bekannt, nicht bei einer gespeicherten. */
+  usage?: ResearchUsage;
 }
 
 const SYSTEM = `You research listed companies for a long-term value investor. You collect evidence; you do not rate or recommend.
@@ -37,17 +47,21 @@ Rules:
 - Give the date of each fact. Say plainly when you found nothing on a heading; do not fill gaps with general knowledge.
 - Write in English, plain text, at most 600 words, with the six headings.`;
 
-/** Recherchiert ein Unternehmen. Benötigt ANTHROPIC_API_KEY oder eine Anmeldung per `ant auth login`. */
+/** Testweise: `RESEARCH_LLM=gemini` recherchiert mit Gemini statt mit Claude. */
+const geminiChosen = () => process.env.RESEARCH_LLM === "gemini";
+
+/**
+ * Recherchiert ein Unternehmen. Benötigt ANTHROPIC_API_KEY oder eine Anmeldung per `ant auth login`,
+ * mit RESEARCH_LLM=gemini stattdessen GEMINI_API_KEY.
+ */
 export async function researchCompany(company: { name: string; ticker: string; country: string; asOf: string }): Promise<Research> {
+  const prompt = `Company: ${company.name} (ticker ${company.ticker}, ${company.country}). Today is ${company.asOf}.`;
+  if (geminiChosen()) return researchWithGemini(SYSTEM, prompt);
   const client = new Anthropic();
-  const messages: Anthropic.Beta.BetaMessageParam[] = [
-    {
-      role: "user",
-      content: `Company: ${company.name} (ticker ${company.ticker}, ${company.country}). Today is ${company.asOf}.`,
-    },
-  ];
+  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt }];
   const texts: string[] = [];
   const sources = new Map<string, Source>();
+  const usage: ResearchUsage = { inputTokens: 0, outputTokens: 0, searches: 0 };
 
   for (let round = 0; ; round++) {
     const response = await client.beta.messages
@@ -63,6 +77,10 @@ export async function researchCompany(company: { name: string; ticker: string; c
       })
       .finalMessage();
 
+    const u = response.usage;
+    usage.inputTokens += (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+    usage.outputTokens += u.output_tokens ?? 0;
+    usage.searches += u.server_tool_use?.web_search_requests ?? 0;
     if (response.stop_reason === "refusal") {
       throw new Error(
         `Die Recherche wurde abgelehnt${response.stop_details?.explanation ? `: ${response.stop_details.explanation}` : "."}`,
@@ -80,10 +98,15 @@ export async function researchCompany(company: { name: string; ticker: string; c
       continue;
     }
     if (response.stop_reason === "max_tokens") throw new Error("Die Recherche wurde abgeschnitten (max_tokens).");
-    return { model: response.model, text: texts.join("").trim(), sources: [...sources.values()] };
+    return { model: response.model, text: texts.join("").trim(), sources: [...sources.values()], usage };
   }
 }
 
-/** Recherche ist möglich, wenn ein Schlüssel für Claude gesetzt ist. */
+/** Recherche ist möglich, wenn ein Schlüssel für das gewählte Modell gesetzt ist. */
 export const researchAvailable = () =>
-  Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_PROFILE);
+  geminiChosen()
+    ? Boolean(process.env.GEMINI_API_KEY)
+    : Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN || process.env.ANTHROPIC_PROFILE);
+
+/** Name des Schlüssels, den die Recherche mit dem gewählten Modell braucht. */
+export const researchKeyName = () => (geminiChosen() ? "GEMINI_API_KEY" : "ANTHROPIC_API_KEY");

@@ -1,5 +1,7 @@
 # esbuild (für drizzle-kit) prüft im Install-Skript nur sein Binary; das Plattformpaket kommt ohnehin mit.
 allowBuilds:
   esbuild: false
+  # protobufjs (für @google/genai) prüft im Install-Skript nur die Version.
+  protobufjs: false
 # Exakte Versionen in package.json; Renovate hebt sie an.
 saveExact: true

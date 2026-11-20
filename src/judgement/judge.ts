@@ -33,14 +33,46 @@ async function secFilings(cik: string | null, asOf: string): Promise<Filing[] | 
   }
 }
 
+/** So viele Tage alt darf eine gespeicherte Recherche sein, um sie für ein neues Urteil wiederzuverwenden. */
+export const RESEARCH_MAX_AGE_DAYS = 30;
+
+/** Tag der Recherche eines Urteils, wenn sie höchstens `RESEARCH_MAX_AGE_DAYS` alt ist und wiederverwendet würde. */
+export function reusableResearchDate(judgement: StoredJudgement | null, asOf: string): string | null {
+  if (!judgement?.research || !judgement.researchModel) return null;
+  // Urteile von vor der Spalte researched_at haben im selben Lauf recherchiert.
+  const researchedAt = judgement.researchedAt ?? judgement.createdAt.slice(0, 10);
+  return Date.parse(asOf) - Date.parse(researchedAt) > RESEARCH_MAX_AGE_DAYS * 86_400_000 ? null : researchedAt;
+}
+
+/** Die Recherche des letzten Urteils mit ihrem Tag, wenn sie wiederverwendet werden kann. */
+function recentResearch(previous: StoredJudgement | null, asOf: string): { research: Research; researchedAt: string } | null {
+  const researchedAt = reusableResearchDate(previous, asOf);
+  if (!previous?.research || !previous.researchModel || researchedAt === null) return null;
+  const sources = previous.sources.filter((source) => source.kind !== "sec").map(({ url, title, pageAge }) => ({ url, title, pageAge }));
+  return { research: { model: previous.researchModel, text: previous.research, sources }, researchedAt };
+}
+
 /**
  * Stuft die Urteilsfaktoren einer Aktie ein und speichert die Vorschläge.
+ * Eine Recherche, die höchstens `RESEARCH_MAX_AGE_DAYS` alt ist, wird wiederverwendet; das spart Suchen und Tokens.
  * @param options.research `false`: nur mit den gespeicherten Daten, ohne Suche im Netz.
+ * @param options.freshResearch `true`: auch eine junge Recherche nicht wiederverwenden.
  */
-export async function judgeStock(db: Database, stock: Stock, asOf: string, options: { research?: boolean } = {}): Promise<StoredJudgement> {
+export async function judgeStock(
+  db: Database,
+  stock: Stock,
+  asOf: string,
+  options: { research?: boolean; freshResearch?: boolean } = {},
+): Promise<StoredJudgement> {
   let research: Research | null = null;
-  if (options.research !== false && researchAvailable()) {
-    research = await researchCompany({ name: stock.name, ticker: stock.id, country: stock.country, asOf });
+  let researchedAt: string | null = null;
+  if (options.research !== false) {
+    const recent = options.freshResearch ? null : recentResearch(db.judgement(stock.id), asOf);
+    if (recent) ({ research, researchedAt } = recent);
+    else if (researchAvailable()) {
+      research = await researchCompany({ name: stock.name, ticker: stock.id, country: stock.country, asOf });
+      researchedAt = asOf;
+    }
   }
   const snapshot = storedSnapshot(db, stock.id);
   const filings = await secFilings(cikOf(snapshot), asOf);
@@ -64,6 +96,7 @@ export async function judgeStock(db: Database, stock: Stock, asOf: string, optio
     jevModel: result.model,
     researchModel: research?.model ?? null,
     research: research?.text ?? null,
+    researchedAt,
     // Die Mitteilungen stehen bei den Quellen; ihr Datum dort, wo die Recherche das Alter der Seite nennt.
     sources: [
       ...(filings ?? []).map((f) => ({ url: f.url, title: `${f.form}: ${f.description}`, pageAge: f.date, kind: "sec" as const })),

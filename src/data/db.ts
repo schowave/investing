@@ -151,6 +151,8 @@ export interface StoredJudgement {
   /** `null`, wenn ohne Recherche im Netz eingestuft wurde. */
   researchModel: string | null;
   research: string | null;
+  /** Tag der Recherche (YYYY-MM-DD); bei Urteilen von vor dieser Spalte `null`, dann gilt `createdAt`. */
+  researchedAt: string | null;
   /** Quellen der Recherche und, mit `kind: "sec"`, die Mitteilungen an die SEC (`pageAge` ist dann das Datum). */
   sources: { url: string; title: string; pageAge: string | null; kind?: "sec" }[];
   /** Je Faktor (z. B. "moat"): Abzug, Sicherheit und Wahrscheinlichkeit je Stufe. */
