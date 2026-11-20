@@ -10,6 +10,7 @@ import {
   positionLimit,
   RISK_FACTOR_IDS,
   RISK_FACTORS,
+  returnParamsFor,
 } from "../../../calc/index.ts";
 import type { FundamentalsYear } from "../../../data/db.ts";
 import { storedSnapshot } from "../../../data/eodhdSnapshot.ts";
@@ -21,7 +22,7 @@ import { rankingHurdle } from "../../../valuation/ranking.ts";
 import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { doubtfulNumbers, priceSensitivity, withSuggestions } from "../../../valuation/valuation.ts";
+import { doubtfulNumbers, growthInputBounds, growthRangeText, priceSensitivity, withSuggestions } from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
@@ -140,6 +141,9 @@ export default async function StockPage(props: {
   const computedNeedsAttention = computed.some(
     (factorId) => v.inputs[`risk.${factorId}`] === undefined || v.manual.includes(`risk.${factorId}`),
   );
+  // Grenzen des Wachstums gelten in Euro-Kaufkraft und sind um den Inflationsabstand der Berichtswährung verschoben.
+  const growthLimits = growthInputBounds(v.inflationGap);
+  const terminalGrowthLimit = returnParamsFor(v.inflationGap).maxTerminalGrowth;
   const cautious = v.returns?.cautious ?? null;
   const base = v.returns?.base ?? null;
   // Vorschau beim Tippen: was Speichern ergäbe. Anfangs sind das die vorausgefüllten Jev-Vorschläge.
@@ -155,6 +159,7 @@ export default async function StockPage(props: {
     price: v.price,
     inflationGap: v.inflationGap,
     earningsLevel: d.earningsLevel,
+    payoutEarningsLevel: d.payoutEarningsLevel ?? null,
     saved: summary(v),
     initial: summary(withJev ?? v),
   };
@@ -407,11 +412,14 @@ export default async function StockPage(props: {
             <span className="sub">
               Ausschüttungsquote steigt in der Rechnung von {percent(v.payoutRatio.now, 0)} auf {percent(v.payoutRatio.terminal, 0)}, wenn
               das Wachstum abflacht
+              {v.payoutRatio.uncappedPayout !== null &&
+                `. Die Quote bezieht sich auf den ungedeckelten Rückfluss ${amount(v.payoutRatio.uncappedPayout)} (Dividende plus Netto-Rückkäufe) gegen das Gewinnniveau ${amount(d.earningsLevel)}; der gedeckelte Rückfluss ${amount(v.inputs.payoutLevel)} wächst im selben Verhältnis mit`}
             </span>
           )}
           {Math.abs(v.inflationGap) >= 0.005 && v.localReturn !== null && (
             <span className="sub">
-              in {currency} {percent(v.localReturn)}, Inflationsabstand zum Euro {percent(v.inflationGap)}
+              in {currency} {percent(v.localReturn)}, Inflationsabstand zum Euro {percent(v.inflationGap)}; die Wachstumsgrenzen sind um
+              diesen Abstand verschoben
             </span>
           )}
         </div>
@@ -485,14 +493,19 @@ export default async function StockPage(props: {
                   asPercent: false,
                   range: currency,
                 })}
-                {numberRow("growth", "Wachstum zu Beginn", "schmilzt über 15 Jahre auf höchstens 3 % ab", {
-                  min: -20,
-                  max: 30,
-                  step: 0.1,
-                  unit: "%",
-                  asPercent: true,
-                  range: "−20 bis 30 %",
-                })}
+                {numberRow(
+                  "growth",
+                  "Wachstum zu Beginn",
+                  `schmilzt über 15 Jahre auf höchstens ${percent(terminalGrowthLimit, v.inflationGap === 0 ? 0 : 1)} ab`,
+                  {
+                    min: growthLimits.min,
+                    max: growthLimits.max,
+                    step: 0.1,
+                    unit: "%",
+                    asPercent: true,
+                    range: growthRangeText(v.inflationGap),
+                  },
+                )}
               </tbody>
             </table>
           </div>
@@ -670,6 +683,26 @@ export default async function StockPage(props: {
                     </td>
                     <td className="num">{amount(d.sustainablePayout)}</td>
                   </tr>
+                  {d.cashFlowWindow && (
+                    <tr>
+                      <td>
+                        {d.sustainableFrom === "operatingCashFlow" ? "Operativer" : "Freier"} Cashflow je Aktie, vor Abzug von Vergütung und
+                        Tilgung:{" "}
+                        {d.cashFlowWindow.usedLong
+                          ? `Median der letzten ${d.cashFlowWindow.years} Jahre statt des Mittels der letzten fünf (${amount(d.cashFlowWindow.fiveYearAverage)}), weil der Gewinn Verluste oder Einbrüche zeigt`
+                          : "Mittel der letzten fünf Jahre"}
+                      </td>
+                      <td className="num">
+                        {amount(d.cashFlowWindow.usedLong ? d.cashFlowWindow.longMedian : d.cashFlowWindow.fiveYearAverage)}
+                      </td>
+                    </tr>
+                  )}
+                  {d.compensationPerShare ? (
+                    <tr>
+                      <td>Aktienvergütung je Aktie, vom Cashflow abgezogen</td>
+                      <td className="num">{amount(d.compensationPerShare)}</td>
+                    </tr>
+                  ) : null}
                   <tr>
                     <td>Wachstum Gewinn je Aktie</td>
                     <td className="num">{percent(d.earningsGrowthPerShare)}</td>

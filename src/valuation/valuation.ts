@@ -10,6 +10,7 @@ import {
   dividendWasCut,
   earningsLevel,
   FULL_YEARS,
+  growthParamsFor,
   growthProposal,
   historicalGrowth,
   innerReturn,
@@ -30,9 +31,13 @@ import {
   RISK_FACTOR_IDS,
   RISK_FACTORS,
   requiredDebtRepayment,
+  returnParamsFor,
   riskClass,
   scenarioReturns,
+  sustainableCashFlow,
   terminalPayoutRatio,
+  toLocalTerms,
+  usableCompensation,
 } from "../calc/index.ts";
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 
@@ -54,11 +59,25 @@ export interface Proposals {
   details: {
     fiscalYears: number[];
     earningsLevel: number | null;
+    /**
+     * Gewinnniveau für die Ausschüttungsquote der Rechnung (4.3), wenn ein Deckel den Rückfluss gesenkt hat: im Verhältnis
+     * gedeckelt zu ungedeckelt gekürzt, sodass die Quote die des ungedeckelten Rückflusses bleibt. Gilt nur für den
+     * vorgeschlagenen Rückfluss; bei einem Wert von Hand rechnet die Quote mit `earningsLevel`. Fehlt, wenn kein Deckel greift.
+     */
+    payoutEarningsLevel?: number | null;
     dividendLevel: number | null;
     netBuybacksPerShare: number | null;
     sustainablePayout: number | null;
     /** Woraus der tragbare Rückfluss kommt; fehlt in Bewertungen, die vor dieser Angabe gespeichert wurden. */
     sustainableFrom?: "freeCashFlow" | "operatingCashFlow" | "earnings";
+    /**
+     * Fenster des Cashflow-Durchschnitts im tragbaren Rückfluss (vor Abzug von Vergütung und Tilgung). `usedLong`: Bei
+     * einem Zykliker (Faktor 1 mit Abzug) war der Median der ganzen Reihe niedriger und gilt. Fehlt bei Banken
+     * und Versicherern und in Bewertungen, die vor dieser Angabe gespeichert wurden.
+     */
+    cashFlowWindow?: { years: number; fiveYearAverage: number; longMedian: number | null; usedLong: boolean };
+    /** Aktienbasierte Vergütung je Aktie (Mittel der Jahre des Fensters mit Wert), vom Cashflow abgezogen; fehlt wie oben. */
+    compensationPerShare?: number;
     /** Gewinnwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
     historicalGrowth: number | null;
     /** Umsatzwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
@@ -131,6 +150,16 @@ export function unadjustedSplit(
   return null;
 }
 
+/** Prozentzahl mit einer Nachkommastelle, deutsches Komma und echtem Minus: `0.085` wird `8,5 %`. */
+function germanPercent(value: number): string {
+  return `${(value * 100).toFixed(1).replace(".", ",").replace("-", "−")} %`;
+}
+
+/** Wie `germanPercent`, aber ohne die Nachkommastelle bei ganzen Werten: `0.03` wird `3 %`. Für Grenzen. */
+function limitPercent(value: number): string {
+  return germanPercent(value).replace(",0 %", " %");
+}
+
 const REGIONS: readonly string[] = ["Europa", "Nordamerika", "Japan", "Asien", "Südamerika", "Afrika", "Ozeanien"];
 
 const mean = (values: readonly number[]) => values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -146,6 +175,7 @@ function allNumbers(values: readonly (number | null)[]): values is number[] {
  * @param years Geschäftsjahre, ältestes zuerst (beliebig viele; verwendet werden die letzten zehn).
  * @param reportingPerEur Einheiten der Berichtswährung je Euro; `null`, wenn kein Wechselkurs vorliegt.
  * @param currentYear Kalenderjahr der Bewertung, für die Existenzdauer.
+ * @param inflationGap Erwartete Inflation der Berichtswährung minus die des Euro; verschiebt die Wachstumsgrenzen (Abschnitt 4.4).
  */
 export function proposeInputs(
   stock: Stock,
@@ -153,6 +183,7 @@ export function proposeInputs(
   reportingPerEur: number | null,
   currentYear: number,
   history: History = { dividendsByYear: null, splits: [] },
+  inflationGap = 0,
 ): Proposals {
   const values: InputValues = {};
   const notes: string[] = [];
@@ -240,16 +271,24 @@ export function proposeInputs(
   }
   const level = earningsLevel(eps);
   const divLevel = dividendLevel(dividends);
+  // Aktienbasierte Vergütung ohne Datenfehler des Anbieters (fehlend, negativ, grob überhöht): für Netto-Rückkäufe und Deckel gleich.
+  const usable = usableCompensation(ten.map((y) => y.stockBasedCompensation));
   const buybacks = netBuybacksPerShare(
     ten.map((y, i) => ({
       repurchases: y.repurchases ?? 0,
       issuance: y.issuance ?? 0,
-      stockBasedCompensation: y.stockBasedCompensation ?? 0,
+      stockBasedCompensation: usable.values[i] ?? 0,
       shares: shares[i]!,
     })),
   );
   const five = ten.slice(-5);
-  const fcfPerShare = five.map((y) => (y.freeCashFlow === null ? null : y.freeCashFlow / y.shares!));
+  // Faktor 1 mit Abzug (Verlustjahr oder Einbruch): Der Zyklus ist sichtbar, fünf Jahre im Hoch tragen den Rückfluss nicht.
+  // Maßgeblich ist der Vorschlag, nicht der übersteuerte Wert.
+  const earned = proposeEarnings(
+    eps,
+    ten.map((y) => y.ebit),
+  );
+  const cyclical = !stock.isFinancial && earned > 0;
   // Schulden über dem Dreifachen des EBITDA müssen getilgt werden; das Geld steht den Eigentümern nicht zu.
   let repayment = 0;
   if (!stock.isFinancial && last.netDebt !== null && last.ebitda !== null) {
@@ -263,12 +302,54 @@ export function proposeInputs(
   // Der Anbieter führt auch Anleihen von Versorgern als REIT; deren Sektor nach GICS verrät sie.
   const realEstate =
     !stock.isFinancial && REAL_ESTATE_SECTORS.includes(stock.sector) && (stock.gicSector == null || stock.gicSector === REAL_ESTATE_GICS);
-  const cashFlowPerShare = realEstate
-    ? five.map((y) => (y.operatingCashFlow === null ? null : y.operatingCashFlow / y.shares!))
-    : fcfPerShare;
-  const sustainable = stock.isFinancial ? level : allNumbers(cashFlowPerShare) ? Math.max(0, mean(cashFlowPerShare) - repayment) : null;
+  const cashFlowPerShare = ten.map((y, i) => {
+    const amount = realEstate ? y.operatingCashFlow : y.freeCashFlow;
+    return amount === null ? null : amount / shares[i]!;
+  });
+  // Der freie Cashflow des Anbieters ist operativer Cashflow minus Investitionen; der operative Cashflow rechnet die
+  // aktienbasierte Vergütung als nicht zahlungswirksamen Aufwand wieder hinzu (Abschnitt 5). Sie kostet die Eigentümer
+  // aber Verwässerung, deshalb mindert sie den tragbaren Rückfluss. Banken und Versicherer rechnen aus dem Gewinn,
+  // der sie schon als Aufwand enthält.
+  const compensationPerShare = usable.values.map((v, i) => (v === null ? null : v / shares[i]!));
+  // Die Bereinigung wirkt auch bei Finanzwerten (über die Netto-Rückkäufe), der Hinweis gilt deshalb für alle.
+  if (usable.flagged > 0 || usable.negative > 0) {
+    const dropped = [
+      usable.negative > 0 ? `${usable.negative} Jahr(e) mit negativem Wert` : null,
+      usable.flagged > 0 ? `${usable.flagged} Jahr(e) um mehr als das Hundertfache über dem Üblichen` : null,
+    ]
+      .filter((text) => text !== null)
+      .join(" und ");
+    notes.push(
+      `Aktienbasierte Vergütung: ${dropped} (offenbar Datenfehler des Anbieters) nicht verwertet; kleinere Abweichungen werden nicht erkannt. Das verschiebt die Netto-Rückkäufe${stock.isFinancial ? "" : " und den Abzug vom Cashflow"}.`,
+    );
+  }
+  const cashLevel = stock.isFinancial ? null : sustainableCashFlow(cashFlowPerShare, { cyclical, inflationGap, compensationPerShare });
+  const sustainable = stock.isFinancial
+    ? level
+    : cashLevel !== null
+      ? Math.max(0, cashLevel.cashFlow - cashLevel.compensation - repayment)
+      : null;
   details.sustainableFrom = stock.isFinancial ? "earnings" : realEstate ? "operatingCashFlow" : "freeCashFlow";
   if (realEstate) notes.push("Immobilienwert: Der tragbare Rückfluss kommt aus dem operativen Cashflow statt aus dem freien Cashflow.");
+  if (cashLevel !== null) {
+    details.cashFlowWindow = {
+      years: cashLevel.windowYears,
+      fiveYearAverage: cashLevel.fiveYearAverage,
+      longMedian: cashLevel.longMedian,
+      usedLong: cashLevel.usedLong,
+    };
+    details.compensationPerShare = cashLevel.compensation;
+    if (cashLevel.usedLong) {
+      const what = realEstate ? "operativen Cashflows" : "freien Cashflows";
+      notes.push(
+        `Zyklus: Faktor 1 zeigt Verlust oder Einbruch, deshalb gilt der Median der letzten ${cashLevel.windowYears} Jahre (${cashLevel.longMedian!.toFixed(2)} je Aktie) statt des Mittels der letzten fünf (${cashLevel.fiveYearAverage.toFixed(2)}) als Ausgangswert des ${what}${inflationGap !== 0 ? "; ältere Jahre sind um den Inflationsabstand auf heutige Kaufkraft hochgerechnet" : ""}.`,
+      );
+    }
+    if (cyclical && short)
+      notes.push(
+        `Zyklus: Die Reihe hat nur ${ten.length} Jahre; ein ganzer Zyklus ist womöglich nicht abgedeckt, der tragbare Rückfluss kann zu hoch sein.`,
+      );
+  }
   Object.assign(details, { earningsLevel: level, dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
 
   let payout: number | null = null;
@@ -286,8 +367,23 @@ export function proposeInputs(
     values.payoutLevel = payout;
     if (proposal.capped)
       notes.push(`Rückfluss auf den tragbaren Wert gedeckelt (${(divLevel + buybacks).toFixed(2)} auf ${payout.toFixed(2)}).`);
+    // Hätte der Deckel ohne den Abzug der Vergütung nicht gegriffen, sagt der Hinweis es.
+    if (
+      proposal.capped &&
+      cashLevel !== null &&
+      cashLevel.compensation > 0 &&
+      divLevel + buybacks <= Math.max(0, cashLevel.cashFlow - repayment)
+    )
+      notes.push(
+        `Aktienbasierte Vergütung von ${cashLevel.compensation.toFixed(2)} je Aktie ist vom Cashflow abgezogen und bringt die Deckelung des Rückflusses zum Greifen.`,
+      );
     if (payout === 0) notes.push("Rückflussniveau ist 0, eine innere Rendite lässt sich daraus nicht rechnen.");
   }
+
+  // Greift ein Deckel, bleibt die Quote der Rechnung (4.3) die des ungedeckelten Rückflusses: Das Gewinnniveau geht im
+  // Verhältnis gedeckelt zu ungedeckelt gekürzt ein. Unabhängig davon, ob Eigenkapital vorliegt.
+  if (payout !== null && payout < divLevel + buybacks && level !== null && level > 0)
+    details.payoutEarningsLevel = (level * payout) / (divLevel + buybacks);
 
   // Wachstum
   // Rückkäufe stehen schon im Rückfluss. Das Wachstum je Aktie enthält sie ein zweites Mal, deshalb gilt das
@@ -304,37 +400,53 @@ export function proposeInputs(
       : null;
     details.revenueGrowth = revenueGrowth;
     const endLosses = lossesAtEnd(eps);
-    const growth = growthProposal({
-      historicalGrowth: growthHistory,
-      revenueGrowth,
-      payoutLevel: payout,
-      earningsLevel: level,
-      equityPerShare,
-      lossesAtEnd: endLosses,
-    });
+    const params = growthParamsFor(inflationGap);
+    // Einbehalten ist, was vom Gewinn nicht ausgeschüttet wird. Eine Deckelung des Rückflusses (freier Cashflow, Zyklus,
+    // Vergütung, Tilgung) ist kein einbehaltener Gewinn: Die Grenze aus Einbehaltung
+    // rechnet mit dem ungedeckelten Rückfluss. Dasselbe gilt für die Quote der Rechnung (4.3): Das Gewinnniveau geht im
+    // Verhältnis gedeckelt zu ungedeckelt gekürzt ein, die Quote bleibt die des ungedeckelten Rückflusses.
+    const uncapped = divLevel + buybacks;
+    const growth = growthProposal(
+      {
+        historicalGrowth: growthHistory,
+        revenueGrowth,
+        payoutLevel: uncapped,
+        earningsLevel: level,
+        equityPerShare,
+        lossesAtEnd: endLosses,
+      },
+      params,
+    );
     details.retentionCap = growth.retentionCap;
     if (growth.value !== null) values.growth = growth.value;
     else
       notes.push(
         "Historisches Wachstum nicht bestimmbar (Verluste am Anfang oder Ende der Reihe, Umsatz unvollständig), Wachstum muss von Hand gesetzt werden.",
       );
+    const shifted =
+      inflationGap !== 0
+        ? ` (in ${stock.reportingCurrency}, Euro-Kaufkraft um ${germanPercent(inflationGap)} Inflationsabstand verschoben)`
+        : "";
     if (growth.fromRevenue)
       notes.push(
-        `Gewinnwachstum nicht bestimmbar (Verluste am ${endLosses ? "Ende" : "Anfang"} der Reihe): Vorschlag aus dem Umsatzwachstum je Aktie von ${(revenueGrowth! * 100).toFixed(1).replace(".", ",").replace("-", "−")} %, begrenzt auf −5 % bis ${endLosses ? "0 %" : "3 %"}.`,
+        `Gewinnwachstum nicht bestimmbar (Verluste am ${endLosses ? "Ende" : "Anfang"} der Reihe): Vorschlag aus dem Umsatzwachstum je Aktie von ${germanPercent(revenueGrowth!)}, begrenzt auf ${limitPercent(params.minGrowth)} bis ${limitPercent(endLosses ? params.inflationGap : params.maxGrowthFromRevenue)}${shifted}.`,
       );
-    if (growth.shrinking)
+    if (growth.shrinking) {
+      const nominalGrowth =
+        inflationGap !== 0 && growthHistory! >= 0 ? " (nominal wächst er, aber langsamer als der Inflationsabstand)" : "";
+      const floor = `${limitPercent(params.minGrowth)}${inflationGap !== 0 ? ", Euro-Kaufkraft um den Inflationsabstand verschoben" : ""}`;
+      // Greift die Untergrenze, ist der Vorschlag nicht das gemessene Wachstum, sondern der Mindestwert.
       notes.push(
-        `Gewinn schrumpft: Vorschlag ist das gemessene Wachstum von ${(growth.value! * 100).toFixed(1).replace(".", ",").replace("-", "−")} % (Untergrenze −5 %), der Rückfluss schrumpft damit dauerhaft.`,
+        growth.value! > growthHistory! + 1e-12
+          ? `Gewinn schrumpft${nominalGrowth}: Gemessen sind ${germanPercent(growthHistory!)}, der Vorschlag ist die Untergrenze von ${floor}; der Rückfluss schrumpft damit dauerhaft.`
+          : `Gewinn schrumpft${nominalGrowth}: Vorschlag ist das gemessene Wachstum von ${germanPercent(growth.value!)} (Untergrenze ${floor}), der Rückfluss schrumpft damit dauerhaft.`,
       );
+    }
     if (equityPerShare <= 0) notes.push("Eigenkapital negativ, die Wachstumsgrenze aus Einbehaltung entfällt.");
   }
 
   // Risikofaktoren aus Zahlen
   // Der Bonus für stetig steigende Gewinne verlangt die volle Reihe.
-  const earned = proposeEarnings(
-    eps,
-    ten.map((y) => y.ebit),
-  );
   const earningsRating = short ? Math.max(0, earned) : earned;
   values["risk.earnings"] = earningsRating;
   if (last.totalAssets !== null && reportingPerEur !== null) values["risk.size"] = proposeSize(last.totalAssets / reportingPerEur);
@@ -415,12 +527,19 @@ export interface Valuation {
    * Ausschüttungsquote heute und am Ende der Abschmelzphase, wenn die Rechnung eine steigende Quote annimmt;
    * sonst `null` (kein Gewinnniveau, schon volle Ausschüttung oder einbehaltene Gewinne ohne Wachstum).
    */
-  payoutRatio: { now: number; terminal: number } | null;
+  payoutRatio: {
+    now: number;
+    terminal: number;
+    /** Ungedeckelter Rückfluss, auf den sich die Quote bezieht, wenn ein Deckel greift und die Quote mit gekürztem Gewinnniveau rechnet; sonst `null`. */
+    uncappedPayout: number | null;
+  } | null;
 }
 
 /**
  * Führt Vorschläge und manuelle Werte zusammen und rechnet die innere Rendite.
  * @param earningsLevel Gewinnniveau je Aktie aus den Vorschlägen; ohne es bleibt die Ausschüttungsquote in der Rechnung fest.
+ * @param cappedEarningsLevel Gekürztes Gewinnniveau (`payoutEarningsLevel`), wenn ein Deckel den vorgeschlagenen Rückfluss
+ *   gesenkt hat. Es gilt nur für den Vorschlag; ist der Rückfluss von Hand gesetzt, gilt `earningsLevel`.
  */
 export function evaluate(
   proposals: InputValues,
@@ -428,8 +547,10 @@ export function evaluate(
   price: number | null,
   inflationGap = 0,
   earningsLevel: number | null = null,
+  cappedEarningsLevel: number | null = null,
 ): Valuation {
   const inputs: InputValues = { ...proposals, ...manualValues };
+  const ratioEarnings = manualValues.payoutLevel === undefined && cappedEarningsLevel !== null ? cappedEarningsLevel : earningsLevel;
   const manual = INPUT_KEYS.filter((key) => manualValues[key] !== undefined);
   const missing = INPUT_KEYS.filter((key) => inputs[key] === undefined);
 
@@ -442,10 +563,13 @@ export function evaluate(
   const probability = defaultProbability(risk.score);
   const { payoutLevel, growth } = inputs;
   const returnInputs =
-    payoutLevel !== undefined && growth !== undefined ? { payoutLevel, growth, defaultProbability: probability, earningsLevel } : null;
-  const local = price !== null && returnInputs ? scenarioReturns(price, returnInputs) : null;
-  const terminalRatio = returnInputs && terminalPayoutRatio(returnInputs);
-  const ratioNow = returnInputs && earningsLevel ? returnInputs.payoutLevel / earningsLevel : null;
+    payoutLevel !== undefined && growth !== undefined
+      ? { payoutLevel, growth, defaultProbability: probability, earningsLevel: ratioEarnings }
+      : null;
+  const params = returnParamsFor(inflationGap);
+  const local = price !== null && returnInputs ? scenarioReturns(price, returnInputs, undefined, params) : null;
+  const terminalRatio = returnInputs && terminalPayoutRatio(returnInputs, params);
+  const ratioNow = returnInputs && ratioEarnings ? returnInputs.payoutLevel / ratioEarnings : null;
   const returns = local && {
     cautious: comparableReturn(local.cautious, inflationGap),
     base: comparableReturn(local.base, inflationGap),
@@ -465,7 +589,16 @@ export function evaluate(
     inflationGap,
     returnInputs,
     payoutRatio:
-      terminalRatio != null && ratioNow !== null && terminalRatio > ratioNow + 1e-9 ? { now: ratioNow, terminal: terminalRatio } : null,
+      terminalRatio != null && ratioNow !== null && terminalRatio > ratioNow + 1e-9
+        ? {
+            now: ratioNow,
+            terminal: terminalRatio,
+            uncappedPayout:
+              earningsLevel !== null && ratioEarnings !== earningsLevel && returnInputs
+                ? (returnInputs.payoutLevel * earningsLevel) / ratioEarnings!
+                : null,
+          }
+        : null,
   };
 }
 
@@ -491,16 +624,17 @@ export function evaluateFields(
   price: number | null,
   inflationGap: number,
   earningsLevel: number | null,
+  cappedEarningsLevel: number | null = null,
 ): Valuation | { error: string } {
   const manualValues: InputValues = {};
   for (const key of INPUT_KEYS) {
     const text = fields[key]?.trim() ?? "";
     if (text === "") continue;
-    const parsed = parseManualInput(key, text);
+    const parsed = parseManualInput(key, text, inflationGap);
     if ("error" in parsed) return parsed;
     manualValues[key] = parsed.value;
   }
-  return evaluate(proposals, manualValues, price, inflationGap, earningsLevel);
+  return evaluate(proposals, manualValues, price, inflationGap, earningsLevel, cappedEarningsLevel);
 }
 
 /**
@@ -516,7 +650,11 @@ export function priceSensitivity(
   if (price === null || returnInputs === null) return [];
   return steps.map((step) => {
     const shifted = price * (1 + step);
-    return { step, price: shifted, innerReturn: comparableReturn(innerReturn(shifted, returnInputs), inflationGap) };
+    return {
+      step,
+      price: shifted,
+      innerReturn: comparableReturn(innerReturn(shifted, returnInputs, returnParamsFor(inflationGap)), inflationGap),
+    };
   });
 }
 
@@ -527,16 +665,37 @@ export function priceInReportingCurrency(price: number, pricePerEur: number | nu
 }
 
 /**
+ * Erlaubter Bereich für das Wachstum von Hand in Prozent: −20 bis 30 % in Euro-Kaufkraft, in der Berichtswährung
+ * verschoben und nach innen auf Zehntel gerundet. Formular, Prüfung und Meldung nehmen alle diese Zahlen. Die Toleranz
+ * fängt Gleitkommarauschen ab (−5,99999… zählt als −6,0).
+ */
+export function growthInputBounds(inflationGap: number): { min: number; max: number } {
+  const tolerance = 1e-6;
+  return {
+    min: Math.ceil(toLocalTerms(-0.2, inflationGap) * 1000 - tolerance) / 10,
+    max: Math.floor(toLocalTerms(0.3, inflationGap) * 1000 + tolerance) / 10,
+  };
+}
+
+/** Der Bereich als Text, z. B. „−20 bis 30 %“. */
+export function growthRangeText(inflationGap: number): string {
+  const { min, max } = growthInputBounds(inflationGap);
+  const shown = (value: number) => value.toFixed(1).replace(".", ",").replace(",0", "").replace("-", "−");
+  return `${shown(min)} bis ${shown(max)} %`;
+}
+
+/**
  * Prüft eine Eingabe von Hand. Rückfluss als Betrag je Aktie, alles andere in Prozent (5 = 5 %, Komma erlaubt).
  * Liefert den Wert als Anteil oder eine Fehlermeldung.
  */
-export function parseManualInput(key: InputKey, text: string): { value: number } | { error: string } {
+export function parseManualInput(key: InputKey, text: string, inflationGap = 0): { value: number } | { error: string } {
   const entered = Number(text.trim().replace(",", "."));
   if (text.trim() === "" || !Number.isFinite(entered)) return { error: `"${text}" ist keine Zahl.` };
   if (key === "payoutLevel") return entered < 0 ? { error: "Der Rückfluss darf nicht negativ sein." } : { value: entered };
   const value = entered / 100;
   if (key === "growth") {
-    return value < -0.2 || value > 0.3 ? { error: "Wachstum: erlaubt sind −20 bis 30 %." } : { value };
+    const { min, max } = growthInputBounds(inflationGap);
+    return entered < min - 1e-9 || entered > max + 1e-9 ? { error: `Wachstum: erlaubt sind ${growthRangeText(inflationGap)}.` } : { value };
   }
   const factor = RISK_FACTORS[key.slice(5) as RiskFactorId];
   if (value > factor.maxDeduction + 1e-9 || value < -factor.bonus - 1e-9) {

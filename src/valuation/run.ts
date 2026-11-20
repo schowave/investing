@@ -16,7 +16,7 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  * rechnet dann alle gespeicherten Stände neu (`recomputeAll`), und „Bewertung prüfen“ sagt dazu, dass Verschiebungen
  * seit der Bewertung auch aus der neuen Rechnung kommen können.
  */
-export const CALC_VERSION = 2;
+export const CALC_VERSION = 8;
 
 /** Gespeicherter Tagesstand; nur `calcVersion` und die Vorschläge werden wieder gelesen. */
 const StoredDetails = z.object({
@@ -43,6 +43,18 @@ export interface StockValuation {
   review: Review;
 }
 
+/**
+ * Erwartete Inflation der Berichtswährung minus die des Euro (IWF-Prognose, Abschnitt 7.1). Sie macht die Rendite mit
+ * dem Euro vergleichbar und verschiebt die Wachstumsgrenzen (Abschnitt 4.4). Für den Euro und ohne Prognose 0; fehlt die
+ * Prognose einer Fremdwährung, ist `missing` gesetzt.
+ */
+export function inflationGapOf(db: Database, stock: Stock): { gap: number; missing: boolean } {
+  if (stock.reportingCurrency === "EUR") return { gap: 0, missing: false };
+  const local = db.referenceRate(`inflation:${stock.reportingCurrency}`);
+  const euro = db.referenceRate("inflation:EUR");
+  return local !== null && euro !== null ? { gap: local - euro, missing: false } : { gap: 0, missing: true };
+}
+
 /** Rechnet die Bewertung, ohne etwas zu speichern. @param date ISO-Datum der Bewertung, z. B. 2026-11-19. */
 export function computeValuation(db: Database, stock: Stock, date: string): StockValuation {
   const reportingPerEur = db.latestFxRate(stock.reportingCurrency);
@@ -51,7 +63,11 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
     dividendsByYear: payments === null ? null : dividendsByYear(payments, stock.reportingCurrency, date),
     splits: db.splits(stock.id),
   };
-  const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)), history);
+  // Fremdwährung: Inflationsunterschied zum Euro verschiebt die Wachstumsgrenzen und wird von der Rendite abgezogen.
+  const { gap: inflationGap, missing: noForecast } = inflationGapOf(db, stock);
+  const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)), history, inflationGap);
+  if (noForecast)
+    proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
 
   const manual: InputValues = {};
   // Jedes Speichern der Bewertung setzt das Datum aller Eingaben von Hand neu; das jüngste ist der Tag der Bewertung.
@@ -67,16 +83,14 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
 
   const latest = db.latestPrice(stock.id);
   const price = latest ? priceInReportingCurrency(latest.close, db.latestFxRate(stock.priceCurrency), reportingPerEur) : null;
-  // Fremdwährung: Inflationsunterschied zum Euro abziehen, damit die Renditen vergleichbar sind.
-  let inflationGap = 0;
-  if (stock.reportingCurrency !== "EUR") {
-    const local = db.referenceRate(`inflation:${stock.reportingCurrency}`);
-    const euro = db.referenceRate("inflation:EUR");
-    if (local !== null && euro !== null) inflationGap = local - euro;
-    else
-      proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
-  }
-  const valuation = evaluate(proposals.values, manual, price, inflationGap, proposals.details.earningsLevel);
+  const valuation = evaluate(
+    proposals.values,
+    manual,
+    price,
+    inflationGap,
+    proposals.details.earningsLevel,
+    proposals.details.payoutEarningsLevel ?? null,
+  );
 
   // Verglichen wird mit dem Tagesstand vom Tag der Bewertung. Ihn speichern der Abgleich und das Speichern der Bewertung.
   const before = assessedOn === null ? null : storedBaseline(db.valuationDetailsAsOf(stock.id, assessedOn));
@@ -85,6 +99,7 @@ export function computeValuation(db: Database, stock: Stock, date: string): Stoc
     today: date,
     before: before?.basis ?? null,
     now: basisOf(proposals),
+    inflationGap,
     calcChanged: before !== null && before.calcVersion !== CALC_VERSION,
   });
 

@@ -5,7 +5,7 @@
 // (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Abschnitt 4.1: Was über sie hinausgeht,
 // deckt die Bewertung nicht mehr ab.
 
-import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS } from "../calc/index.ts";
+import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS, toEuroTerms } from "../calc/index.ts";
 
 /** Nach so vielen Monaten ist eine Bewertung überfällig (Buch: jährliche Prüfung). */
 export const REVIEW_MONTHS = 12;
@@ -60,10 +60,18 @@ function levelChange(label: string, before: number | null, now: number | null, t
   return `${label} ${number(before, 2)} → ${number(now, 2)}${Number.isFinite(shift) ? ` (${signed(shift)})` : ""}`;
 }
 
-function pointChange(label: string, before: number | null, now: number | null, threshold: number, digits: number): string | null {
+/** @param inflationGap Verglichen wird in Euro-Kaufkraft (Spezifikation 4.4); angezeigt werden die nominalen Werte. */
+function pointChange(
+  label: string,
+  before: number | null,
+  now: number | null,
+  threshold: number,
+  digits: number,
+  inflationGap = 0,
+): string | null {
   if (before === null && now === null) return null;
   if (before === null || now === null) return `${label}: ${before === null ? "neu" : "kein Vorschlag mehr"}`;
-  if (Math.abs(now - before) <= threshold + 1e-9) return null;
+  if (Math.abs(toEuroTerms(now, inflationGap) - toEuroTerms(before, inflationGap)) <= threshold + 1e-9) return null;
   return `${label} ${number(before * 100, digits)} % → ${number(now * 100, digits)} %`;
 }
 
@@ -76,6 +84,7 @@ function monthsLater(date: string, months: number): string {
 /**
  * @param before Grundlage am Tag der Bewertung; `null`, wenn kein Tagesstand aus dieser Zeit vorliegt.
  * @param now Grundlage heute.
+ * @param inflationGap Inflationsabstand der Berichtswährung (heutiger Wert für beide Stände); das Wachstum wird in Euro-Kaufkraft verglichen.
  * @param calcChanged Der Tagesstand von damals ist mit einer anderen Version der Rechnung entstanden.
  */
 export function reviewOf(args: {
@@ -84,6 +93,7 @@ export function reviewOf(args: {
   before: Basis | null;
   now: Basis;
   calcChanged?: boolean;
+  inflationGap?: number;
 }): Review {
   const { assessedOn, before, now } = args;
   if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false };
@@ -94,7 +104,7 @@ export function reviewOf(args: {
       : [
           levelChange("Rückfluss", before.payoutLevel, now.payoutLevel, spread.payoutFactor),
           levelChange("Gewinnniveau", before.earningsLevel, now.earningsLevel, spread.payoutFactor),
-          pointChange("Wachstum", before.growth, now.growth, spread.growthPoints, 1),
+          pointChange("Wachstum", before.growth, now.growth, spread.growthPoints, 1, args.inflationGap),
           pointChange("Risiko aus Zahlen", before.numberRisk, now.numberRisk, RISK_SHIFT, 0),
         ].filter((change): change is string => change !== null);
   return {

@@ -66,7 +66,12 @@ export default function Strategy() {
               dazu Aktienrückkäufe, aber nur netto: abgezogen werden neu ausgegebene Aktien und die Vergütung von Mitarbeitern in Aktien,
             </li>
             <li>
-              beides zusammen höchstens so viel, wie das Unternehmen an freiem Cashflow verdient. Ausschüttungen auf Pump zählen nicht.
+              beides zusammen höchstens so viel, wie das Unternehmen an freiem Cashflow verdient, nach Abzug der Aktienvergütung (der
+              Anbieter rechnet sie im Cashflow zurück, sie kostet die Eigentümer aber Verwässerung). Ausschüttungen auf Pump zählen nicht.
+            </li>
+            <li>
+              Bei Zyklikern, deren Gewinn Verluste oder Einbrüche zeigt, zählt der niedrigere Wert aus dem Mittel des freien Cashflows der
+              letzten fünf Jahre und dem Median der ganzen Reihe bis zu zehn Jahren; fünf Jahre im Hoch überschätzen sonst den Rückfluss.
             </li>
             <li>
               Liegen die Nettoschulden über dem {DEFAULT_DEBT_PARAMS.maxDebtToEbitda}-Fachen des EBITDA, wird der Überhang rechnerisch in{" "}
@@ -82,6 +87,13 @@ export default function Strategy() {
             {whole(DEFAULT_GROWTH_PARAMS.inflationAllowance)} für Preissteigerungen), und {percent(DEFAULT_GROWTH_PARAMS.maxGrowth)} als
             feste Obergrenze. Über {DEFAULT_RETURN_PARAMS.fadeYears} Jahre schmilzt es auf höchstens{" "}
             {whole(DEFAULT_RETURN_PARAMS.maxTerminalGrowth)} ab, denn kein Unternehmen wächst auf Dauer schneller als die Wirtschaft.
+          </p>
+          <p>
+            Diese Grenzen und die Schwelle bei 0 gelten in Euro-Kaufkraft. Bei Berichtswährungen mit höherer oder niedrigerer Inflation als
+            der Euro werden sie um den Inflationsabstand verschoben, damit die festen Grenzen in jeder Währung dasselbe bedeuten. Die Grenze
+            aus Einbehaltung rechnet dagegen mit der gemessenen, nominalen Eigenkapitalrendite; nur die Preissteigerung darin wird
+            verschoben. Ein Gewinn, der nominal langsamer wächst als der Abstand, schrumpft real und gilt als schrumpfend. Die Aktienseite
+            nennt die verschobenen Werte.
           </p>
           <p>
             Junge Börsenwerte mit weniger als {FULL_YEARS} Geschäftsjahren werden aus der kürzeren Reihe bewertet, sobald mindestens{" "}
@@ -227,11 +239,11 @@ export default function Strategy() {
             Die Strategie steht in der Tradition wertorientierten Investierens. Den Gedanken, Aktien über ihre innere Rendite zu ordnen und
             das Risiko über ein Raster von Abzügen zu fassen, verdankt sie Stefan Meißners Buch „Langfristige Vermögensvermehrung mit
             wertorientierten Investments" und seinem Ansatz „Yield Investing". Eigene Regeln sind: die Begrenzung der Rückflüsse auf den
-            freien Cashflow, der Abzug der Vergütung in Aktien, die Wachstumsgrenzen aus Umsatz und Einbehaltung, die Messung des Wachstums
-            am ganzen Unternehmen, das Abschmelzen des Wachstums, der Abzug für die Tilgung hoher Schulden, die Bewertung der Finanzierung
-            an der Ertragskraft, der Inflationsabgleich zwischen Währungen, die Anleiherendite als Untergrenze, das Maß, in dem einbehaltene
-            Gewinne zählen, die Umrechnung des Risikowerts in eine Ausfallwahrscheinlichkeit, die Bandbreite und die Tauschschwelle. Diese
-            Seite ist kein Angebot dieses Autors und nicht mit ihm abgestimmt.
+            freien Cashflow (bei Zyklikern über den ganzen Zyklus), der Abzug der Vergütung in Aktien, die Wachstumsgrenzen aus Umsatz und
+            Einbehaltung, die Messung des Wachstums am ganzen Unternehmen, das Abschmelzen des Wachstums, der Abzug für die Tilgung hoher
+            Schulden, die Bewertung der Finanzierung an der Ertragskraft, der Inflationsabgleich zwischen Währungen, die Anleiherendite als
+            Untergrenze, das Maß, in dem einbehaltene Gewinne zählen, die Umrechnung des Risikowerts in eine Ausfallwahrscheinlichkeit, die
+            Bandbreite und die Tauschschwelle. Diese Seite ist kein Angebot dieses Autors und nicht mit ihm abgestimmt.
           </p>
         </div>
       </div>

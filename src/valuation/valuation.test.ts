@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { dividendLevel, dividendWasCut } from "../calc/index.ts";
+import { dividendLevel, dividendWasCut, toLocalTerms } from "../calc/index.ts";
+import type { FundamentalsYear } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { foundedYearFrom, parseEodhdFundamentals, stockFromEodhd } from "../data/eodhdFundamentals.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
-import { valueStock } from "./run.ts";
+import { computeValuation, inflationGapOf, valueStock } from "./run.ts";
 import type { InputValues } from "./valuation.ts";
 import {
   dividendsByYear,
   doubtfulNumbers,
   evaluate,
   evaluateFields,
+  growthInputBounds,
+  growthRangeText,
   INPUT_KEYS,
+  parseManualInput,
   priceInReportingCurrency,
+  priceSensitivity,
   proposeInputs,
   unadjustedSplit,
   withSuggestions,
@@ -489,5 +494,545 @@ describe("doubtfulNumbers", () => {
     expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBe(
       "Aktiensplit vom 2025-02-11 ist in den Zahlen nicht bereinigt.",
     );
+  });
+});
+
+describe("Inflationsabstand und Wachstumsgrenzen", () => {
+  /** Stark wachsendes Unternehmen mit kleinem Eigenkapital, damit nur die Obergrenze 8,5 % greift. */
+  const growerYears = () =>
+    steadyYears((y, i) => {
+      y.epsDiluted = 5 * 1.3 ** i;
+      y.revenue = 5000 * 1.3 ** i;
+      y.equity = 1000;
+    });
+
+  it("deckelt das Wachstum in Euro-Kaufkraft: verschoben um den Abstand, unverändert beim Abstand 0", () => {
+    const euro = proposeInputs(stock, growerYears(), 1, 2026);
+    expect(euro.values.growth).toBeCloseTo(0.085);
+    expect(proposeInputs(stock, growerYears(), 1, 2026, undefined, 0).values.growth).toBe(euro.values.growth);
+    const lira = proposeInputs({ ...stock, reportingCurrency: "TRY" }, growerYears(), 1, 2026, undefined, 0.175);
+    expect(lira.values.growth).toBeCloseTo(toLocalTerms(0.085, 0.175));
+    expect(proposeInputs(stock, growerYears(), 1, 2026, undefined, -0.02).values.growth).toBeCloseTo(1.085 * 0.98 - 1);
+  });
+
+  it("nennt die verschobene Untergrenze, wenn das nominale Wachstum unter dem Abstand liegt", () => {
+    const slow = () => steadyYears();
+    // Wachstum etwa 1,8 % nominal bei 17,5 Punkten Abstand: real schrumpfend.
+    const lira = proposeInputs({ ...stock, reportingCurrency: "TRY" }, slow(), 1, 2026, undefined, 0.175);
+    expect(lira.notes.some((n) => n.includes("Gewinn schrumpft") && n.includes("Inflationsabstand"))).toBe(true);
+    // Die Untergrenze greift: Der Vorschlag ist nicht das gemessene Wachstum, und der Text sagt das.
+    expect(lira.values.growth).toBeCloseTo(toLocalTerms(-0.05, 0.175));
+    expect(lira.notes.some((n) => n.includes("Gemessen sind") && n.includes("Untergrenze von"))).toBe(true);
+    // Zwischen Untergrenze und Abstand bleibt das gemessene Wachstum.
+    const mild = proposeInputs(
+      { ...stock, reportingCurrency: "TRY" },
+      steadyYears((y, i) => (y.epsDiluted = 5 * 1.14 ** i)),
+      1,
+      2026,
+      undefined,
+      0.175,
+    );
+    expect(mild.values.growth).toBeCloseTo(mild.details.historicalGrowth!);
+    expect(mild.notes.some((n) => n.includes("Vorschlag ist das gemessene Wachstum"))).toBe(true);
+    expect(proposeInputs(stock, slow(), 1, 2026).notes.some((n) => n.includes("schrumpft"))).toBe(false);
+  });
+
+  it("verschiebt den erlaubten Bereich für Wachstum von Hand und hat dafür eine Quelle", () => {
+    expect(growthInputBounds(0)).toEqual({ min: -20, max: 30 });
+    expect(growthRangeText(0)).toBe("−20 bis 30 %");
+    expect(parseManualInput("growth", "50")).toEqual({ error: "Wachstum: erlaubt sind −20 bis 30 %." });
+    expect(parseManualInput("growth", "50", 0.4)).toEqual({ value: 0.5 });
+    // Nach innen auf Zehntel gerundet: 52,75 wird 52,7, und genau das nimmt auch die Prüfung.
+    expect(growthInputBounds(0.175)).toEqual({ min: -6, max: 52.7 });
+    expect(growthRangeText(0.175)).toBe("−6 bis 52,7 %");
+    expect(parseManualInput("growth", "52,7", 0.175)).toEqual({ value: 0.527 });
+    expect(parseManualInput("growth", "52,8", 0.175)).toEqual({ error: "Wachstum: erlaubt sind −6 bis 52,7 %." });
+    expect(parseManualInput("growth", "-6", 0.175)).toEqual({ value: -0.06 });
+    expect(parseManualInput("growth", "-6,1", 0.175)).toHaveProperty("error");
+    for (const gap of [-0.03, -0.0075, 0.0123, 0.175, 0.4]) {
+      const { min, max } = growthInputBounds(gap);
+      expect(parseManualInput("growth", String(min).replace(".", ","), gap)).toHaveProperty("value");
+      expect(parseManualInput("growth", String(max), gap)).toHaveProperty("value");
+      expect(parseManualInput("growth", String(min - 0.1), gap)).toHaveProperty("error");
+      expect(parseManualInput("growth", String(max + 0.1), gap)).toHaveProperty("error");
+      // Meldung und Formular nennen dieselben Zahlen.
+      expect((parseManualInput("growth", "1000", gap) as { error: string }).error).toContain(growthRangeText(gap));
+    }
+  });
+
+  it("verwendet in der Bewertung denselben Abstand für Vorschläge und Rendite", () => {
+    const db = new Database(":memory:");
+    const tryStock = { ...stock, id: "LIRA.IS", reportingCurrency: "TRY", priceCurrency: "TRY" };
+    db.addStockIfMissing(tryStock);
+    db.saveFundamentals(tryStock.id, growerYears(), "eodhd");
+    db.saveRawCloses(tryStock.id, [{ date: "2026-11-18", close: 40 }]);
+    db.saveFxRates("2026-11-18", { TRY: 40 });
+    expect(inflationGapOf(db, tryStock)).toEqual({ gap: 0, missing: true });
+    expect(inflationGapOf(db, stock)).toEqual({ gap: 0, missing: false });
+    expect(computeValuation(db, tryStock, "2026-11-19").proposals.notes.some((n) => n.includes("Keine Inflationsprognose"))).toBe(true);
+
+    db.setReferenceRate("inflation:TRY", 0.2, "2026-11-18");
+    db.setReferenceRate("inflation:EUR", 0.02, "2026-11-18");
+    const { gap } = inflationGapOf(db, tryStock);
+    expect(gap).toBeCloseTo(0.18);
+    const result = computeValuation(db, tryStock, "2026-11-19");
+    expect(result.valuation.inflationGap).toBeCloseTo(0.18);
+    expect(result.proposals.values.growth).toBeCloseTo(toLocalTerms(0.085, 0.18));
+    db.close();
+  });
+
+  describe("ganzer Weg", () => {
+    const price = 40;
+    /** Vergleichbare Rendite desselben Unternehmens in Euro und in einer Währung mit Abstand `gap`. */
+    function viaProposals(gap: number) {
+      const euro = proposeInputs(stock, growerYears(), 1, 2026);
+      const local = proposeInputs(stock, growerYears(), 1, 2026, undefined, gap);
+      const euroValuation = evaluate(euro.values, {}, price, 0, euro.details.earningsLevel);
+      // Dasselbe Unternehmen in Lokalwährung: Rückfluss und Gewinn nominal um den Abstand höher.
+      const localValuation = evaluate(
+        local.values,
+        { payoutLevel: euro.values.payoutLevel! * (1 + gap) },
+        price,
+        gap,
+        local.details.earningsLevel! * (1 + gap),
+      );
+      return { euro, local, euroValuation, localValuation };
+    }
+
+    it.each([0.175, -0.02, 0.0123])("liefert Euro und Fremdwährung bei Abstand %s dieselbe vergleichbare Rendite", (gap) => {
+      const { euro, local, euroValuation, localValuation } = viaProposals(gap);
+      // Die Grenze aus Einbehaltung bindet nicht (kleines Eigenkapital), die feste Grenze 8,5 % schon.
+      expect(euro.values.growth).toBeCloseTo(0.085);
+      expect(local.values.growth).toBeCloseTo(toLocalTerms(0.085, gap));
+      for (const key of ["base", "cautious", "optimistic"] as const) {
+        expect(localValuation.returns![key]!).toBeCloseTo(euroValuation.returns![key]!, 8);
+      }
+    });
+
+    it("rechnet die Grenze aus Einbehaltung in Fremdwährung mit nominaler Eigenkapitalrendite und verschobenen 2 %", () => {
+      const bound = () =>
+        steadyYears((y, i) => {
+          y.epsDiluted = 5 * 1.3 ** i;
+          y.revenue = 5000 * 1.3 ** i;
+        });
+      const euro = proposeInputs(stock, bound(), 1, 2026);
+      const lira = proposeInputs(stock, bound(), 1, 2026, undefined, 0.175);
+      expect(euro.values.growth).toBeCloseTo(euro.details.retentionCap!);
+      expect(lira.values.growth).toBeCloseTo(lira.details.retentionCap!);
+      // Nur die Preissteigerung wandert: derselbe Anteil aus Einbehaltung, 2 % werden 19,85 %.
+      expect(lira.details.retentionCap! - euro.details.retentionCap!).toBeCloseTo(toLocalTerms(0.02, 0.175) - 0.02);
+      expect(lira.details.retentionCap!).toBeLessThan(toLocalTerms(0.085, 0.175));
+    });
+
+    it("rechnet Rendite bei anderen Kursen mit dem verschobenen Dauerwachstum", () => {
+      const { localValuation: v } = viaProposals(0.175);
+      const steps = priceSensitivity(v, [-0.1, 0, 0.1]);
+      expect(steps[1]!.innerReturn!).toBeCloseTo(v.returns!.base!, 10);
+      expect(steps[0]!.innerReturn!).toBeGreaterThan(steps[1]!.innerReturn!);
+      expect(steps[2]!.innerReturn!).toBeLessThan(steps[1]!.innerReturn!);
+      // Gleiche Kurse im Euro-Fall: dieselbe Rendite je Schritt.
+      const euro = priceSensitivity(viaProposals(0.175).euroValuation, [-0.1, 0.1]);
+      expect(steps[0]!.innerReturn!).toBeCloseTo(euro[0]!.innerReturn!, 8);
+      expect(steps[2]!.innerReturn!).toBeCloseTo(euro[1]!.innerReturn!, 8);
+    });
+
+    it("rechnet bei Rückfluss über dem Gewinn oder ohne Gewinnniveau mit Abstand ohne steigende Quote", () => {
+      const inputs: InputValues = { ...Object.fromEntries(INPUT_KEYS.map((key) => [key, 0])), payoutLevel: 3.09, growth: 0.2 };
+      const plain = evaluate(inputs, {}, 30, 0.175, null);
+      expect(plain.payoutRatio).toBeNull();
+      const over = evaluate(inputs, {}, 30, 0.175, 3);
+      expect(over.payoutRatio).toBeNull();
+      expect(over.returns).toEqual(plain.returns);
+      expect(plain.returns!.base).not.toBeNull();
+    });
+  });
+});
+
+describe("Tragbarer Rückfluss über den Zyklus und aktienbasierte Vergütung", () => {
+  /** Cashflow je Aktie 1 in den ersten fünf Jahren, 8 in den letzten; Verlustjahr (EBIT negativ) an Stelle `lossAt`, dazu hohe Dividende. */
+  const cycleYears = (lossAt: number | null = 4, change: (y: FundamentalsYear, i: number) => void = () => {}) =>
+    steadyYears((y, i) => {
+      y.freeCashFlow = i < 5 ? 100 : 800;
+      y.dividendPerShare = 5;
+      if (i === lossAt) {
+        y.epsDiluted = -1;
+        y.ebit = -100;
+      }
+      change(y, i);
+    });
+
+  it("nimmt bei Verlustjahr den Median der Reihe und sagt es", () => {
+    const { values, details, notes } = proposeInputs(stock, cycleYears(), 1, 2026);
+    expect(values["risk.earnings"]).toBeGreaterThan(0);
+    expect(details.sustainablePayout).toBeCloseTo(4.5);
+    expect(details.cashFlowWindow).toEqual({ years: 10, fiveYearAverage: 8, longMedian: 4.5, usedLong: true });
+    // Dividende 5 plus Rückkäufe 1 wären 6.
+    expect(values.payoutLevel).toBeCloseTo(4.5);
+    expect(notes.some((n) => n.includes("Zyklus: Faktor 1") && n.includes("4.50") && n.includes("8.00"))).toBe(true);
+    expect(notes.some((n) => n.includes("ganzer Zyklus"))).toBe(false);
+  });
+
+  it("rechnet Titel ohne Abzug in Faktor 1 wie bisher mit den letzten fünf Jahren", () => {
+    const { values, details, notes } = proposeInputs(stock, cycleYears(null), 1, 2026);
+    expect(values["risk.earnings"]).toBe(-0.1);
+    expect(details.sustainablePayout).toBeCloseTo(8);
+    expect(details.cashFlowWindow).toMatchObject({ years: 5, usedLong: false, longMedian: null });
+    expect(values.payoutLevel).toBeCloseTo(6);
+    expect(notes.some((n) => n.includes("Zyklus"))).toBe(false);
+  });
+
+  it("maßgeblich ist der Vorschlag für Faktor 1, nicht eine Übersteuerung", () => {
+    // `proposeInputs` kennt keine manuellen Werte; der Zehnjahreswert hängt allein am Vorschlag.
+    const { values, details } = proposeInputs(stock, cycleYears(), 1, 2026);
+    expect(values["risk.earnings"]).toBe(0.25);
+    expect(details.cashFlowWindow?.usedLong).toBe(true);
+  });
+
+  it("weist bei kurzer Reihe auf den womöglich nicht abgedeckten Zyklus hin", () => {
+    // Sieben Jahre: Cashflow 1, 1, 1, 1, 8, 8, 8 je Aktie; Verlustjahr im zweiten.
+    const years = cycleYears(4, (y, i) => {
+      y.freeCashFlow = i < 7 ? 100 : 800;
+    }).slice(3);
+    const { details, notes } = proposeInputs(stock, years, 1, 2026);
+    expect(details.cashFlowWindow).toMatchObject({ years: 7, usedLong: true, longMedian: 1 });
+    expect(details.sustainablePayout).toBeCloseTo(1);
+    expect(notes.some((n) => n.includes("ganzer Zyklus"))).toBe(true);
+  });
+
+  it("nimmt bei Immobilienwerten den operativen Cashflow über die ganze Reihe", () => {
+    const years = cycleYears(4, (y, i) => {
+      y.freeCashFlow = -500;
+      y.operatingCashFlow = i < 5 ? 100 : 800;
+    });
+    const reit = proposeInputs({ ...stock, sector: "Real Estate" }, years, 1, 2026);
+    expect(reit.details.sustainableFrom).toBe("operatingCashFlow");
+    expect(reit.details.sustainablePayout).toBeCloseTo(4.5);
+    expect(reit.notes.some((n) => n.includes("operativen Cashflows"))).toBe(true);
+  });
+
+  it("rechnet in Fremdwährung ältere Jahre mit dem Inflationsabstand hoch", () => {
+    const nominal = proposeInputs(stock, cycleYears(), 1, 2026, undefined, 0);
+    const gap = 0.05;
+    const lifted = proposeInputs({ ...stock, reportingCurrency: "TRY" }, cycleYears(), 1, 2026, undefined, gap);
+    const scaled = [1, 1, 1, 1, 1, 8, 8, 8, 8, 8].map((v, i) => v * (1 + gap) ** (9 - i)).sort((x, y) => x - y);
+    const expected = (scaled[4]! + scaled[5]!) / 2;
+    expect(nominal.details.cashFlowWindow?.longMedian).toBeCloseTo(4.5);
+    expect(lifted.details.cashFlowWindow?.longMedian).toBeCloseTo(expected, 10);
+    expect(lifted.details.sustainablePayout!).toBeGreaterThan(nominal.details.sustainablePayout!);
+    expect(lifted.notes.some((n) => n.includes("Inflationsabstand auf heutige Kaufkraft"))).toBe(true);
+  });
+
+  it("erhöht die Rendite durch die Zyklusregel nie: Einbehaltung und Quote rechnen mit dem Rückfluss ohne sie", () => {
+    // Dividende 3 plus Rückkäufe 1; Cashflow je Aktie im Hoch 5 oder über den Zyklus (Median 2,5); kleines Eigenkapital,
+    // damit die Grenze aus Einbehaltung nicht an der Preissteigerung klebt.
+    const years = (cashFlow: (i: number) => number) =>
+      cycleYears(4, (y, i) => {
+        y.dividendPerShare = 3;
+        y.equity = 1000;
+        y.freeCashFlow = cashFlow(i);
+      });
+    const plain = proposeInputs(
+      stock,
+      years(() => 500),
+      1,
+      2026,
+    );
+    const cyclic = proposeInputs(
+      stock,
+      years((i) => (i < 5 ? 0 : 500)),
+      1,
+      2026,
+    );
+    expect(plain.values.payoutLevel).toBeCloseTo(4);
+    expect(cyclic.values.payoutLevel).toBeCloseTo(2.5);
+    // Die Differenz ist kein einbehaltener Gewinn: Wachstumsgrenze und Wachstum bleiben wie ohne Zyklusregel.
+    expect(plain.details.retentionCap!).toBeGreaterThan(0.1);
+    expect(cyclic.details.retentionCap).toBeCloseTo(plain.details.retentionCap!, 12);
+    expect(cyclic.values.growth).toBeCloseTo(plain.values.growth!, 12);
+    // Die Quote der Rechnung bleibt: Das Gewinnniveau ist im Verhältnis der Rückflüsse gekürzt.
+    expect(cyclic.details.payoutEarningsLevel).toBeCloseTo((cyclic.details.earningsLevel! * 2.5) / 4, 12);
+    expect(plain.details.payoutEarningsLevel).toBeUndefined();
+    const base = (p: typeof plain, capped: number | null = p.details.payoutEarningsLevel ?? null) =>
+      evaluate(p.values, {}, 100, 0, p.details.earningsLevel, capped).returns!.base!;
+    expect(base(cyclic)).toBeLessThan(base(plain));
+    // Ohne die Kürzung stiege der später frei werdende Gewinn, und mit ihm die Rendite.
+    expect(base(cyclic, null)).toBeGreaterThan(base(cyclic));
+  });
+
+  it("lässt Finanzwerte beim Gewinnniveau, auch mit Zyklusabzug und Vergütung", () => {
+    const bank = { ...stock, isFinancial: true };
+    const plain = proposeInputs(bank, cycleYears(null), 1, 2026);
+    const cyclical = proposeInputs(
+      bank,
+      cycleYears(4, (y) => (y.stockBasedCompensation = 300)),
+      1,
+      2026,
+    );
+    expect(plain.details.sustainableFrom).toBe("earnings");
+    expect(cyclical.details.sustainableFrom).toBe("earnings");
+    expect(cyclical.details.sustainablePayout).toBe(cyclical.details.earningsLevel);
+    expect(cyclical.details.cashFlowWindow).toBeUndefined();
+    expect(cyclical.details.compensationPerShare).toBeUndefined();
+  });
+
+  describe("aktienbasierte Vergütung", () => {
+    /** Dividende 3, keine Rückkäufe, Cashflow 4 je Aktie, Vergütung 1,5 je Aktie: die Rückkäufe fangen sie nicht auf. */
+    const dilutive = (sbc: number | null) =>
+      steadyYears((y) => {
+        y.dividendPerShare = 3;
+        y.repurchases = 0;
+        y.stockBasedCompensation = sbc;
+      });
+
+    it("mindert den tragbaren Rückfluss und bringt den Deckel zum Greifen, mit Hinweis", () => {
+      const without = proposeInputs(stock, dilutive(null), 1, 2026);
+      expect(without.details.sustainablePayout).toBeCloseTo(4);
+      expect(without.values.payoutLevel).toBeCloseTo(3);
+      const withPay = proposeInputs(stock, dilutive(150), 1, 2026);
+      expect(withPay.details.compensationPerShare).toBeCloseTo(1.5);
+      expect(withPay.details.sustainablePayout).toBeCloseTo(2.5);
+      expect(withPay.values.payoutLevel).toBeCloseTo(2.5);
+      expect(withPay.notes.some((n) => n.includes("Vergütung") && n.includes("Deckelung"))).toBe(true);
+    });
+
+    it("zieht sie nicht doppelt ab: Rückkäufe über der Vergütung lassen die Deckelung unverändert", () => {
+      // Rückkäufe 3 je Aktie, Vergütung 1 je Aktie: Netto-Rückkäufe 2, Rückfluss 3 + 2 = 5 gegen Cashflow 4 minus 1.
+      const years = steadyYears((y) => {
+        y.dividendPerShare = 3;
+        y.repurchases = 300;
+        y.stockBasedCompensation = 100;
+      });
+      const { values, details, notes } = proposeInputs(stock, years, 1, 2026);
+      expect(details.netBuybacksPerShare).toBeCloseTo(2);
+      expect(details.sustainablePayout).toBeCloseTo(3);
+      expect(values.payoutLevel).toBeCloseTo(3);
+      // Ohne Vergütung wäre der Rückfluss 3 + 3 = 6, gedeckelt auf 4, abzüglich der Vergütung 3: dieselbe Zahl.
+      expect(notes.some((n) => n.includes("Deckelung"))).toBe(false);
+    });
+
+    it("bereinigt Datenfehler der Vergütung für Netto-Rückkäufe und Deckel gleich", () => {
+      // Eni: negative Vergütung hob die Netto-Rückkäufe auf 4 statt 1; sie ist kein verwertbarer Wert.
+      const negative = steadyYears((y) => {
+        y.stockBasedCompensation = -300;
+      });
+      const eni = proposeInputs(stock, negative, 1, 2026);
+      expect(eni.details.netBuybacksPerShare).toBeCloseTo(1);
+      expect(eni.details.compensationPerShare).toBe(0);
+      // Murphy: zwei Jahre das Tausendfache drücken die Netto-Rückkäufe nicht mehr auf 0.
+      const murphy = steadyYears((y, i) => {
+        y.stockBasedCompensation = i === 2 || i === 3 ? 100_000 : 20;
+      });
+      const result = proposeInputs(stock, murphy, 1, 2026);
+      expect(result.details.netBuybacksPerShare).toBeCloseTo(0.8);
+      expect(result.notes.some((n) => n.includes("Hundertfache"))).toBe(true);
+    });
+
+    it("mittelt fehlende Jahre nicht als 0, sondern über die Jahre mit Wert", () => {
+      const years = dilutive(null).map((y, i) =>
+        i === 7 ? { ...y, stockBasedCompensation: 150 } : i === 9 ? { ...y, stockBasedCompensation: 250 } : y,
+      );
+      const { details } = proposeInputs(stock, years, 1, 2026);
+      // Mittel aus 1,5 und 2,5; als 0 gezählt wären es 0,8.
+      expect(details.compensationPerShare).toBeCloseTo(2);
+    });
+
+    it("nimmt Ausreißer des Anbieters nicht in die Vergütung und meldet sie", () => {
+      const years = dilutive(150).map((y, i) => (i === 2 ? { ...y, stockBasedCompensation: 150e6 } : y));
+      const { details, notes } = proposeInputs(stock, years, 1, 2026);
+      expect(details.compensationPerShare).toBeCloseTo(1.5);
+      expect(notes.some((n) => n.includes("Hundertfache"))).toBe(true);
+    });
+
+    it("wirkt bei Zyklikern auf dieselben Jahre wie der Cashflow", () => {
+      const { details } = proposeInputs(
+        stock,
+        cycleYears(4, (y, i) => (y.stockBasedCompensation = i < 5 ? 0 : 200)),
+        1,
+        2026,
+      );
+      // Ganze Reihe: fünf Jahre ohne, fünf mit 2 je Aktie Vergütung, im Mittel 1.
+      expect(details.compensationPerShare).toBeCloseTo(1);
+      expect(details.sustainablePayout).toBeCloseTo(3.5);
+    });
+  });
+});
+
+describe("Deckel und Einbehaltung", () => {
+  /** Dividende 3, keine Rückkäufe, Cashflow `cashFlow` je Aktie, Vergütung `sbc` je Aktie; kleines Eigenkapital, damit Einbehaltung zählt. */
+  const years = (cashFlow: number, sbc: number | null, equity = 1000, grower = false) =>
+    steadyYears((y, i) => {
+      y.dividendPerShare = 3;
+      y.repurchases = 0;
+      y.freeCashFlow = cashFlow * 100;
+      y.stockBasedCompensation = sbc === null ? null : sbc * 100;
+      y.equity = equity;
+      if (grower) y.epsDiluted = 5 * 1.08 ** i;
+    });
+  const base = (p: ReturnType<typeof proposeInputs>) =>
+    evaluate(p.values, {}, 100, 0, p.details.earningsLevel, p.details.payoutEarningsLevel ?? null).returns?.base ?? null;
+
+  it("hebt Wachstum und Rendite nicht, wenn der Vergütungsabzug den Rückfluss senkt (WEX-artig)", () => {
+    const without = proposeInputs(stock, years(4, null), 1, 2026);
+    const withPay = proposeInputs(stock, years(4, 1.5), 1, 2026);
+    expect(without.values.payoutLevel).toBeCloseTo(3);
+    expect(withPay.values.payoutLevel).toBeCloseTo(2.5);
+    // Die 0,5 Differenz sind nicht einbehalten: Grenze, Wachstum und Quote bleiben wie ohne den Abzug.
+    expect(withPay.details.retentionCap).toBeCloseTo(without.details.retentionCap!, 12);
+    expect(withPay.values.growth).toBeCloseTo(without.values.growth!, 12);
+    expect(withPay.details.payoutEarningsLevel).toBeCloseTo((withPay.details.earningsLevel! * 2.5) / 3, 12);
+    expect(base(withPay)!).toBeLessThan(base(without)!);
+  });
+
+  it("senkt ein niedrigerer tragbarer Rückfluss bei sonst gleichen Daten die Rendite, hebt sie nie (Gitter)", () => {
+    for (const equity of [300, 1000, 5000, 1e9]) {
+      for (const grower of [false, true]) {
+        let previous = Infinity;
+        for (const cap of [8, 6, 5, 4, 3, 2.5, 2, 1, 0.5, 0.1]) {
+          const result = proposeInputs(stock, years(cap, null, equity, grower), 1, 2026);
+          const value = base(result) ?? -Infinity;
+          expect(value, `Eigenkapital ${equity}, Wachstum ${grower}, Cashflow ${cap}`).toBeLessThanOrEqual(previous + 1e-12);
+          previous = value;
+        }
+      }
+    }
+  });
+
+  it("rechnet bei manuellem Rückfluss die Quote gegen das ungekürzte Gewinnniveau", () => {
+    const proposals = { payoutLevel: 2.5, growth: 0.05 };
+    const proposed = evaluate(proposals, {}, 100, 0, 6, 4);
+    expect(proposed.returnInputs?.earningsLevel).toBe(4);
+    expect(proposed.payoutRatio?.now).toBeCloseTo(2.5 / 4);
+    const manual = evaluate(proposals, { payoutLevel: 2 }, 100, 0, 6, 4);
+    expect(manual.returnInputs?.earningsLevel).toBe(6);
+    expect(manual.payoutRatio?.now).toBeCloseTo(2 / 6);
+    // Ohne Kürzung gilt das Gewinnniveau wie bisher.
+    expect(evaluate(proposals, {}, 100, 0, 6).returnInputs?.earningsLevel).toBe(6);
+  });
+
+  const evaluated = (p: ReturnType<typeof proposeInputs>, manual: InputValues = {}, gap = 0) =>
+    evaluate(p.values, manual, 100, gap, p.details.earningsLevel, p.details.payoutEarningsLevel ?? null);
+
+  it("hebt auch den vorsichtigen und den optimistischen Fall nie, mit Inflationsabstand und mit Wachstum von Hand", () => {
+    const variants = [
+      { gap: 0, manual: {} as InputValues },
+      { gap: 0.1, manual: {} as InputValues },
+      { gap: 0, manual: { growth: 0.085 } as InputValues },
+      { gap: 0.1, manual: { growth: toLocalTerms(0.085, 0.1) } as InputValues },
+    ];
+    for (const { gap, manual } of variants) {
+      for (const equity of [300, 5000]) {
+        const previous = { cautious: Infinity, base: Infinity, optimistic: Infinity };
+        for (const cap of [8, 5, 3, 2, 1, 0.5]) {
+          const result = proposeInputs(stock, years(cap, null, equity, true), 1, 2026, undefined, gap);
+          const returns = evaluated(result, manual, gap).returns;
+          for (const key of ["cautious", "base", "optimistic"] as const) {
+            const value = returns?.[key] ?? -Infinity;
+            expect(value, `${key}, Abstand ${gap}, Eigenkapital ${equity}, Cashflow ${cap}`).toBeLessThanOrEqual(previous[key] + 1e-12);
+            previous[key] = value;
+          }
+        }
+      }
+    }
+  });
+
+  it("gilt die Quotenregel auch ohne Eigenkapital: dieselbe Rendite mit und ohne", () => {
+    // Dividende 3, freier Cashflow 1 (Deckel), Wachstum von Hand 8,5 %.
+    const withEquity = proposeInputs(stock, years(1, null, 1000), 1, 2026);
+    const noEquity = proposeInputs(
+      stock,
+      years(1, null).map((y) => ({ ...y, equity: null })),
+      1,
+      2026,
+    );
+    expect(noEquity.values.growth).toBeUndefined();
+    expect(noEquity.details.payoutEarningsLevel).toBeCloseTo(withEquity.details.payoutEarningsLevel!, 12);
+    const manual = { growth: 0.085 };
+    expect(evaluated(noEquity, manual).returns!.base!).toBeCloseTo(evaluated(withEquity, manual).returns!.base!, 12);
+  });
+
+  it("behandelt Deckel 0, ungedeckelten Rückfluss 0 und ungedeckelten Rückfluss über dem Gewinn", () => {
+    // Deckel 0: Der Cashflow trägt nichts; keine Rendite, aber auch kein Fehler.
+    const zero = proposeInputs(stock, years(0, null), 1, 2026);
+    expect(zero.values.payoutLevel).toBe(0);
+    expect(zero.details.payoutEarningsLevel).toBe(0);
+    expect(evaluated(zero, { growth: 0.05 }).returns?.base ?? null).toBeNull();
+    // Ungedeckelter Rückfluss 0: nichts zu deckeln, keine Kürzung.
+    const none = proposeInputs(
+      stock,
+      years(4, null).map((y) => ({ ...y, dividendPerShare: 0 })),
+      1,
+      2026,
+    );
+    expect(none.values.payoutLevel).toBe(0);
+    expect(none.details.payoutEarningsLevel).toBeUndefined();
+    // Ungedeckelt (8 je Aktie) über dem Gewinn (etwa 5,5), gedeckelt auf 2: Es gibt keine steigende Quote.
+    const high = proposeInputs(
+      stock,
+      years(2, null).map((y) => ({ ...y, dividendPerShare: 8 })),
+      1,
+      2026,
+    );
+    expect(high.values.payoutLevel).toBeCloseTo(2);
+    expect(high.details.payoutEarningsLevel).toBeCloseTo((high.details.earningsLevel! * 2) / 8, 12);
+    const valuation = evaluated(high, { growth: 0.05 });
+    expect(valuation.payoutRatio).toBeNull();
+  });
+
+  it("nennt den ungedeckelten Rückfluss, auf den sich die Quote bezieht", () => {
+    const capped = evaluate({ payoutLevel: 2.5, growth: 0.06 }, {}, 100, 0, 6, 4);
+    expect(capped.payoutRatio?.now).toBeCloseTo(2.5 / 4);
+    // Ungedeckelt: 2,5 / (4 / 6) = 3,75.
+    expect(capped.payoutRatio?.uncappedPayout).toBeCloseTo(3.75);
+    expect(evaluate({ payoutLevel: 2.5, growth: 0.06 }, {}, 100, 0, 6).payoutRatio?.uncappedPayout).toBeNull();
+    expect(evaluate({ payoutLevel: 2.5, growth: 0.06 }, { payoutLevel: 2 }, 100, 0, 6, 4).payoutRatio?.uncappedPayout).toBeNull();
+  });
+
+  it("gibt das gekürzte Gewinnniveau an Formular und Vorschläge-Vorschau weiter", () => {
+    const proposals = { ...Object.fromEntries(INPUT_KEYS.map((key) => [key, 0])), payoutLevel: 2.5, growth: 0.06 };
+    const viaFields = evaluateFields({}, proposals, 100, 0, 6, 4);
+    expect("error" in viaFields).toBe(false);
+    if ("error" in viaFields) return;
+    expect(viaFields.returnInputs?.earningsLevel).toBe(4);
+    const manualField = evaluateFields({ payoutLevel: "2" }, proposals, 100, 0, 6, 4);
+    expect("error" in manualField ? null : manualField.returnInputs?.earningsLevel).toBe(6);
+    // Die Vorschau mit Vorschlägen für offene Eingaben bleibt bei der wirksamen Quote.
+    const open = evaluate({ payoutLevel: 2.5, growth: 0.06 }, {}, 100, 0, 6, 4);
+    const filled = withSuggestions(open, { "risk.moat": 0 });
+    expect(filled?.returnInputs?.earningsLevel).toBe(4);
+    expect(filled?.returns?.base).toBeCloseTo(open.returns!.base!, 12);
+  });
+
+  it("reicht das gekürzte Gewinnniveau durch die Bewertung aus der Datenbank", () => {
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, years(1, null, 1000), "eodhd");
+    db.saveRawCloses(stock.id, [{ date: "2026-11-18", close: 100 }]);
+    const { proposals, valuation } = computeValuation(db, stock, "2026-11-19");
+    expect(proposals.details.payoutEarningsLevel).toBeDefined();
+    expect(valuation.returnInputs?.earningsLevel).toBeCloseTo(proposals.details.payoutEarningsLevel!, 12);
+    expect(valuation.returnInputs?.earningsLevel).toBeLessThan(proposals.details.earningsLevel!);
+    // Bei einem Rückfluss von Hand gilt das ungekürzte Gewinnniveau.
+    const manual = evaluate(
+      proposals.values,
+      { payoutLevel: valuation.inputs.payoutLevel },
+      100,
+      0,
+      proposals.details.earningsLevel,
+      proposals.details.payoutEarningsLevel ?? null,
+    );
+    expect(manual.returnInputs?.earningsLevel).toBeCloseTo(proposals.details.earningsLevel!, 12);
+    db.close();
+  });
+
+  it("meldet verworfene Vergütungsjahre auch bei Finanzwerten", () => {
+    const bank = { ...stock, isFinancial: true };
+    const result = proposeInputs(
+      bank,
+      years(4, null).map((y, i) => ({ ...y, stockBasedCompensation: i === 3 ? -500 : 100 })),
+      1,
+      2026,
+    );
+    expect(result.notes.some((n) => n.includes("negativem Wert") && n.includes("Netto-Rückkäufe"))).toBe(true);
+    expect(result.notes.some((n) => n.includes("Abzug vom Cashflow"))).toBe(false);
   });
 });

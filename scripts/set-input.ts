@@ -5,7 +5,7 @@
 //         pnpm run set IMB.LSE risk.moat -        manuellen Wert löschen, es gilt wieder der Vorschlag
 
 import { Database } from "../src/data/db.ts";
-import { assess } from "../src/valuation/run.ts";
+import { assess, inflationGapOf } from "../src/valuation/run.ts";
 import type { InputKey } from "../src/valuation/valuation.ts";
 import { INPUT_KEYS, parseManualInput } from "../src/valuation/valuation.ts";
 
@@ -27,7 +27,7 @@ if (rawValue === "-") {
   assess(db, stock, [{ key: inputKey, value: null }], today);
   console.log(`${stockId} ${key}: manueller Wert gelöscht.`);
 } else {
-  const parsed = parseManualInput(inputKey, rawValue!);
+  const parsed = parseManualInput(inputKey, rawValue!, inflationGapOf(db, stock).gap);
   if ("error" in parsed) fail(parsed.error);
   const value = (parsed as { value: number }).value;
   // Die Notiz gilt wie angegeben; ohne Angabe wird die alte gelöscht.

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   assessRisk,
   comparableReturn,
+  DEFAULT_GROWTH_PARAMS,
+  DEFAULT_RETURN_PARAMS,
   defaultProbability,
   dividendLevel,
   earningsLevel,
+  growthParamsFor,
   growthProposal,
   historicalGrowth,
   hurdleRate,
@@ -30,11 +33,16 @@ import {
   proposeSize,
   type RiskRatings,
   requiredDebtRepayment,
+  returnParamsFor,
   riskClass,
   type Stock,
   scenarioReturns,
+  sustainableCashFlow,
   targetPortfolio,
   terminalPayoutRatio,
+  toEuroTerms,
+  toLocalTerms,
+  usableCompensation,
   withHurdle,
 } from "./index.ts";
 
@@ -463,5 +471,279 @@ describe("Schulden, Währung und Hürde", () => {
     expect(isCandidate(stock("offen", 0.2, { complete: false }), profile)).toBe(false);
     expect(isCandidate(stock("riskant", 0.2, { riskScore: 0.75 }), profile)).toBe(false);
     expect(isCandidate(stock("ohne", 0.2, { innerReturn: null }), profile)).toBe(false);
+  });
+});
+
+describe("Wachstumsgrenzen je Währung (Abschnitt 4.4)", () => {
+  const LIRA = 0.175;
+  const euroCompany = { payoutLevel: 5, growth: 0.085, defaultProbability: 0.02 };
+  // Dasselbe Unternehmen in Lira: Rückfluss des kommenden Jahres, Gewinn und Wachstum nominal um den Abstand höher.
+  const liraCompany = (gap: number, extra: { earningsLevel?: number } = {}) => ({
+    payoutLevel: euroCompany.payoutLevel * (1 + gap),
+    growth: toLocalTerms(euroCompany.growth, gap),
+    defaultProbability: euroCompany.defaultProbability,
+    ...(extra.earningsLevel === undefined ? {} : { earningsLevel: extra.earningsLevel * (1 + gap) }),
+  });
+
+  it("rechnet beim Abstand 0 bitgleich wie bisher", () => {
+    expect(growthParamsFor(0)).toEqual(DEFAULT_GROWTH_PARAMS);
+    expect(returnParamsFor(0)).toEqual(DEFAULT_RETURN_PARAMS);
+    expect(toLocalTerms(0.085, 0)).toBe(0.085);
+    expect(toEuroTerms(0.085, 0)).toBe(0.085);
+  });
+
+  it("verschiebt die Grenzen in der Verhältnisform von comparableReturn", () => {
+    const params = growthParamsFor(LIRA);
+    expect(params.maxGrowth).toBeCloseTo(1.085 * 1.175 - 1);
+    expect(params.minGrowth).toBeCloseTo(0.95 * 1.175 - 1);
+    expect(params.inflationAllowance).toBeCloseTo(1.02 * 1.175 - 1);
+    expect(params.maxGrowthFromRevenue).toBeCloseTo(1.03 * 1.175 - 1);
+    expect(params.inflationGap).toBe(LIRA);
+    expect(toEuroTerms(toLocalTerms(0.03, LIRA), LIRA)).toBeCloseTo(0.03, 12);
+    expect(returnParamsFor(LIRA).maxTerminalGrowth).toBeCloseTo(1.03 * 1.175 - 1);
+    // Bei negativem Abstand (Franken) sinken sie.
+    expect(growthParamsFor(-0.02).maxGrowth).toBeLessThan(0.085);
+  });
+
+  it("liefert für dasselbe Unternehmen in Euro und Lira dieselbe vergleichbare Rendite", () => {
+    const euro = innerReturn(100, euroCompany)!;
+    const lira = comparableReturn(innerReturn(100, liraCompany(LIRA), returnParamsFor(LIRA)), LIRA)!;
+    expect(lira).toBeCloseTo(euro, 8);
+    // Auch mit steigender Ausschüttungsquote (Rendite des Einbehaltenen in Euro-Kaufkraft).
+    const euroGrower = { ...euroCompany, earningsLevel: 10 };
+    const liraGrower = liraCompany(LIRA, { earningsLevel: 10 });
+    expect(comparableReturn(innerReturn(100, liraGrower, returnParamsFor(LIRA)), LIRA)!).toBeCloseTo(innerReturn(100, euroGrower)!, 8);
+    // Die Bandbreite ist in Euro-Kaufkraft gleich breit.
+    const euroBand = scenarioReturns(100, euroGrower);
+    const liraBand = scenarioReturns(100, liraGrower, undefined, returnParamsFor(LIRA));
+    expect(comparableReturn(liraBand.cautious, LIRA)!).toBeCloseTo(euroBand.cautious!, 8);
+    expect(comparableReturn(liraBand.optimistic, LIRA)!).toBeCloseTo(euroBand.optimistic!, 8);
+  });
+
+  it("deckelt ohne Verschiebung das Wachstum zu früh (der Fehler, den die Verschiebung behebt)", () => {
+    const capped = { ...liraCompany(LIRA), growth: 0.085 };
+    const before = comparableReturn(innerReturn(100, capped), LIRA)!;
+    const after = comparableReturn(innerReturn(100, liraCompany(LIRA), returnParamsFor(LIRA)), LIRA)!;
+    expect(after - before).toBeGreaterThan(0.1);
+  });
+
+  it("gilt auch bei negativem Abstand", () => {
+    const gap = -0.02;
+    const euro = innerReturn(100, euroCompany)!;
+    const franc = comparableReturn(innerReturn(100, liraCompany(gap), returnParamsFor(gap)), gap)!;
+    expect(franc).toBeCloseTo(euro, 8);
+    const band = scenarioReturns(100, liraCompany(gap), undefined, returnParamsFor(gap));
+    const euroBand = scenarioReturns(100, euroCompany);
+    expect(comparableReturn(band.cautious, gap)!).toBeCloseTo(euroBand.cautious!, 8);
+  });
+
+  it("begrenzt den Wachstumsvorschlag in Euro-Kaufkraft", () => {
+    const args = { revenueGrowth: 0.5, payoutLevel: 1, earningsLevel: 10, equityPerShare: 20 };
+    const params = growthParamsFor(LIRA);
+    const cap = toLocalTerms(0.085, LIRA);
+    expect(growthProposal({ ...args, historicalGrowth: 0.12 }, DEFAULT_GROWTH_PARAMS).value).toBeCloseTo(0.085);
+    expect(growthProposal({ ...args, historicalGrowth: 0.3 }, params).value).toBeCloseTo(cap);
+    expect(growthProposal({ ...args, historicalGrowth: 0.3 }, params).shrinking).toBe(false);
+    // Unter der Grenze bleibt das gemessene Wachstum.
+    expect(growthProposal({ ...args, historicalGrowth: 0.22 }, params).value).toBeCloseTo(0.22);
+    // Negativer Abstand: die Grenze sinkt.
+    expect(growthProposal({ ...args, historicalGrowth: 0.2 }, growthParamsFor(-0.02)).value).toBeCloseTo(1.085 * 0.98 - 1);
+  });
+
+  it("behandelt nominales Wachstum unter dem Abstand als schrumpfend", () => {
+    const args = { revenueGrowth: 0.1, payoutLevel: 1, earningsLevel: 10, equityPerShare: 20 };
+    // 5 % nominal bei 17,5 Punkten Abstand sind real minus 10 %: Untergrenze (−5 % real) greift.
+    const result = growthProposal({ ...args, historicalGrowth: 0.05 }, growthParamsFor(LIRA));
+    expect(result.shrinking).toBe(true);
+    expect(result.value).toBeCloseTo(toLocalTerms(-0.05, LIRA));
+    // Im Euro dagegen wächst dasselbe Wachstum.
+    expect(growthProposal({ ...args, historicalGrowth: 0.05 }).shrinking).toBe(false);
+    // Real schrumpfend, aber über der Untergrenze (−4,3 % real): das gemessene Wachstum bleibt.
+    const mild = growthProposal({ ...args, historicalGrowth: 0.13 }, growthParamsFor(LIRA));
+    expect(mild.value).toBeCloseTo(0.13);
+    expect(mild.shrinking).toBe(true);
+  });
+
+  it("verschiebt auch die Schwellen bei 0 im Umsatzvorschlag", () => {
+    const args = { historicalGrowth: null, revenueGrowth: 0.5, payoutLevel: 1, earningsLevel: 100, equityPerShare: 10 };
+    const params = growthParamsFor(LIRA);
+    // Verluste am Ende: höchstens reales 0, also der Abstand.
+    expect(growthProposal({ ...args, lossesAtEnd: true }, params).value).toBeCloseTo(LIRA);
+    expect(growthProposal({ ...args, lossesAtEnd: false }, params).value).toBeCloseTo(toLocalTerms(0.03, LIRA));
+    expect(growthProposal({ ...args, revenueGrowth: -0.9, lossesAtEnd: true }, params).value).toBeCloseTo(toLocalTerms(-0.05, LIRA));
+    // Real schrumpfender Umsatz (5 % nominal) deckelt das Wachstum bei reinem 0, hier dem Abstand.
+    expect(growthProposal({ ...args, historicalGrowth: 0.4, revenueGrowth: 0.05 }, params).value).toBeCloseTo(LIRA);
+    expect(growthProposal({ ...args, historicalGrowth: 0.4, revenueGrowth: 0.05 }).value).toBeCloseTo(0.05);
+  });
+
+  it("behandelt Wachstum genau an der Schwelle nicht als schrumpfend (Gleitkommakante)", () => {
+    for (const gap of [-0.03, -0.0075, 0.0123, 0.175]) {
+      const atZero = toLocalTerms(0, gap);
+      const args = { revenueGrowth: 0.5, payoutLevel: 1, earningsLevel: 10, equityPerShare: 20 };
+      const result = growthProposal({ ...args, historicalGrowth: atZero }, growthParamsFor(gap));
+      expect(result.shrinking).toBe(false);
+      expect(result.value).toBeCloseTo(atZero, 12);
+      // Knapp darunter schrumpft er.
+      expect(growthProposal({ ...args, historicalGrowth: atZero - 0.001 }, growthParamsFor(gap)).shrinking).toBe(true);
+      // Die Bandbreite behandelt reales 0 ebenso: vorsichtig nicht unter 0 real.
+      const band = scenarioReturns(100, { ...euroCompany, growth: atZero }, undefined, returnParamsFor(gap));
+      const cautious = scenarioReturns(100, { ...euroCompany, growth: toLocalTerms(0, gap) - 0.0 }, undefined, returnParamsFor(gap));
+      expect(band.cautious).toBe(cautious.cautious);
+    }
+    expect(toEuroTerms(toLocalTerms(0, -0.03), -0.03)).toBeCloseTo(0, 15);
+  });
+});
+
+describe("Tragbarer Cashflow über den Zyklus", () => {
+  const cycle = [1, 1, 1, 1, 1, 8, 8, 8, 8, 8];
+  const medianOf = (values: number[]) => {
+    const sorted = [...values].sort((x, y) => x - y);
+    const m = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 1 ? sorted[m]! : (sorted[m - 1]! + sorted[m]!) / 2;
+  };
+
+  it("nimmt ohne Zyklusabzug das Mittel der letzten fünf Jahre, auch wenn die Reihe länger ist", () => {
+    const level = sustainableCashFlow(cycle)!;
+    expect(level.cashFlow).toBe(8);
+    expect(level.longMedian).toBeNull();
+    expect(level.usedLong).toBe(false);
+    expect(level.windowYears).toBe(5);
+  });
+
+  it("nimmt beim Zykliker den niedrigeren Wert aus Fünfjahresmittel und Median der ganzen Reihe", () => {
+    const level = sustainableCashFlow(cycle, { cyclical: true })!;
+    expect(level.fiveYearAverage).toBe(8);
+    expect(level.longMedian).toBe(4.5);
+    expect(level.cashFlow).toBe(4.5);
+    expect(level.usedLong).toBe(true);
+    expect(level.windowYears).toBe(10);
+    // Fiel der Zyklus in die letzten fünf Jahre, bleibt es bei diesen.
+    expect(sustainableCashFlow([8, 8, 8, 8, 8, 1, 2, 1, 2, 1], { cyclical: true })!.usedLong).toBe(false);
+    expect(sustainableCashFlow([4, 4, 4, 4, 4, 1, 2, 1, 2, 1], { cyclical: true })!.cashFlow).toBeCloseTo(1.4);
+  });
+
+  it("lässt einzelne stark negative Jahre den langen Wert nicht zerstören (Median statt Mittel)", () => {
+    // Drei Jahre mit Buchungsartefakt wie bei einer Finanzsparte; sonst ein Wert um 5, im letzten Jahrfünft höher.
+    const series = [-8, -7, -2, 5, 5, 5, 5, 5, 7, 7];
+    const level = sustainableCashFlow(series, { cyclical: true })!;
+    expect(level.longMedian).toBe(5);
+    expect(level.fiveYearAverage).toBeCloseTo(5.8);
+    expect(level.cashFlow).toBe(5);
+    // Das Mittel läge bei 2,2.
+    expect(series.reduce((sum, v) => sum + v, 0) / 10).toBeCloseTo(2.2);
+  });
+
+  it("rechnet ältere Jahre mit dem Inflationsabstand auf heutige Kaufkraft hoch, beim Abstand 0 ohne Wirkung", () => {
+    const gap = 0.1;
+    const level = sustainableCashFlow(cycle, { cyclical: true, inflationGap: gap })!;
+    const expected = medianOf(cycle.map((v, i) => v * (1 + gap) ** (cycle.length - 1 - i)));
+    expect(level.longMedian).toBeCloseTo(expected, 12);
+    expect(level.longMedian!).toBeGreaterThan(4.5);
+    expect(level.cashFlow).toBeCloseTo(Math.min(8, expected), 12);
+    expect(sustainableCashFlow(cycle, { cyclical: true, inflationGap: 0 })!.longMedian).toBe(4.5);
+    // Mit niedrigerer Inflation als der Euro schrumpfen ältere Jahre.
+    expect(sustainableCashFlow(cycle, { cyclical: true, inflationGap: -0.05 })!.longMedian!).toBeLessThan(4.5);
+  });
+
+  it("hält auch bei hohem Abstand und negativen älteren Jahren am Median fest", () => {
+    const gap = 0.5;
+    const series = [-5, -5, -5, -5, -5, 8, 8, 8, 8, 8];
+    const level = sustainableCashFlow(series, { cyclical: true, inflationGap: gap })!;
+    const expected = medianOf(series.map((v, i) => v * (1 + gap) ** (series.length - 1 - i)));
+    // Die negativen Jahre wachsen mit dem Abstand zu großen Fehlbeträgen; der Median bleibt von den Rändern unberührt.
+    expect(level.longMedian).toBeCloseTo(expected, 12);
+    expect(level.longMedian!).toBeLessThan(0);
+    expect(level.cashFlow).toBe(level.longMedian);
+    expect(level.usedLong).toBe(true);
+  });
+
+  it("nimmt bei fehlenden älteren Jahren den Median der vorhandenen und verlangt die letzten fünf", () => {
+    const gaps = [null, null, 1, 1, 1, 1, 1, 1, 1, 8];
+    const level = sustainableCashFlow(gaps, { cyclical: true })!;
+    expect(level.longMedian).toBe(1);
+    expect(level.windowYears).toBe(8);
+    expect(
+      sustainableCashFlow(
+        [1, 1, 1, 1, null, 8, 8, 8, 8, 8].map((v, i) => (i === 7 ? null : v)),
+        { cyclical: true },
+      ),
+    ).toBeNull();
+    // Fehlen alle älteren Jahre, gibt es keinen langen Wert (kein Hochrechnen derselben fünf Jahre).
+    expect(
+      sustainableCashFlow([null, null, null, null, null, 8, 8, 8, 8, 8], { cyclical: true, inflationGap: -0.1 })!.longMedian,
+    ).toBeNull();
+  });
+
+  it("greift bei kürzerer Reihe auf die vorhandene Länge", () => {
+    const short = [1, 1, 1, 1, 8, 8, 8];
+    const level = sustainableCashFlow(short, { cyclical: true })!;
+    expect(level.windowYears).toBe(7);
+    expect(level.longMedian).toBe(1);
+    expect(level.fiveYearAverage).toBeCloseTo(5.2);
+    expect(level.cashFlow).toBe(1);
+    expect(sustainableCashFlow(cycle.slice(5), { cyclical: true })!.longMedian).toBeNull();
+    expect(sustainableCashFlow(cycle.slice(6), { cyclical: true })).toBeNull();
+  });
+
+  it("zieht das Mittel der Vergütung derselben Jahre ab und mittelt nur über Jahre mit Wert", () => {
+    const sbc = [0, 0, 0, 0, 0, 2, 2, 2, 2, 2];
+    expect(sustainableCashFlow(cycle, { compensationPerShare: sbc })!.compensation).toBe(2);
+    // Ganze Reihe: fünf Jahre mit 0, fünf mit 2 gemeldet.
+    const long = sustainableCashFlow(cycle, { cyclical: true, compensationPerShare: sbc })!;
+    expect(long.usedLong).toBe(true);
+    expect(long.compensation).toBe(1);
+    // Fehlende Jahre zählen nicht als 0: Mittel aus 2 und 4.
+    const sparse = [null, null, null, null, null, 2, null, 4, null, null];
+    expect(sustainableCashFlow(cycle, { compensationPerShare: sparse })!.compensation).toBe(3);
+    expect(sustainableCashFlow(cycle, { cyclical: true, compensationPerShare: sparse })!.compensation).toBe(3);
+    // Kein Wert in der ganzen Reihe: 0.
+    expect(sustainableCashFlow(cycle, { compensationPerShare: sparse.map(() => null) })!.compensation).toBe(0);
+    expect(sustainableCashFlow(cycle)!.compensation).toBe(0);
+  });
+
+  it("zieht bei Zyklikern mit niedrigerem Fünfjahreswert die Vergütung der letzten fünf Jahre ab", () => {
+    const high = [8, 8, 8, 8, 8, 1, 2, 1, 2, 1];
+    const sbc = [9, 9, 9, 9, 9, 1, 1, 1, 1, 3];
+    const level = sustainableCashFlow(high, { cyclical: true, compensationPerShare: sbc })!;
+    expect(level.usedLong).toBe(false);
+    expect(level.cashFlow).toBeCloseTo(1.4);
+    expect(level.windowYears).toBe(5);
+    expect(level.compensation).toBeCloseTo(1.4);
+  });
+
+  it("rechnet die Vergütung des langen Fensters wie den Cashflow hoch", () => {
+    const gap = 0.1;
+    const sbc = cycle.map(() => 1);
+    const level = sustainableCashFlow(cycle, { cyclical: true, inflationGap: gap, compensationPerShare: sbc })!;
+    expect(level.usedLong).toBe(true);
+    expect(level.compensation).toBeCloseTo(cycle.reduce((sum, _, i) => sum + (1 + gap) ** (9 - i), 0) / 10, 12);
+  });
+});
+
+describe("Aktienbasierte Vergütung bereinigen", () => {
+  it("macht fehlende, negative und um das Tausendfache überhöhte Werte unbrauchbar, eine gemeldete 0 nicht", () => {
+    const raw = [59, 45, null, -8, 63000, 50, 47, 0, 49, 51];
+    const { values, flagged } = usableCompensation(raw);
+    expect(values).toEqual([59, 45, null, null, null, 50, 47, 0, 49, 51]);
+    expect(flagged).toBe(1);
+  });
+
+  it("lässt echtes Wachstum der Vergütung und Reihen unter drei positiven Jahren gelten", () => {
+    expect(usableCompensation([10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120]).flagged).toBe(0);
+    // Nur zwei positive Jahre: kein Median, kein Ausreißertest.
+    expect(usableCompensation([1, 5000, null, null, null]).flagged).toBe(0);
+    expect(usableCompensation([1, 5000, null, null, null]).values).toEqual([1, 5000, null, null, null]);
+  });
+
+  it("prüft nichts, wenn es keine positiven Jahre gibt (Median 0)", () => {
+    const { values, flagged } = usableCompensation([0, 0, 0, 0, 0, 0]);
+    expect(values).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(flagged).toBe(0);
+    expect(usableCompensation([0, 0, 0, 0, 5]).flagged).toBe(0);
+  });
+
+  it("erkennt nur grobe Fehler: das Fünfzigfache bleibt, das Hundertfünfzigfache fällt", () => {
+    expect(usableCompensation([10, 10, 10, 10, 500]).flagged).toBe(0);
+    expect(usableCompensation([10, 10, 10, 10, 1500]).flagged).toBe(1);
   });
 });

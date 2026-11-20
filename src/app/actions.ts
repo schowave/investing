@@ -6,7 +6,7 @@ import { z } from "zod";
 import { CONFIRM_CALLS, estimateHistory, estimateRefresh, JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
 import { judgeStock } from "../judgement/judge.ts";
-import { assess, type InputUpdate } from "../valuation/run.ts";
+import { assess, type InputUpdate, inflationGapOf } from "../valuation/run.ts";
 import { INPUT_KEYS, parseManualInput } from "../valuation/valuation.ts";
 import { safeOrigin, stockPath } from "./origin.ts";
 import { database, today } from "./server.ts";
@@ -19,13 +19,14 @@ export async function saveInputs(stockId: string, form: FormData): Promise<void>
   if (!stock) redirect("/");
 
   const updates: InputUpdate[] = [];
+  const { gap } = inflationGapOf(db, stock);
   for (const key of INPUT_KEYS) {
     const text = field(form.get(key));
     if (text === "") {
       updates.push({ key, value: null });
       continue;
     }
-    const parsed = parseManualInput(key, text);
+    const parsed = parseManualInput(key, text, gap);
     if ("error" in parsed) redirect(stockPath(stockId, von, { fehler: parsed.error }));
     updates.push({ key, value: parsed.value });
   }

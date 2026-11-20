@@ -95,6 +95,7 @@ export function guideFor(key: InputKey, isJudgement: boolean): Guide | null {
         "Ausgangspunkt ist der Vorschlag; die Herleitung steht rechts unter „Herleitung der Vorschläge“",
         "Angekündigte Dividende fürs kommende Jahr: Investor-Relations-Seite oder Dividendenkalender",
         "Netto-Rückkäufe: Programm aus der letzten Ergebnismeldung, je Aktie gerechnet, abzüglich neu ausgegebener Aktien",
+        "Obergrenze: Cashflow je Aktie aus der Kapitalflussrechnung, abzüglich Aktienvergütung; bei schwankendem Gewinn der Median über bis zu zehn Jahre",
       ],
     };
   if (key === "growth")

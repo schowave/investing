@@ -29,11 +29,11 @@ erwartet und das Unternehmen mit einer bestimmten Wahrscheinlichkeit ausfällt?�
 
 Drei Annahmen je Aktie gehen ein:
 
-| Annahme                                                                         | Woher sie kommt                                                                                                                           |
-| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Rückflussniveau** – was das Unternehmen im kommenden Jahr je Aktie zurückgibt | Dividendenniveau plus Netto-Rückkäufe der letzten Jahre, höchstens so viel, wie der freie Cashflow trägt                                  |
-| **Wachstum** der Rückflüsse                                                     | Das kleinste aus Gewinn- und Umsatzwachstum der letzten zehn Jahre, einer festen Obergrenze und dem, was das einbehaltene Kapital hergibt |
-| **Ausfallwahrscheinlichkeit** je Jahr                                           | Aus dem Risikowert abgeleitet (siehe unten)                                                                                               |
+| Annahme                                                                         | Woher sie kommt                                                                                                                                                                 |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rückflussniveau** – was das Unternehmen im kommenden Jahr je Aktie zurückgibt | Dividendenniveau plus Netto-Rückkäufe der letzten Jahre, höchstens so viel, wie der freie Cashflow trägt (nach Abzug der Aktienvergütung, bei Zyklikern über den ganzen Zyklus) |
+| **Wachstum** der Rückflüsse                                                     | Das kleinste aus Gewinn- und Umsatzwachstum der letzten zehn Jahre, einer festen Obergrenze und dem, was das einbehaltene Kapital hergibt                                       |
+| **Ausfallwahrscheinlichkeit** je Jahr                                           | Aus dem Risikowert abgeleitet (siehe unten)                                                                                                                                     |
 
 Das Wachstum schmilzt über 15 Jahre auf ein Dauerwachstum von höchstens 3 % ab, denn kein Unternehmen wächst
 ewig schneller als die Wirtschaft. Die innere Rendite ist dann der Zinssatz, bei dem der Barwert aller

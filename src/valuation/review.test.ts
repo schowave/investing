@@ -176,3 +176,22 @@ describe("Bewerten mit Eingaben von Hand", () => {
     db.close();
   });
 });
+
+describe("Wachstum in Euro-Kaufkraft", () => {
+  const base = { payoutLevel: 3, earningsLevel: 5, numberRisk: 0 };
+  const review = (before: number, now: number, inflationGap: number) =>
+    reviewOf({
+      assessedOn: "2026-01-01",
+      today: "2026-06-01",
+      before: { ...base, growth: before },
+      now: { ...base, growth: now },
+      inflationGap,
+    });
+
+  it("misst die Verschiebung von einem Punkt in Euro-Kaufkraft", () => {
+    // 1,15 Punkte nominal sind bei 17,5 Punkten Abstand weniger als ein Punkt real.
+    expect(review(0.1, 0.1115, 0).changes).toHaveLength(1);
+    expect(review(0.1, 0.1115, 0.175).changes).toHaveLength(0);
+    expect(review(0.1, 0.13, 0.175).changes).toHaveLength(1);
+  });
+});

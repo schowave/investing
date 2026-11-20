@@ -19,6 +19,8 @@ interface Props {
   price: number | null;
   inflationGap: number;
   earningsLevel: number | null;
+  /** Gekürztes Gewinnniveau für die Quote, wenn ein Deckel den vorgeschlagenen Rückfluss gesenkt hat. */
+  payoutEarningsLevel: number | null;
   /** Gespeicherter Stand; stimmt die Vorschau mit ihm überein, zeigt sie nichts. */
   saved: PreviewSummary;
   /** Vorschau für die vorausgefüllten Felder, schon auf dem Server gerechnet, damit nichts nachspringt. */
@@ -30,7 +32,7 @@ const shown = (s: PreviewSummary) => `${percent(s.base)}|${percent(s.riskScore, 
 
 /** Rechnet die Bewertung beim Tippen mit, so wie Speichern sie ergäbe. */
 export function LivePreview(props: Props) {
-  const { formId, proposals, price, inflationGap, earningsLevel } = props;
+  const { formId, proposals, price, inflationGap, earningsLevel, payoutEarningsLevel } = props;
   const [state, setState] = useState<PreviewSummary | { error: string }>(props.initial);
 
   useEffect(() => {
@@ -43,14 +45,14 @@ export function LivePreview(props: Props) {
         const value = data.get(key);
         if (typeof value === "string") fields[key] = value;
       }
-      const result = evaluateFields(fields, proposals, price, inflationGap, earningsLevel);
+      const result = evaluateFields(fields, proposals, price, inflationGap, earningsLevel, payoutEarningsLevel);
       setState(
         "error" in result ? result : { base: result.returns?.base ?? null, riskScore: result.riskScore, missing: result.missing.length },
       );
     };
     form.addEventListener("input", update);
     return () => form.removeEventListener("input", update);
-  }, [formId, proposals, price, inflationGap, earningsLevel]);
+  }, [formId, proposals, price, inflationGap, earningsLevel, payoutEarningsLevel]);
 
   if ("error" in state) {
     return props.variant === "figure" ? <span className="sub">Vorschau: {state.error}</span> : <span> Vorschau: {state.error}</span>;

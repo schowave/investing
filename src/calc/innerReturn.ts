@@ -23,6 +23,11 @@ export interface ReturnParams {
   inflationAllowance: number;
   /** Rendite, die einbehaltene Gewinne bringen müssen, damit sie voll als künftiger Rückfluss zählen. */
   returnOnRetained: number;
+  /**
+   * Inflationsabstand der Berichtswährung zum Euro. Die Grenzen oben sind dann schon verschoben (`returnParamsFor`);
+   * hier steht er für die Schwelle bei 0 (reales Nullwachstum) in der Bandbreite.
+   */
+  inflationGap: number;
 }
 
 export const DEFAULT_RETURN_PARAMS: ReturnParams = {
@@ -30,7 +35,31 @@ export const DEFAULT_RETURN_PARAMS: ReturnParams = {
   maxTerminalGrowth: 0.03,
   inflationAllowance: 0.02,
   returnOnRetained: 0.1,
+  inflationGap: 0,
 };
+
+/**
+ * Rechnet einen Wert in Euro-Kaufkraft in die Berichtswährung um (Spezifikation Abschnitt 4.4): `(1 + w) · (1 + Abstand) − 1`.
+ * Beim Abstand 0 bleibt der Wert bitgleich.
+ */
+export function toLocalTerms(euroValue: number, inflationGap: number): number {
+  return inflationGap === 0 ? euroValue : (1 + euroValue) * (1 + inflationGap) - 1;
+}
+
+/** Umkehrung von `toLocalTerms`: Wachstum in Berichtswährung in Euro-Kaufkraft. */
+export function toEuroTerms(localValue: number, inflationGap: number): number {
+  return inflationGap === 0 ? localValue : (1 + localValue) / (1 + inflationGap) - 1;
+}
+
+/** Parameter der Renditerechnung für eine Währung: die Grenzen gelten in Euro-Kaufkraft und werden um den Abstand verschoben. */
+export function returnParamsFor(inflationGap: number, base: ReturnParams = DEFAULT_RETURN_PARAMS): ReturnParams {
+  return {
+    ...base,
+    maxTerminalGrowth: toLocalTerms(base.maxTerminalGrowth, inflationGap),
+    inflationAllowance: toLocalTerms(base.inflationAllowance, inflationGap),
+    inflationGap,
+  };
+}
 
 /**
  * Ausschüttungsquote am Ende der Abschmelzphase (Spezifikation Abschnitt 4.3). Wer wächst, behält Gewinn ein; flacht das
@@ -44,11 +73,14 @@ export function terminalPayoutRatio(inputs: ReturnInputs, params: ReturnParams =
   const ratio = inputs.payoutLevel / earnings;
   if (ratio >= 1) return null;
   const terminalGrowth = Math.min(inputs.growth, params.maxTerminalGrowth);
+  // Wachstum über die Preissteigerung hinaus, in Euro-Kaufkraft: Die Rendite des Einbehaltenen gilt dort (beim Abstand 0 teilt
+  // `scale` durch 1).
+  const scale = 1 + params.inflationGap;
   // Auch das Dauerwachstum braucht noch etwas Kapital; der Rest des Gewinns kann zurückfließen.
-  const target = 1 - Math.max(0, terminalGrowth - params.inflationAllowance) / params.returnOnRetained;
+  const target = 1 - Math.max(0, (terminalGrowth - params.inflationAllowance) / scale) / params.returnOnRetained;
   if (target <= ratio) return ratio;
   // Rendite der einbehaltenen Gewinne: Wachstum über die Preissteigerung hinaus je einbehaltenem Anteil.
-  const earned = (inputs.growth - params.inflationAllowance) / (1 - ratio);
+  const earned = (inputs.growth - params.inflationAllowance) / scale / (1 - ratio);
   const credit = Math.min(1, Math.max(0, earned / params.returnOnRetained));
   return ratio + credit * (target - ratio);
 }
@@ -117,8 +149,12 @@ export function scenarioReturns(
   spread: ScenarioSpread = DEFAULT_SCENARIO_SPREAD,
   params: ReturnParams = DEFAULT_RETURN_PARAMS,
 ): ScenarioReturns {
-  // Vorsichtig: ein Prozentpunkt weniger, aber nicht unter 0, es sei denn, das Wachstum ist schon negativ.
-  const cautiousGrowth = inputs.growth < 0 ? inputs.growth - spread.growthPoints : Math.max(0, inputs.growth - spread.growthPoints);
+  // Vorsichtig: ein Prozentpunkt weniger, aber nicht unter 0, es sei denn, das Wachstum ist schon negativ. Prozentpunkte
+  // und die 0 gelten in Euro-Kaufkraft (beim Abstand 0 dasselbe wie nominal).
+  const gap = params.inflationGap;
+  const real = toEuroTerms(inputs.growth, gap);
+  const cautiousGrowth = toLocalTerms(real < -1e-9 ? real - spread.growthPoints : Math.max(0, real - spread.growthPoints), gap);
+  const optimisticGrowth = toLocalTerms(real + spread.growthPoints, gap);
   return {
     cautious: innerReturn(price, { ...inputs, ...scaled(inputs, 1 - spread.payoutFactor), growth: cautiousGrowth }, params),
     base: innerReturn(price, inputs, params),
@@ -127,7 +163,7 @@ export function scenarioReturns(
       {
         ...inputs,
         ...scaled(inputs, 1 + spread.payoutFactor),
-        growth: inputs.growth + spread.growthPoints,
+        growth: optimisticGrowth,
       },
       params,
     ),
