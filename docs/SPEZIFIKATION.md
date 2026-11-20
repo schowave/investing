@@ -598,4 +598,74 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 ## 14. Nicht in Version 1
 
 Steuern (Quellensteuer, Abgeltungsteuer), Transaktionskosten, Screening über den Gesamtmarkt,
-Broker-Anbindung, Backtest, maximaler Kaufpreis nach Buchmethode, Währungsprognosen.
+Broker-Anbindung, Backtest als Funktion der Oberfläche (als Werkzeug gibt es ihn, Abschnitt 15; er setzt Kosten an, die Anwendung nicht), maximaler Kaufpreis nach Buchmethode, Währungsprognosen.
+
+## 15. Rückblick und Vorwärtsprotokoll
+
+Zwei Werkzeuge prüfen die Strategie und jede Änderung daran. Beide sind Skripte, keine Seiten der Oberfläche. Der Plan, sie zu
+einer kontrollierten Verbesserung auszubauen, steht in `docs/Selbstlernende-Strategie.md`.
+
+### 15.1 Rückblick (`pnpm run backtest`)
+
+Rechnet rückwirkend, was das Zielportfolio eines Profils gebracht hätte. Er dient dazu, eine Änderung am Rechenmodell, an den
+Profilen oder an den Regeln vor dem Einbau zu prüfen; er sagt nichts über künftige Renditen.
+
+Verfahren:
+
+1. Stichtage sind die Monatsschlüsse im Abstand von drei Monaten ab dem Start (Standard Oktober 2016).
+2. Je Stichtag werden alle Titel des Datenvorrats mit demselben Rechenmodell wie in der Anwendung bewertet (`proposeInputs`,
+   `evaluate`), aber nur mit dem, was damals bekannt war: Abschlüsse bis zum letzten Geschäftsjahr, das ab Juni des Folgejahres als
+   veröffentlicht gilt, Schlusskurs und EZB-Kurs des Monatsschlusses, Dividenden bis zum Stichtag. Splits kennt der Rückblick alle: Der Rohkurs
+   des Stichtags wird durch die Splits danach geteilt, damit er zur Basis der (heutigen, bereinigten) Abschlüsse passt.
+3. Der Risikowert kommt nur aus den Zahlenfaktoren mit den Ersatzabzügen aus 6.1; Urteile und Eingaben von Hand fehlen. Das Ergebnis
+   ist ein unbeurteiltes Screening, nicht das Depot des Autors.
+4. Ausgeschlossen werden: Titel mit einem Marktwert unter 300 Mio. Euro; Titel, bei denen nach dem letzten bekannten Abschluss ein
+   Split lag (vor oder nach dem Stichtag) und die Abschlüsse ihn nicht nachweislich abbilden (die Aktienzahl springt nicht); Anleihen, die der Anbieter als Stammaktie
+   führt (Namen mit „Series“, „Notes“, „Preferred“); von mehreren Notierungen mit gleichen Zahlen alle bis auf die mit dem größten
+   Marktwert; Währungen ohne EZB-Kurs; Titel, deren Zahlen die Plausibilitätsprüfung aus 9 verwirft. Die Auswahl (Stammaktie, Anleihen, Marktwert,
+   Doppelnotierung) steht in `src/valuation/universe.ts` und gilt ebenso für das Vorwärtsprotokoll.
+5. Das Zielportfolio entsteht mit `targetPortfolio` des Profils; gehaltene Titel erhalten den Aufschlag der Tauschschwelle. Gehandelt
+   wird zum Monatsschlusskurs des Stichtags. Kosten 0,25 % je Handelsumsatz, Bargeld mit 3,4 % verzinst.
+6. Die Rendite je Monat ist die Gesamtrendite aus den um Splits und Dividenden bereinigten Kursen, umgerechnet in Euro. Fehlt ein
+   Monatsbalken, gilt der letzte davor. Endet eine Monatsreihe, bevor der Zeitraum zu Ende ist, und laufen auch die Tageskurse nicht
+   weiter, wird im dritten Monat ohne Kurs ein Verlust von 50 % angesetzt (Annahme: Einstellung). Eine Übernahme gegen bar zählt damit
+   ebenfalls als Verlust; die Zahl der Abschläge steht im Bericht.
+7. Umschlag ist zweiseitig gemessen (Käufe plus Verkäufe, als Anteil des Depots; ein voller Austausch zählt 200 %). Die Kosten gelten je
+   Handelsumsatz in diesem Sinn. Der Bericht nennt außerdem die Zahl der Ausreißer (Positionsmonate über +100 % oder unter −60 %), die
+   Gründe für übersprungene Titel und die Hürde des Laufs.
+
+Vergleichsgrößen:
+
+- **Index:** iShares Core MSCI World (EUNL.DE, thesaurierend, Euro). Die Kurse kommen von der inoffiziellen Schnittstelle von Yahoo
+  Finance; fehlen sie, läuft der Rückblick ohne Vergleich.
+- **Zufallsauswahl:** dieselben Kandidaten (nach Untergrenze und Filtern), Risikoabzüge, Limits und Kosten; die Rangfolge wird je Titel und
+  Kalenderjahr gewürfelt (gezogene Rendite 10 bis 30 %, gehaltene Titel behalten den Aufschlag der Tauschschwelle). 200 Läufe mit festen
+  Startwerten; der Bericht nennt auch deren Umschlag. Sie zeigt, was das Ranking über Zufall hinaus beiträgt.
+- **Rollende Fenster:** Dreijahresfenster, Start alle drei Monate. Sie überlappen stark; unabhängig sind nur wenige Zeiträume.
+
+Eine Änderung prüfen: auf `main` `pnpm run backtest --name main`, auf dem Zweig `pnpm run backtest --name aenderung --vergleich main`
+(beide Läufe im selben Checkout, mit derselben Datenbank und am selben Tag; der Vergleich bricht ab, wenn Zeitraum, Enddatum oder
+Fensterlänge abweichen, und warnt bei abweichenden Kosten, Hürde oder Datenbasis). Schnell geht es mit `--zufall 0 --ohne-index`.
+Gelesen wird der Median der Fenster vor dem Mittel, dazu der Anteil der Fenster, in denen die Änderung besser ist, der Umschlag und
+der größte Rückgang. Ein Vorsprung nur im Mittel oder nur in einem Zeitraum trägt keine Änderung. Das Ergebnis gehört in die
+Commit-Nachricht, zusammen mit den Grenzen.
+
+Grenzen: Survivorship-Bias (die Datenbank enthält fast nur heute geführte Titel; das hebt jedes Ergebnis), keine Urteile,
+Abschlüsse in heutiger Fassung statt der damaligen, Hürde (Anleiherendite von heute) und Inflationsabstand (heutige Prognose) für alle
+Stichtage, Handel zum Schlusskurs der Entscheidung, keine Steuern, die Annahme für eingestellte Titel (Verlust von 50 %, auch bei
+Übernahmen). Der Start ist eine Wahl: Für Titel genügen fünf Jahre Abschlüsse, die Datenbank hat sie etwa ab 2006; vor 2016 wird die
+Auswahl dünn.
+
+### 15.2 Vorwärtsprotokoll (`pnpm run forward`)
+
+Der Abgleich schreibt zum ersten Abgleich eines Monats in die Tabelle `forward_log`, welches Zielportfolio die Anwendung vorgeschlagen
+hätte, mit dem Euro-Kurs von damals. Je Profil gibt es zwei Arme:
+
+- **zahlen:** der ganze Datenvorrat, nur Zahlenfaktoren, ohne Eingaben von Hand (Titel mit Handeingaben werden ohne sie neu gerechnet),
+  mit denselben Filtern wie der Rückblick (`src/valuation/universe.ts`: Marktwert, Anleihen, Mehrfachnotierungen); die Zahlen kommen zum heutigen Kurs, nicht zu einem Stichtag.
+- **urteil:** die Watchlist mit allen Risikofaktoren, so wie die Anwendung vorschlägt.
+
+Gehaltene Titel (Aufschlag der Tauschschwelle) sind die des letzten Eintrags im selben Arm und Profil. `pnpm run forward` zeigt die
+Kursrendite seit dem Eintrag (ohne Dividenden und Kosten) und die Überschneidung der Arme. Das Protokoll ist die einzige Grundlage,
+auf der sich der Nutzen von Jev und Webrecherche ohne Rückschaufehler messen lässt; mit zehn bis zwölf Titeln ist ein Unterschied der
+Arme erst nach etwa zwei Jahren mehr als Rauschen.

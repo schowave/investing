@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
-import { logForward, MIN_MARKET_CAP_EUR } from "./forwardLog.ts";
+import { logForward } from "./forwardLog.ts";
 import { recomputeAll } from "./recompute.ts";
 import type { StockValuation } from "./run.ts";
 import { assess, computeValuation } from "./run.ts";
+import { MIN_MARKET_CAP_EUR } from "./universe.ts";
 
 const DATE = "2026-11-19";
 /** Schlusskurs, bei dem die Beispielzahlen die Mindestrendite beider Profile übertreffen. */

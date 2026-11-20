@@ -11,6 +11,7 @@ import type { Database } from "../data/db.ts";
 import { BOND_KEY } from "./portfolioRun.ts";
 import type { StockValuation } from "./run.ts";
 import { CALC_VERSION, computeValuation } from "./run.ts";
+import { fingerprint, isCommonShare, MIN_MARKET_CAP_EUR } from "./universe.ts";
 import { doubtfulNumbers } from "./valuation.ts";
 
 const FORWARD_ARMS = ["zahlen", "urteil"] as const;
@@ -19,11 +20,6 @@ const PROFILES: readonly { name: string; profile: Profile }[] = [
   { name: "fokussiert", profile: PROFILE_FOCUSED },
   { name: "global", profile: PROFILE_GLOBAL },
 ];
-
-/** Marktwert, unter dem ein Titel im Arm „zahlen“ nicht zählt (Kleinstwerte und Datenmüll, wie im Rückblick). */
-export const MIN_MARKET_CAP_EUR = 300e6;
-/** Anleihen, die der Anbieter als Stammaktie führt. */
-const NOT_A_SHARE = /\b(series|notes?|debentures?|preferred)\b/i;
 
 interface Candidate {
   id: string;
@@ -61,21 +57,15 @@ function candidateOf(db: Database, result: StockValuation, held: ReadonlyMap<str
   };
 }
 
-/**
- * Gleiche Zahlen unter verschiedenen Symbolen sind dasselbe Unternehmen (ADR, Zweitnotiz); der Fingerabdruck erkennt sie.
- * Ohne Gewinn je Aktie gibt es keinen belastbaren Fingerabdruck; dann steht der Titel für sich.
- */
+/** Marktwert in Euro und Fingerabdruck der Zahlen (Doppelnotierungen, siehe `fingerprint`) zum heutigen Kurs. */
 function marketCapAndFingerprint(db: Database, result: StockValuation): { capEur: number; fingerprint: string } | null {
   const { stock, valuation } = result;
   const last = db.fundamentals(stock.id).at(-1);
   const perEur = db.latestFxRate(stock.reportingCurrency);
   if (!last?.shares || last.shares <= 0 || valuation.price === null || !perEur) return null;
-  const eps = last.epsDiluted == null ? Number.NaN : Number(last.epsDiluted);
   return {
     capEur: (last.shares * valuation.price) / perEur,
-    fingerprint: Number.isFinite(eps)
-      ? `${stock.reportingCurrency}|${eps.toPrecision(5)}|${Number(last.shares).toPrecision(5)}`
-      : `id|${stock.id}`,
+    fingerprint: fingerprint(stock.id, stock.reportingCurrency, last.epsDiluted, last.shares),
   };
 }
 
@@ -115,8 +105,7 @@ function numberCandidates(
   for (const result of unjudged) {
     const { stock, valuation, proposals } = result;
     const base = valuation.returns?.base;
-    if (stock.securityType != null && stock.securityType !== "Common Stock") continue;
-    if (NOT_A_SHARE.test(stock.name) || base == null || base < minReturn) continue;
+    if (!isCommonShare(stock) || base == null || base < minReturn) continue;
     if (doubtfulNumbers(valuation, proposals) !== null) continue;
     const info = marketCapAndFingerprint(db, result);
     if (!info || info.capEur < MIN_MARKET_CAP_EUR) continue;
