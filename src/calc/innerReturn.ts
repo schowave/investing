@@ -117,7 +117,8 @@ export function scenarioReturns(
   spread: ScenarioSpread = DEFAULT_SCENARIO_SPREAD,
   params: ReturnParams = DEFAULT_RETURN_PARAMS,
 ): ScenarioReturns {
-  const cautiousGrowth = Math.min(inputs.growth, Math.max(0, inputs.growth - spread.growthPoints));
+  // Vorsichtig: ein Prozentpunkt weniger, aber nicht unter 0, es sei denn, das Wachstum ist schon negativ.
+  const cautiousGrowth = inputs.growth < 0 ? inputs.growth - spread.growthPoints : Math.max(0, inputs.growth - spread.growthPoints);
   return {
     cautious: innerReturn(price, { ...inputs, ...scaled(inputs, 1 - spread.payoutFactor), growth: cautiousGrowth }, params),
     base: innerReturn(price, inputs, params),

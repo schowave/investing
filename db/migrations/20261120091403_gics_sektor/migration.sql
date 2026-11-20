@@ -1,0 +1,1 @@
+ALTER TABLE `stocks` ADD `gic_sector` text;

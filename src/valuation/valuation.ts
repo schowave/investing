@@ -40,6 +40,10 @@ export type InputKey = "payoutLevel" | "growth" | `risk.${RiskFactorId}`;
 
 export const INPUT_KEYS: InputKey[] = ["payoutLevel", "growth", ...RISK_FACTOR_IDS.map((id) => `risk.${id}` as const)];
 
+/** Branchen, deren tragbarer Rückfluss aus dem operativen Cashflow kommt (Bezeichnung des Anbieters). */
+const REAL_ESTATE_SECTORS = ["Real Estate"];
+const REAL_ESTATE_GICS = "Real Estate";
+
 export type InputValues = Partial<Record<InputKey, number>>;
 
 export interface Proposals {
@@ -52,6 +56,8 @@ export interface Proposals {
     dividendLevel: number | null;
     netBuybacksPerShare: number | null;
     sustainablePayout: number | null;
+    /** Woraus der tragbare Rückfluss kommt; fehlt in Bewertungen, die vor dieser Angabe gespeichert wurden. */
+    sustainableFrom?: "freeCashFlow" | "operatingCashFlow" | "earnings";
     /** Gewinnwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
     historicalGrowth: number | null;
     /** Umsatzwachstum: das niedrigere aus je Aktie und Gesamtunternehmen. */
@@ -251,7 +257,17 @@ export function proposeInputs(
     if (repayment > 0)
       notes.push(`Hohe Schulden: ${repayment.toFixed(2)} je Aktie und Jahr sind für die Tilgung angesetzt und zählen nicht als Rückfluss.`);
   }
-  const sustainable = stock.isFinancial ? level : allNumbers(fcfPerShare) ? Math.max(0, mean(fcfPerShare) - repayment) : null;
+  // Immobilienwerte kaufen Objekte aus dem operativen Cashflow; der Anbieter zählt das als Investition, ihr freier
+  // Cashflow ist deshalb dauerhaft negativ. Der operative Cashflow steht für das, was sie ausschütten können (wie FFO).
+  // Der Anbieter führt auch Anleihen von Versorgern als REIT; deren Sektor nach GICS verrät sie.
+  const realEstate =
+    !stock.isFinancial && REAL_ESTATE_SECTORS.includes(stock.sector) && (stock.gicSector == null || stock.gicSector === REAL_ESTATE_GICS);
+  const cashFlowPerShare = realEstate
+    ? five.map((y) => (y.operatingCashFlow === null ? null : y.operatingCashFlow / y.shares!))
+    : fcfPerShare;
+  const sustainable = stock.isFinancial ? level : allNumbers(cashFlowPerShare) ? Math.max(0, mean(cashFlowPerShare) - repayment) : null;
+  details.sustainableFrom = stock.isFinancial ? "earnings" : realEstate ? "operatingCashFlow" : "freeCashFlow";
+  if (realEstate) notes.push("Immobilienwert: Der tragbare Rückfluss kommt aus dem operativen Cashflow statt aus dem freien Cashflow.");
   Object.assign(details, { earningsLevel: level, dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
 
   let payout: number | null = null;
@@ -259,7 +275,9 @@ export function proposeInputs(
     notes.push(
       stock.isFinancial
         ? "Gewinnniveau nicht bestimmbar, daher kein Vorschlag für den Rückfluss."
-        : "Freier Cashflow fehlt, daher kein Vorschlag für den Rückfluss.",
+        : realEstate
+          ? "Operativer Cashflow fehlt, daher kein Vorschlag für den Rückfluss."
+          : "Freier Cashflow fehlt, daher kein Vorschlag für den Rückfluss.",
     );
   } else {
     const proposal = payoutLevelProposal({ dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
@@ -293,7 +311,12 @@ export function proposeInputs(
     });
     details.retentionCap = growth.retentionCap;
     if (growth.value !== null) values.growth = growth.value;
-    else notes.push("Historisches Wachstum negativ oder nicht bestimmbar, Wachstum muss von Hand gesetzt werden.");
+    else
+      notes.push("Historisches Wachstum nicht bestimmbar (Verluste am Anfang oder Ende der Reihe), Wachstum muss von Hand gesetzt werden.");
+    if (growth.shrinking)
+      notes.push(
+        `Gewinn schrumpft: Vorschlag ist das gemessene Wachstum von ${(growth.value! * 100).toFixed(1).replace(".", ",").replace("-", "−")} % (Untergrenze −5 %), der Rückfluss schrumpft damit dauerhaft.`,
+      );
     if (equityPerShare <= 0) notes.push("Eigenkapital negativ, die Wachstumsgrenze aus Einbehaltung entfällt.");
   }
 

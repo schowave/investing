@@ -1,6 +1,6 @@
 # Spezifikation: Strategie „Rückflussrendite"
 
-Stand: 19.11.2026. Status: abgestimmt.
+Stand: 20.11.2026. Status: abgestimmt.
 
 ## 1. Zweck
 
@@ -75,11 +75,11 @@ Jede Aktie wird in drei Fällen gerechnet. Rangfolge, Untergrenze und Zielportfo
 verwenden den Basisfall; die Rangliste zeigt zusätzlich die Spanne. Rückfluss und Gewinnniveau
 verschieben sich gemeinsam, die Ausschüttungsquote bleibt.
 
-| Fall         | Rückflussniveau | Wachstum                              |
-| ------------ | --------------- | ------------------------------------- |
-| vorsichtig   | `R0 · 0,9`      | `g0 − 1 Prozentpunkt`, mindestens 0 % |
-| Basis        | `R0`            | `g0`                                  |
-| optimistisch | `R0 · 1,1`      | `g0 + 1 Prozentpunkt`                 |
+| Fall         | Rückflussniveau | Wachstum                                                                    |
+| ------------ | --------------- | --------------------------------------------------------------------------- |
+| vorsichtig   | `R0 · 0,9`      | `g0 − 1 Prozentpunkt`, mindestens 0 % (bei negativem `g0` ohne Untergrenze) |
+| Basis        | `R0`            | `g0`                                                                        |
+| optimistisch | `R0 · 1,1`      | `g0 + 1 Prozentpunkt`                                                       |
 
 Die Abstände sind Standardwerte und je Aktie übersteuerbar. Die Ausfallwahrscheinlichkeit ist
 in allen drei Fällen gleich.
@@ -149,13 +149,13 @@ Ausgabe neuer Aktien minus aktienbasierte Vergütung) geteilt durch die Aktienza
 mindestens 0.
 
 **Tragbarer Rückfluss je Aktie:** Durchschnitt des freien Cashflows je Aktie der letzten
-fünf Jahre, abzüglich der Tilgung überhöhter Schulden: Liegen die Nettoschulden über dem Dreifachen des EBITDA, wird der Überhang rechnerisch in zehn Jahren getilgt. Bei Banken und Versicherern stattdessen das Gewinnniveau.
+fünf Jahre, abzüglich der Tilgung überhöhter Schulden: Liegen die Nettoschulden über dem Dreifachen des EBITDA, wird der Überhang rechnerisch in zehn Jahren getilgt. Bei Banken und Versicherern stattdessen das Gewinnniveau. Bei Immobilienwerten (Branche „Real Estate“, auch nach GICS; der Anbieter führt Anleihen von Versorgern ebenfalls als REIT) tritt der operative Cashflow an die Stelle des freien: Sie kaufen Objekte aus dem laufenden Geld, der Anbieter zählt das als Investition, und ihr freier Cashflow bleibt dauerhaft negativ, obwohl sie verlässlich ausschütten. Der operative Cashflow steht für das, was sie ausschütten können (ähnlich FFO); die Tilgung überhöhter Schulden wird auch hier abgezogen.
 
 **Rückflussniveau `R0`:** Dividendenniveau plus Netto-Rückkäufe je Aktie, höchstens der
 tragbare Rückfluss. Rückkäufe, die nicht aus freiem Cashflow gedeckt sind, zählen damit
 nicht. Greift die Deckelung, zeigt die Oberfläche das an.
 
-**Wachstum `g0`:** der kleinste dieser vier Werte, mindestens 0 %:
+**Wachstum `g0`:** bei wachsendem Gewinn der kleinste dieser vier Werte, mindestens 0 %:
 
 - Wachstum des Gewinns nach obiger Formel,
 - Wachstum des Umsatzes nach derselben Formel (entfällt, wenn nicht bestimmbar),
@@ -167,9 +167,13 @@ nicht. Greift die Deckelung, zeigt die Oberfläche das an.
 
 Gewinn und Umsatz werden je Aktie und für das ganze Unternehmen gemessen; es gilt der niedrigere Wert. Rückkäufe stehen schon im Rückfluss und würden im Wachstum je Aktie ein zweites Mal zählen; bei Verwässerung ist der Wert je Aktie der niedrigere.
 
+Schrumpft der Gewinn (historisches Wachstum negativ), ist der Vorschlag das gemessene Wachstum, höchstens bis −5 %. Der
+Rückfluss schrumpft dann dauerhaft mit diesem Satz; das ist die vorsichtigste Annahme und trennt Wertfallen von
+Gelegenheiten, statt solche Titel ganz auszublenden. Die Oberfläche nennt das Schrumpfen.
+
 Bei negativem Eigenkapital entfällt die Grenze aus Einbehaltung, die Oberfläche weist darauf hin. Ist
-das historische Wachstum negativ oder nicht bestimmbar, gibt es keinen Vorschlag; der Wert
-muss manuell gesetzt werden.
+das historische Wachstum nicht bestimmbar (Durchschnitt am Anfang oder Ende der Reihe nicht positiv, meist wegen
+Verlustjahren), gibt es keinen Vorschlag; der Wert muss manuell gesetzt werden.
 
 ## 6. Risikobewertung
 
@@ -368,7 +372,7 @@ Backtest gibt es nicht.
 - Nach Ablauf des Monats gibt es keine neuen Fundamentaldaten und keine neuen Titel. Die Datenbankdatei ist dann die einzige Kopie. Siehe 9.1.
 - Kurse: Tagesschlusskurse von EODHD. Sperrt der Tarif die Kurshistorie (Tarif „Fundamentals"), liefert die Symbolsuche den letzten Schlusskurs; das kostet ebenfalls einen Abruf je Aktie.
 - Gewinn je Aktie wird aus Jahresüberschuss und Aktienzahl gerechnet, die Dividende je Aktie aus gezahlter Dividendensumme und Aktienzahl. Die fertigen Felder des Anbieters mischen außerhalb der USA Einheiten. Die so gerechnete Dividende schwankt leicht; ein Rückgang bis 3 % gilt nicht als Kürzung.
-- Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und aktienbasierte Vergütung zählen als 0. Fehlen Gewinn oder Aktienzahl in einem der zehn Jahre, gibt es keinen Vorschlag.
+- Nicht gemeldete Dividenden, Rückkäufe, Aktienausgaben und aktienbasierte Vergütung zählen als 0. Fehlt die Aktienzahl in der Bilanz eines Jahres, gilt die gemeldete Aktienzahl desselben Jahres (`outstandingShares`), sonst die des nächsten Jahres mit Bilanzangabe, höchstens zwei Jahre entfernt. Fehlen danach Gewinn oder Aktienzahl in einem der zehn Jahre, gibt es keinen Vorschlag.
 - Titel mit fünf bis neun Geschäftsjahren werden aus der kürzeren Reihe bewertet und markiert (Abschnitt 5); unter fünf Jahren gibt es keinen Vorschlag.
 - Wechselkurse: EZB-Referenzkurse. Währungen, die die EZB nicht führt (Tenge bei Halyk), kommen von open.er-api.com (frei mit Quellenangabe). Portfolios werden in Euro geführt. Die innere Rendite enthält keine Währungsprognose.
 - Fundamentaldaten je Aktie und Geschäftsjahr: Gewinn je Aktie, Dividende je Aktie, Aktienzahl, Rückkäufe und Ausgabe von Aktien, aktienbasierte Vergütung, Umsatz, EBIT, Bilanzsumme, Eigenkapital, Umlaufvermögen, kurzfristige Verbindlichkeiten, langfristiges Fremdkapital, Zahlungsmittel, operativer Cashflow, freier Cashflow.
@@ -456,6 +460,9 @@ veröffentlicht ist. Die Wal-Mart-Abweichung stammt aus gerundeten Tabellenwerte
 | Steigende Ausschüttungsquote                                                    | linear über 15 Jahre bis auf den Bedarf des Dauerwachstums, angerechnet nach der Rendite des Einbehaltenen (voll ab 10 %) | Interview nennt das Prinzip (zwei Phasen), keine Zahlen; 10 % nach Buch Kap. 5.5          |
 | Untergrenze der inneren Rendite                                                 | Anleiherendite ohne Aufschlag, Basisfall                                                                                  | Interview: kein Renditeziel, aber Aktien müssen Anleihen schlagen                         |
 | Obergrenze für den Wachstumsvorschlag                                           | 8,5 %                                                                                                                     | Buch setzt bei BASF und Wal-Mart 8,5 % statt der historischen Werte an                    |
+| Untergrenze für den Wachstumsvorschlag bei schrumpfendem Gewinn                 | −5 %                                                                                                                      | Buch rechnet nur wachsende Titel; ein dauerhafter Rückgang über 5 % ist kein Dauerzustand |
+| Tragbarer Rückfluss bei Immobilienwerten                                        | operativer Cashflow statt freier Cashflow, Fünfjahresdurchschnitt                                                         | Objektkäufe gelten beim Anbieter als Investition; Näherung für FFO                        |
+| Lücken in der Aktienzahl                                                        | gemeldete Aktienzahl desselben Jahres, sonst Nachbarjahr bis zwei Jahre                                                   | eine einzelne Lücke sperrt sonst die ganze Zehnjahresreihe                                |
 | Netto-Rückkäufe als Fünfjahresdurchschnitt, abzüglich aktienbasierter Vergütung | –                                                                                                                         | Folien zählen Rückkäufe als Rückfluss, ohne Methode                                       |
 | Deckelung des Rückflussniveaus auf den freien Cashflow je Aktie                 | Fünfjahresdurchschnitt                                                                                                    | schuldenfinanzierte Rückkäufe sind nicht dauerhaft tragbar                                |
 | Obergrenze Wachstum aus Einbehaltung                                            | Einbehaltungsquote · Eigenkapitalrendite + 2 %                                                                            | hohe Ausschüttung und hohes Wachstum schließen sich aus                                   |

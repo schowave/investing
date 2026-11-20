@@ -50,6 +50,8 @@ export interface Stock {
   isFinancial: boolean;
   /** `true`: auf der Watchlist. `false`: nur Datenvorrat für späteres Screening, ohne Kursabgleich. */
   watched: boolean;
+  /** Sektor nach GICS laut Anbieter; fehlt bei Titeln ohne Anbieterdaten. */
+  gicSector?: string | null;
 }
 
 export interface Price {
@@ -194,6 +196,7 @@ function toStock(r: StockRow): Stock {
     foundedYear: r.foundedYear,
     isFinancial: r.isFinancial,
     watched: r.watched,
+    gicSector: r.gicSector,
   };
 }
 
@@ -1015,6 +1018,11 @@ export class Database {
   /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
   setSecurityType(id: string, type: string): void {
     this.#db.update(t.stocks).set({ securityType: type }).where(eq(t.stocks.id, id)).run();
+  }
+
+  /** Sektor nach GICS laut Anbieter. */
+  setGicSector(id: string, gicSector: string): void {
+    this.#db.update(t.stocks).set({ gicSector }).where(eq(t.stocks.id, id)).run();
   }
 
   /** Trägt das Gründungsjahr nach, wenn noch keines gesetzt ist. */

@@ -16,6 +16,8 @@ export interface EodhdFundamentals {
   seatCountry: string | null;
   /** Art des Wertpapiers, z. B. "Common Stock". */
   securityType: string | null;
+  /** Sektor nach GICS, z. B. "Real Estate". */
+  gicSector: string | null;
   /** Aus dem Beschreibungstext gelesen ("founded in 1901"); `null`, wenn dort nichts steht. */
   foundedYear: number | null;
   /** Währung der Kursnotiz, wie der Anbieter sie nennt (z. B. GBX für Pence). */
@@ -43,8 +45,10 @@ const FundamentalsAnswer = z
       })
       .catch({})
       .optional(),
+    outstandingShares: z.looseObject({ annual: z.unknown() }).catch({ annual: undefined }).optional(),
   })
   .catch({});
+const OutstandingShares = z.looseObject({ date: z.string().nullish(), dateFormatted: z.string().nullish(), shares: z.unknown() });
 
 const SearchRow = z.object({
   Code: z.string(),
@@ -71,49 +75,88 @@ function debtLessCash(totalDebt: number | null, longTermDebt: number | null, cas
   return debt === null ? null : debt - (cash ?? 0);
 }
 
+/** Höchstens so viele Jahre darf das Nachbarjahr entfernt sein, dessen Aktienzahl eine Lücke füllt. */
+const MAX_SHARES_DISTANCE = 2;
+
+/** Aktienzahl je Kalenderjahr aus `outstandingShares.annual` (Liste oder Objekt mit `dateFormatted`/`date` und `shares`). */
+function outstandingSharesByYear(value: unknown): Map<number, number> {
+  const result = new Map<number, number>();
+  if (value === null || typeof value !== "object") return result;
+  for (const entry of Object.values(value)) {
+    const parsed = OutstandingShares.safeParse(entry);
+    if (!parsed.success) continue;
+    const year = Number((parsed.data.dateFormatted ?? parsed.data.date ?? "").slice(0, 4));
+    const shares = num(parsed.data.shares);
+    if (year > 0 && shares !== null && shares > 0) result.set(year, shares);
+  }
+  return result;
+}
+
+/**
+ * Aktienzahl je Abschlussdatum. Fehlt sie in der Bilanz, gilt die gemeldete Aktienzahl desselben Jahres, sonst die des
+ * nächsten Jahres mit Bilanzangabe (höchstens zwei Jahre entfernt, das frühere bei Gleichstand). Einzelne Lücken
+ * würden sonst die ganze Zehnjahresreihe sperren.
+ */
+function sharesPerDate(dates: readonly string[], balance: Statement, outstanding: Map<number, number>): (number | null)[] {
+  const reported = dates.map((date) => {
+    const shares = num(balance[date]?.commonStockSharesOutstanding);
+    return shares !== null && shares > 0 ? shares : null;
+  });
+  return reported.map((shares, i) => {
+    if (shares !== null) return shares;
+    const fromOutstanding = outstanding.get(Number(dates[i]!.slice(0, 4)));
+    if (fromOutstanding !== undefined) return fromOutstanding;
+    for (let distance = 1; distance <= MAX_SHARES_DISTANCE; distance++) {
+      const neighbour = reported[i - distance] ?? reported[i + distance];
+      if (neighbour != null) return neighbour;
+    }
+    return null;
+  });
+}
+
 export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
   const root = FundamentalsAnswer.parse(data);
   const income: Statement = root.Financials?.Income_Statement?.yearly ?? {};
   const balance: Statement = root.Financials?.Balance_Sheet?.yearly ?? {};
   const cashFlow: Statement = root.Financials?.Cash_Flow?.yearly ?? {};
+  const dates = Object.keys(income).sort();
+  const sharesByDate = sharesPerDate(dates, balance, outstandingSharesByYear(root.outstandingShares?.annual));
 
-  const years = Object.keys(income)
-    .sort()
-    .map((date): FundamentalsYear => {
-      const inc = income[date] ?? {};
-      const bal = balance[date] ?? {};
-      const cf = cashFlow[date] ?? {};
-      const shares = num(bal.commonStockSharesOutstanding);
-      const netIncome = num(inc.netIncome);
-      const perShare = (amount: number | null) => (amount !== null && shares ? amount / shares : null);
-      const dividendsPaid = num(cf.dividendsPaid);
-      const stockTrades = num(cf.salePurchaseOfStock);
-      return {
-        fiscalYear: Number(date.slice(0, 4)),
-        // Aus dem Jahresabschluss gerechnet. Das Feld epsActual des Anbieters mischt bei Titeln außerhalb
-        // der USA Einheiten (Pence und Pfund, Aktie und Hinterlegungsschein) und ist nicht verlässlich.
-        epsDiluted: perShare(netIncome),
-        dividendPerShare: perShare(dividendsPaid === null ? null : Math.abs(dividendsPaid)),
-        shares,
-        // Negativ bedeutet Rückkauf; die Ausgabe neuer Aktien steht in einem eigenen Feld.
-        repurchases: stockTrades === null ? null : Math.max(0, -stockTrades),
-        issuance: num(cf.issuanceOfCapitalStock) ?? (stockTrades === null ? null : 0),
-        stockBasedCompensation: num(cf.stockBasedCompensation),
-        revenue: num(inc.totalRevenue),
-        ebit: num(inc.ebit),
-        totalAssets: num(bal.totalAssets),
-        equity: num(bal.totalStockholderEquity),
-        currentAssets: num(bal.totalCurrentAssets),
-        currentLiabilities: num(bal.totalCurrentLiabilities),
-        longTermDebt: num(bal.longTermDebt),
-        cash: num(bal.cash),
-        operatingCashFlow: num(cf.totalCashFromOperatingActivities),
-        freeCashFlow: num(cf.freeCashFlow),
-        netDebt: num(bal.netDebt) ?? debtLessCash(num(bal.shortLongTermDebtTotal), num(bal.longTermDebt), num(bal.cash)),
-        interestExpense: absolute(num(inc.interestExpense)),
-        ebitda: num(inc.ebitda) ?? sum(num(inc.ebit), num(inc.depreciationAndAmortization)),
-      };
-    });
+  const years = dates.map((date, index): FundamentalsYear => {
+    const inc = income[date] ?? {};
+    const bal = balance[date] ?? {};
+    const cf = cashFlow[date] ?? {};
+    const shares = sharesByDate[index]!;
+    const netIncome = num(inc.netIncome);
+    const perShare = (amount: number | null) => (amount !== null && shares ? amount / shares : null);
+    const dividendsPaid = num(cf.dividendsPaid);
+    const stockTrades = num(cf.salePurchaseOfStock);
+    return {
+      fiscalYear: Number(date.slice(0, 4)),
+      // Aus dem Jahresabschluss gerechnet. Das Feld epsActual des Anbieters mischt bei Titeln außerhalb
+      // der USA Einheiten (Pence und Pfund, Aktie und Hinterlegungsschein) und ist nicht verlässlich.
+      epsDiluted: perShare(netIncome),
+      dividendPerShare: perShare(dividendsPaid === null ? null : Math.abs(dividendsPaid)),
+      shares,
+      // Negativ bedeutet Rückkauf; die Ausgabe neuer Aktien steht in einem eigenen Feld.
+      repurchases: stockTrades === null ? null : Math.max(0, -stockTrades),
+      issuance: num(cf.issuanceOfCapitalStock) ?? (stockTrades === null ? null : 0),
+      stockBasedCompensation: num(cf.stockBasedCompensation),
+      revenue: num(inc.totalRevenue),
+      ebit: num(inc.ebit),
+      totalAssets: num(bal.totalAssets),
+      equity: num(bal.totalStockholderEquity),
+      currentAssets: num(bal.totalCurrentAssets),
+      currentLiabilities: num(bal.totalCurrentLiabilities),
+      longTermDebt: num(bal.longTermDebt),
+      cash: num(bal.cash),
+      operatingCashFlow: num(cf.totalCashFromOperatingActivities),
+      freeCashFlow: num(cf.freeCashFlow),
+      netDebt: num(bal.netDebt) ?? debtLessCash(num(bal.shortLongTermDebtTotal), num(bal.longTermDebt), num(bal.cash)),
+      interestExpense: absolute(num(inc.interestExpense)),
+      ebitda: num(inc.ebitda) ?? sum(num(inc.ebit), num(inc.depreciationAndAmortization)),
+    };
+  });
 
   const text = (value: unknown) => (typeof value === "string" && value !== "" ? value : null);
   const currency = root.Financials?.Income_Statement?.currency_symbol;
@@ -125,6 +168,7 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     name: text(root.General?.Name),
     seatCountry: text((root.General?.AddressData as Row | undefined)?.Country),
     securityType: text(root.General?.Type),
+    gicSector: text(root.General?.GicSector),
     foundedYear: foundedYearFrom(text(root.General?.Description)),
     quoteCurrency: text(root.General?.CurrencyCode),
   };

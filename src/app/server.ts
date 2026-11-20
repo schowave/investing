@@ -1,5 +1,6 @@
 // Datenbankzugriff der Oberfläche. Nur auf dem Server verwenden.
 
+import { join } from "node:path";
 import { cache } from "react";
 import { Database } from "../data/db.ts";
 import { type Ranking, rankWatchlist } from "../valuation/ranking.ts";
@@ -17,7 +18,11 @@ export function database(): Database {
     } catch {
       // Die alte Verbindung war schon geschlossen.
     }
-    holder.investingDb = new Database(process.env.INVESTING_DB ?? "data/investing.sqlite");
+    // turbopackIgnore: Ohne den Hinweis verfolgt Turbopack die Datei als Abhängigkeit. Jeder Lesezugriff ändert die
+    // WAL-Dateien daneben, und der Entwicklungsserver lädt die Seite dann endlos neu.
+    holder.investingDb = new Database(
+      process.env.INVESTING_DB ?? join(/*turbopackIgnore: true*/ process.cwd(), "data", "investing.sqlite"),
+    );
   }
   return holder.investingDb;
 }

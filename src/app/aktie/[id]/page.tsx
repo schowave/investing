@@ -623,7 +623,11 @@ export default async function StockPage(props: {
                     <td className="num">{amount(d.debtRepaymentPerShare)}</td>
                   </tr>
                   <tr>
-                    <td>Tragbarer Rückfluss je Aktie</td>
+                    <td>
+                      Tragbarer Rückfluss je Aktie
+                      {d.sustainableFrom === "operatingCashFlow" && ", aus dem operativen Cashflow"}
+                      {d.sustainableFrom === "earnings" && ", aus dem Gewinnniveau"}
+                    </td>
                     <td className="num">{amount(d.sustainablePayout)}</td>
                   </tr>
                   <tr>

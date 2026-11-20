@@ -18,6 +18,8 @@ export const stocks = sqliteTable("stocks", {
   watched: integer("watched", { mode: "boolean" }).notNull().default(true),
   /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
   securityType: text("security_type"),
+  /** Sektor nach GICS laut Anbieter, z. B. "Real Estate". Strenger als `sector`, der Anleihen von Versorgern als REIT führt. */
+  gicSector: text("gic_sector"),
 });
 
 const stockId = () =>

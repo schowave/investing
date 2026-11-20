@@ -76,6 +76,14 @@ describe("innere Rendite", () => {
     expect(s.cautious!).toBeLessThan(s.base!);
     expect(s.base!).toBeLessThan(s.optimistic!);
   });
+
+  it("rechnet mit schrumpfendem Rückfluss und hält die Bandbreite geordnet", () => {
+    const shrinking = { ...IMPERIAL, growth: -0.03 };
+    const s = scenarioReturns(30, shrinking);
+    expect(s.base!).toBeLessThan(innerReturn(30, { ...IMPERIAL, growth: 0 })!);
+    expect(s.cautious!).toBeLessThan(s.base!);
+    expect(s.base!).toBeLessThan(s.optimistic!);
+  });
 });
 
 describe("steigende Ausschüttungsquote", () => {
@@ -185,12 +193,27 @@ describe("Eingaben", () => {
     expect(growthProposal({ ...args, historicalGrowth: 0.2, payoutLevel: 0 }).value).toBeCloseTo(0.085);
   });
 
-  it("lässt die Einbehaltungsgrenze bei negativem Eigenkapital weg und schlägt bei negativem Wachstum nichts vor", () => {
+  it("lässt die Einbehaltungsgrenze bei negativem Eigenkapital weg", () => {
     expect(growthProposal({ historicalGrowth: 0.05, payoutLevel: 4, earningsLevel: 4, equityPerShare: -5 })).toEqual({
       value: 0.05,
+      shrinking: false,
       retentionCap: null,
     });
-    expect(growthProposal({ historicalGrowth: -0.02, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 }).value).toBeNull();
+  });
+
+  it("schlägt bei schrumpfendem Gewinn das gemessene Wachstum vor, höchstens bis −5 %", () => {
+    expect(growthProposal({ historicalGrowth: -0.02, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 })).toMatchObject({
+      value: -0.02,
+      shrinking: true,
+    });
+    expect(growthProposal({ historicalGrowth: -0.12, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 }).value).toBe(-0.05);
+  });
+
+  it("macht ohne bestimmbares Wachstum keinen Vorschlag", () => {
+    expect(growthProposal({ historicalGrowth: null, payoutLevel: 1, earningsLevel: 4, equityPerShare: 20 })).toMatchObject({
+      value: null,
+      shrinking: false,
+    });
   });
 });
 

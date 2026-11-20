@@ -137,15 +137,19 @@ export function payoutLevelProposal(args: {
 
 export interface GrowthParams {
   maxGrowth: number;
+  /** Untergrenze für schrumpfende Gewinne; der Rückfluss schrumpft dann dauerhaft mit diesem Satz. */
+  minGrowth: number;
   /** Wachstum ohne zusätzliches Kapital (Preissteigerungen). */
   inflationAllowance: number;
 }
 
-export const DEFAULT_GROWTH_PARAMS: GrowthParams = { maxGrowth: 0.085, inflationAllowance: 0.02 };
+export const DEFAULT_GROWTH_PARAMS: GrowthParams = { maxGrowth: 0.085, minGrowth: -0.05, inflationAllowance: 0.02 };
 
 export interface GrowthProposal {
   /** `null`: kein Vorschlag möglich, der Wert muss manuell gesetzt werden. */
   value: number | null;
+  /** Der Gewinn schrumpft; der Vorschlag ist das gemessene, negative Wachstum (höchstens bis `minGrowth`). */
+  shrinking: boolean;
   /** Obergrenze aus Einbehaltung; `null` bei negativem Eigenkapital oder fehlendem Gewinnniveau. */
   retentionCap: number | null;
 }
@@ -167,9 +171,12 @@ export function growthProposal(
     const retention = Math.max(0, 1 - args.payoutLevel / args.earningsLevel);
     retentionCap = retention * (args.earningsLevel / args.equityPerShare) + params.inflationAllowance;
   }
-  if (args.historicalGrowth === null || args.historicalGrowth < 0) return { value: null, retentionCap };
+  if (args.historicalGrowth === null) return { value: null, shrinking: false, retentionCap };
+  // Schrumpfender Gewinn: Der Rückfluss schrumpft mit, dauerhaft. Das ist die vorsichtigste Annahme; die Obergrenzen
+  // greifen hier nicht, sie liegen alle bei 0 oder darüber.
+  if (args.historicalGrowth < 0) return { value: Math.max(args.historicalGrowth, params.minGrowth), shrinking: true, retentionCap };
   // Gewinn kann auf Dauer nicht schneller wachsen als der Umsatz; schrumpft dieser, bleibt es bei 0.
   const revenueCap = args.revenueGrowth == null ? Infinity : Math.max(0, args.revenueGrowth);
   const value = Math.min(args.historicalGrowth, params.maxGrowth, retentionCap ?? Infinity, revenueCap);
-  return { value, retentionCap };
+  return { value, shrinking: false, retentionCap };
 }

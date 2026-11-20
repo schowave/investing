@@ -90,15 +90,47 @@ describe("proposeInputs", () => {
     expect(values.payoutLevel).toBeCloseTo(3);
   });
 
-  it("gibt bei fallendem Gewinn keinen Wachstumsvorschlag", () => {
+  it("schlägt bei fallendem Gewinn das negative Wachstum vor", () => {
     const { values, notes } = proposeInputs(
       stock,
       steadyYears((y, i) => (y.epsDiluted = 5 - i * 0.3)),
       1,
       2026,
     );
+    expect(values.growth).toBeLessThan(0);
+    expect(values.growth).toBeGreaterThanOrEqual(-0.05);
+    expect(notes.some((n) => n.includes("Gewinn schrumpft"))).toBe(true);
+  });
+
+  it("gibt bei Verlusten am Anfang der Reihe keinen Wachstumsvorschlag", () => {
+    const { values, notes } = proposeInputs(
+      stock,
+      steadyYears((y, i) => (y.epsDiluted = i < 5 ? -1 : 2)),
+      1,
+      2026,
+    );
     expect(values.growth).toBeUndefined();
     expect(notes.some((n) => n.includes("von Hand"))).toBe(true);
+  });
+
+  it("nimmt bei Immobilienwerten den operativen statt des freien Cashflows als tragbaren Rückfluss", () => {
+    const years = steadyYears((y) => {
+      y.freeCashFlow = -500;
+      y.operatingCashFlow = 3000;
+    });
+    const reit = proposeInputs({ ...stock, sector: "Real Estate" }, years, 1, 2026);
+    expect(reit.details.sustainableFrom).toBe("operatingCashFlow");
+    expect(reit.details.sustainablePayout).toBeGreaterThan(0);
+    expect(reit.values.payoutLevel).toBeGreaterThan(0);
+    // Anleihen von Versorgern führt der Anbieter als REIT; nach GICS sind sie keine Immobilienwerte.
+    const utilityBond = proposeInputs({ ...stock, sector: "Real Estate", gicSector: "Utilities" }, years, 1, 2026);
+    expect(utilityBond.details.sustainableFrom).toBe("freeCashFlow");
+    expect(proposeInputs({ ...stock, sector: "Real Estate", gicSector: "Real Estate" }, years, 1, 2026).details.sustainableFrom).toBe(
+      "operatingCashFlow",
+    );
+    const other = proposeInputs(stock, years, 1, 2026);
+    expect(other.details.sustainableFrom).toBe("freeCashFlow");
+    expect(other.values.payoutLevel).toBe(0);
   });
 
   it("begrenzt das Wachstum auf das Umsatzwachstum je Aktie", () => {

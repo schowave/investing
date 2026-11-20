@@ -172,7 +172,12 @@ describe("Datenvorrat", () => {
     const { ctx, log } = testContext(db, fetchFn);
     const result = await importStockpile(ctx, { indices: ["TEST.INDX"], symbols: [], exchanges: ["IL"], refreshAll: false, watch: false });
     expect(result).toEqual({ summary: "2 Aktien geladen, 1 fehlgeschlagen", ok: false });
-    expect(db.stock("NEU.US")).toMatchObject({ name: "Neu Corp", watched: false, region: "Nordamerika" });
+    expect(db.stock("NEU.US")).toMatchObject({
+      name: "Neu Corp",
+      watched: false,
+      region: "Nordamerika",
+      gicSector: "Information Technology",
+    });
     expect(db.stock("IES.XETRA")).not.toBeNull();
     expect(log.join("\n")).toMatch(/ersatz ISP.MI/);
     expect(reparseArchive(ctx)).toEqual({ summary: "2 Aktien aus dem Archiv neu ausgewertet", ok: true });

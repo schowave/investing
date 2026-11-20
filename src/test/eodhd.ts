@@ -34,6 +34,7 @@ export function fundamentalsAnswer(name = "Test Corp", years = [2023, 2024, 2025
       CurrencyCode: "USD",
       CountryISO: "US",
       Sector: "Technology",
+      GicSector: "Information Technology",
       AddressData: { Country: "United States" },
     },
     Financials: {
