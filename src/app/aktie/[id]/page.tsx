@@ -20,13 +20,14 @@ import { rankingHurdle } from "../../../valuation/ranking.ts";
 import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { doubtfulNumbers, priceSensitivity } from "../../../valuation/valuation.ts";
+import { doubtfulNumbers, priceSensitivity, withSuggestions } from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { PendingButton } from "../../pendingButton.tsx";
 import { database, today, watchlistRanking } from "../../server.ts";
+import { LivePreview } from "./livePreview.tsx";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,22 @@ export default async function StockPage(props: {
   );
   const cautious = v.returns?.cautious ?? null;
   const base = v.returns?.base ?? null;
+  // Vorschau beim Tippen: was Speichern ergäbe. Anfangs sind das die vorausgefüllten Jev-Vorschläge.
+  const summary = (valuation: typeof v) => ({
+    base: valuation.returns?.base ?? null,
+    riskScore: valuation.riskScore,
+    missing: valuation.missing.length,
+  });
+  const withJev = withSuggestions(v, Object.fromEntries(judged.map((factorId) => [`risk.${factorId}`, jevFor(`risk.${factorId}`)?.value])));
+  const preview = {
+    formId: "urteil",
+    proposals: proposals.values,
+    price: v.price,
+    inflationGap: v.inflationGap,
+    earningsLevel: d.earningsLevel,
+    saved: summary(v),
+    initial: summary(withJev ?? v),
+  };
 
   let finding: ReactNode;
   if (excluded)
@@ -344,6 +361,7 @@ export default async function StockPage(props: {
               ? `${percent(cautious)} bis ${percent(v.returns.optimistic)}, Anleiherendite ${percent(hurdle)}`
               : "nicht berechenbar"}
           </span>
+          <LivePreview {...preview} variant="figure" />
           {v.returns && (
             <ReturnRange
               cautious={cautious}
@@ -468,6 +486,7 @@ export default async function StockPage(props: {
                 : openJudgements > 0
                   ? `${openJudgements === 1 ? "Ein Urteil fehlt" : `${openJudgements} Urteile fehlen`} noch.`
                   : "Leere Felder übernehmen den Vorschlag."}
+              <LivePreview {...preview} variant="savebar" />
             </span>
           </div>
         </form>

@@ -438,6 +438,40 @@ export function evaluate(
 }
 
 /**
+ * Vorschau: dieselbe Bewertung, wenn die Vorschläge (z. B. von Jev) für offene Eingaben gälten. Gesetzte Eingaben
+ * bleiben, wie sie sind. `null`, wenn kein Vorschlag eine offene Eingabe füllt.
+ */
+export function withSuggestions(valuation: Valuation, suggestions: InputValues): Valuation | null {
+  const filled = valuation.missing.filter((key) => suggestions[key] !== undefined);
+  if (filled.length === 0) return null;
+  const inputs: InputValues = { ...valuation.inputs };
+  for (const key of filled) inputs[key] = suggestions[key];
+  return evaluate(inputs, {}, valuation.price, valuation.inflationGap, valuation.returnInputs?.earningsLevel ?? null);
+}
+
+/**
+ * Bewertung aus den Feldern des Formulars, wie Speichern sie ergäbe: Ein leeres Feld übernimmt den Vorschlag,
+ * ein gefülltes gilt als Wert von Hand. Für die Vorschau beim Tippen; liefert die erste ungültige Eingabe als Fehler.
+ */
+export function evaluateFields(
+  fields: Partial<Record<InputKey, string>>,
+  proposals: InputValues,
+  price: number | null,
+  inflationGap: number,
+  earningsLevel: number | null,
+): Valuation | { error: string } {
+  const manualValues: InputValues = {};
+  for (const key of INPUT_KEYS) {
+    const text = fields[key]?.trim() ?? "";
+    if (text === "") continue;
+    const parsed = parseManualInput(key, text);
+    if ("error" in parsed) return parsed;
+    manualValues[key] = parsed.value;
+  }
+  return evaluate(proposals, manualValues, price, inflationGap, earningsLevel);
+}
+
+/**
  * Innere Rendite im Basisfall bei anderen Kursen, mit denselben Eingaben und demselben Währungsabgleich wie
  * `evaluate`. Leer ohne Kurs oder ohne Rückfluss und Wachstum.
  * @param steps Abstand zum heutigen Kurs, z. B. -0.1 für 10 % darunter.

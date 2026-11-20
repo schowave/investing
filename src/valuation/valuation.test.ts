@@ -9,10 +9,12 @@ import {
   dividendsByYear,
   doubtfulNumbers,
   evaluate,
+  evaluateFields,
   INPUT_KEYS,
   priceInReportingCurrency,
   proposeInputs,
   unadjustedSplit,
+  withSuggestions,
 } from "./valuation.ts";
 
 describe("proposeInputs", () => {
@@ -226,6 +228,29 @@ describe("evaluate", () => {
     // Wer schon mehr als den Gewinn ausschüttet, bleibt wie er ist.
     expect(evaluate(imperial, {}, 30, 0, 3).payoutRatio).toBeNull();
     expect(evaluate(imperial, {}, 30, 0, 3).returns).toEqual(plain.returns);
+  });
+
+  it("zeigt vorab, was offene Urteile mit Vorschlägen ergäben, ohne gesetzte Werte zu ändern", () => {
+    const { "risk.management": _m, "risk.moat": _w, ...rest } = imperial;
+    const v = evaluate(rest, { growth: 0.01 }, 30, 0.01, 10);
+    const preview = withSuggestions(v, { "risk.management": 0.1, "risk.moat": -0.05, growth: 0.2 })!;
+    expect(preview.complete).toBe(true);
+    expect(preview.riskScore).toBeCloseTo(v.riskScore + 0.05);
+    expect(preview.inputs.growth).toBe(0.01);
+    expect(preview.returns!.base!).toBeLessThan(v.returns!.base!);
+    expect(preview.returns!.base!).toEqual(
+      evaluate({ ...imperial, "risk.management": 0.1, "risk.moat": -0.05 }, { growth: 0.01 }, 30, 0.01, 10).returns!.base,
+    );
+    expect(withSuggestions(v, { growth: 0.2 })).toBeNull();
+  });
+
+  it("rechnet die Felder des Formulars wie Speichern: leer heißt Vorschlag, Fehler werden gemeldet", () => {
+    const { "risk.management": _, ...rest } = imperial;
+    const fields = { growth: " 1,5 ", "risk.management": "10", payoutLevel: "" };
+    const v = evaluateFields(fields, rest, 30, 0.01, 10);
+    expect(v).toEqual(evaluate(rest, { growth: 0.015, "risk.management": 0.1 }, 30, 0.01, 10));
+    expect(evaluateFields({ "risk.management": "abc" }, rest, 30, 0, null)).toEqual({ error: '"abc" ist keine Zahl.' });
+    expect(evaluateFields({ growth: "50" }, rest, 30, 0, null)).toEqual({ error: "Wachstum: erlaubt sind −20 bis 30 %." });
   });
 
   it("zieht bei Fremdwährung den Inflationsunterschied ab und zeigt die Rendite in Landeswährung", () => {
