@@ -96,6 +96,18 @@ export interface ScreeningFilter {
 }
 
 /** Warum für einen Titel keine innere Rendite gerechnet werden kann. */
+/** Titel einer Börse aus einem Sitzland. */
+export interface CoverageRow {
+  /** Endung des Symbols, z. B. LSE. */
+  exchange: string;
+  region: string;
+  /** ISO-Code des Sitzlands; leer, wenn unbekannt. */
+  country: string;
+  stocks: number;
+  /** Davon mit innerer Rendite und plausiblen Zahlen. */
+  rated: number;
+}
+
 export type RatingGap = "kurs-nicht-abrufbar" | "kein-kurs" | "rueckfluss-fehlt" | "rueckfluss-null" | "wachstum-fehlt" | "keine-loesung";
 
 export interface ScreeningRow {
@@ -814,6 +826,34 @@ export class Database {
       .offset(offset)
       .all()
       .map((r) => ({ stock: toStock(r.stock), row: r.row }));
+  }
+
+  /**
+   * Abdeckung des Datenvorrats je Börse (Endung des Symbols) und Sitzland, nur Stammaktien wie im Screening.
+   * „Bewertet“ zählt Titel mit innerer Rendite, die nicht als unplausibel ausgeblendet sind.
+   */
+  coverage(): CoverageRow[] {
+    const rows = this.#db
+      .select({
+        id: t.stocks.id,
+        region: t.stocks.region,
+        country: t.stocks.country,
+        rated: sql<number>`${t.screening.innerReturn} IS NOT NULL AND NOT ${t.screening.implausible}`,
+      })
+      .from(t.stocks)
+      .leftJoin(t.screening, eq(t.screening.stockId, t.stocks.id))
+      .where(or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")))
+      .all();
+    const groups = new Map<string, CoverageRow>();
+    for (const row of rows) {
+      const exchange = row.id.slice(row.id.lastIndexOf(".") + 1);
+      const key = `${exchange}|${row.region}|${row.country}`;
+      const group = groups.get(key) ?? { exchange, region: row.region, country: row.country, stocks: 0, rated: 0 };
+      group.stocks++;
+      if (row.rated) group.rated++;
+      groups.set(key, group);
+    }
+    return [...groups.values()];
   }
 
   /** Regionen, für die es Titel gibt. */

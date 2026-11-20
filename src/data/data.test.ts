@@ -143,5 +143,16 @@ describe("Rohantworten", () => {
     expect(db.unrated("rueckfluss-null", {}, 10).map((r) => r.stock.id)).toEqual([ids[4]]);
     expect(db.unrated("kurs-nicht-abrufbar", {}, 10).map((r) => r.stock.id)).toEqual([ids[3]]);
     expect(db.unrated("kein-kurs", {}, 10)).toEqual([]);
+
+    // Abdeckung: je Börse und Sitzland, bewertet nur mit Rendite und ohne unplausible Zahlen.
+    db.saveScreening([row(ids[1]!, { innerReturn: 0.08, implausible: true })]);
+    db.setSecurityType(ids[2]!, "Preferred Stock");
+    const coverage = db.coverage();
+    expect(coverage.reduce((sum, r) => sum + r.stocks, 0)).toBe(ids.length - 1);
+    expect(coverage.reduce((sum, r) => sum + r.rated, 0)).toBe(1);
+    const first = START_WATCHLIST[0]!;
+    expect(coverage).toContainEqual(
+      expect.objectContaining({ exchange: first.id.split(".").at(-1), region: first.region, country: first.country, rated: 1 }),
+    );
   });
 });

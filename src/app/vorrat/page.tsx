@@ -98,6 +98,7 @@ export default async function Stockpile(props: {
             Risikowert ist deshalb eine Untergrenze.
           </p>
         </div>
+        <Link href="/vorrat/maerkte">Abgedeckte Märkte →</Link>
       </div>
       {params.fehler && <div className="notice error">{params.fehler}</div>}
       {params.lauf && (
