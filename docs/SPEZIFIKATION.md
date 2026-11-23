@@ -234,7 +234,9 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
   aber nicht als Finanzwert geführt (Kaspi, Bank of Cyprus); Dividendenhistorie endet mehr als ein Jahr vor dem letzten
   Abschluss, der gezahlte Dividenden ausweist (Acsion); Netto-Rückkäufe über 5 % des Kurses je Jahr bei nicht gesunkener
   Aktienzahl (Stabilus, PGAS); EBIT über dem Umsatz, fehlender operativer Cashflow in mindestens zwei, Schulden ohne
-  Zinsaufwand in mindestens zwei der letzten fünf Jahre. Die Muster stammen aus der Opus-Bewertung von 150 Titeln.
+  Zinsaufwand in mindestens zwei der letzten fünf Jahre; eine Dividende über dem 2,5-Fachen der üblichen ohne Kennzeichnung als
+  Sonderzahlung; zwei Schlussdividenden in einem Kalenderjahr. Die Muster stammen aus der Opus-Bewertung von 150 Titeln; als
+  Regeln für die Rechnung sind die beiden Dividendenmuster geprüft und verworfen (Strategie 11.21, 11.22).
 - Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss und Kurs-Gewinn-Verhältnis: Wer es setzt, hat
   Kurs und Zahlen angesehen, und ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet (FinVolution
   nach dem Zinsdeckel 2025). Ein unbereinigter Split wird weiter gemeldet. Rückblick und Vorwärtsprotokoll rechnen ohne Werte von

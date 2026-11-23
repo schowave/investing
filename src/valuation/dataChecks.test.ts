@@ -34,6 +34,21 @@ describe("Prüfung der Anbieterdaten", () => {
     expect(dataWarnings({ ...base, years: falling, netBuybacksPerShare: 4 })).toEqual([]);
   });
 
+  it("meldet vermutete Sonderdividenden und doppelte Schlussdividenden in einem Kalenderjahr", () => {
+    const quarterly = ["2025-02-01", "2025-05-01", "2025-08-01", "2025-11-01"].map((date) => ({ date, value: 0.5, period: "Quarterly" }));
+    expect(dataWarnings({ ...base, payments: [...quarterly, { date: "2025-12-01", value: 3, period: "Quarterly" }] })[0]).toMatch(
+      /Zahlung 2025-12-01 über dem 2,5-Fachen/,
+    );
+    // Als Sonderzahlung gekennzeichnet: kein Hinweis.
+    expect(dataWarnings({ ...base, payments: [...quarterly, { date: "2025-12-01", value: 3, period: "Special" }] })).toEqual([]);
+    const finals = [
+      { date: "2024-06-30", value: 1, period: "Final" },
+      { date: "2025-01-15", value: 1, period: "Final" },
+      { date: "2025-12-20", value: 1, period: "Final" },
+    ];
+    expect(dataWarnings({ ...base, payments: finals })[0]).toMatch(/Zwei Schlussdividenden im Kalenderjahr 2025/);
+  });
+
   it("meldet offensichtlich falsche Felder der Abschlüsse", () => {
     const broken = steadyYears((y, i) => {
       if (i === 9) y.ebit = (y.revenue ?? 0) * 2;

@@ -1375,5 +1375,14 @@ Spezifikation 4.1).
 
 **Vermutung.** Der Anbieter ordnet Dividenden dem Jahr der Zahlung zu, nicht dem Geschäftsjahr, für das sie beschlossen
 wurden. Bei fallenden Gewinnen liegt das Dividendenniveau damit ein Jahr hinter der Lage (Kohleförderer, Kumba, G5, Text). Eine
-Zuordnung über den Monat des Geschäftsjahresendes würde das beheben. **Stand.** Offen: Die Datenbank speichert das Ende des
-Geschäftsjahrs nicht.
+Zuordnung über den Monat des Geschäftsjahresendes würde das beheben. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom
+23.11.2026): Eine Schlussdividende aus dem ersten Halbjahr dem Vorjahr zuzuordnen, hob zwar den Median der Fenster (+73 % statt
++67 %), war aber nur in 45 % der Fenster besser und im schwachen Viertel schlechter. Die Anwendung weist auf zwei
+Schlussdividenden in einem Kalenderjahr hin (Spezifikation 4.1).
+
+### 11.22 Sonderdividenden nach Höhe
+
+**Vermutung.** Zusatz- und Sonderdividenden, die der Anbieter nicht als solche kennzeichnet (BDCs, GDEV, SIGA), heben das
+Dividendenniveau. Eine Zahlung über dem 2,5-Fachen des Medians aller Zahlungen als Sonderdividende auszulassen, sollte die
+Auswahl verbessern. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom 23.11.2026): in 86 % der Fenster schlechter.
+Große Sonderzahlungen sind offenbar oft echter Rückfluss. Die Anwendung weist darauf hin (Spezifikation 4.1).

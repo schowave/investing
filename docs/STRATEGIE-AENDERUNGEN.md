@@ -12,6 +12,23 @@ und Tests im selben Schritt, und die Version steigt.
 Die Einträge vor Version 1.0 sind rückwirkend aus der Entwicklungsgeschichte zusammengestellt. Sie nennen nur Kennzahlen, die
 damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
 
+## 23.11.2026 · verworfen · Schlussdividende dem Vorjahr zuordnen, Sonderdividenden nach Höhe
+
+- **Anlass:** Die Opus-Bewertung von 150 Titeln fand als häufigste Datenfehler Dividenden nach Zahlungsjahr (29 Titel) und
+  unmarkierte Sonder- und Zusatzdividenden (27 Titel).
+- **Regel:** Strategie 3.4 (Dividendenniveau), offene Fragen 11.21 und 11.22.
+- **Geprüft:** (a) Eine Zahlung der Art „Final“ aus dem ersten Halbjahr zählt zum Vorjahr; (b) eine Zahlung über dem
+  2,5-Fachen des Medians aller Zahlungen des Titels zählt als Sonderdividende und fällt aus dem Dividendenniveau.
+- **Kennzahlen:** Rückblick vom 23.11.2026, Profil fokussiert, 2016-10 bis 2026-11, nach Kosten, gegen den Stand
+  (Fenstermedian +67 %, Güte 0,77, im schwachen Viertel 0,35, Umschlag 68 %, größter Rückgang −34 %).
+  - (a): Fenstermedian +73 %, besser in 45 % der Fenster (Median der Differenz −1,1 Punkte), Güte 0,72, im schwachen Viertel
+    0,29, Umschlag 69 %, größter Rückgang −37 %.
+  - (b): Fenstermedian +52 %, besser in 14 % der Fenster (Median der Differenz −24,5 Punkte), Güte 0,54, im schwachen Viertel
+    −0,02, Umschlag 63 %, größter Rückgang −33 %.
+- **Entscheidung:** beide verworfen. (a) bringt einen Vorsprung nur im Median, nicht in der Mehrheit der Fenster und nicht im
+  schwachen Viertel (Strategie 8.3); (b) ist durchweg schlechter. Beide Muster bleiben Hinweise der Anwendung ohne Wirkung auf
+  die Rechnung (Spezifikation 4.1).
+
 ## 23.11.2026 · verworfen · Mengenprobe bei Rückkäufen, Sprung der Aktienzahl im Rückblick
 
 - **Anlass:** Die Opus-Bewertung der oberen 50 des Datenvorrats fand bei vielen Titeln Rückkäufe, die keine sind (Tilgungen bei

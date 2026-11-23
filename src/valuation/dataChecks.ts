@@ -81,8 +81,8 @@ const SUSPICIOUS_BUYBACK_YIELD = 0.05;
 export interface DataCheckInput {
   stock: Stock;
   years: readonly FundamentalsYear[];
-  /** Dividendenhistorie (Zahlungen); `null`, wenn keine geladen ist. */
-  payments: readonly { date: string; value: number }[] | null;
+  /** Dividendenhistorie (Zahlungen mit Art wie „Final“, „Quarterly“); `null`, wenn keine geladen ist. */
+  payments: readonly { date: string; value: number; period?: string }[] | null;
   /** Netto-Rückkäufe je Aktie aus der Herleitung. */
   netBuybacksPerShare: number | null;
   /** Kurs in Berichtswährung. */
@@ -120,6 +120,31 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
         `Die Dividendenhistorie endet ${lastPaidYear === null ? "ohne Zahlung" : `${lastPaidYear}`}, der Abschluss ${last.fiscalYear} weist aber gezahlte Dividenden aus; das Dividendenniveau ist womöglich zu niedrig.`,
       );
     }
+  }
+
+  // Vermutete Sonderdividenden: eine Zahlung über dem 2,5-Fachen des Medians, ohne Kennzeichnung als Sonderzahlung (GDEV,
+  // SIGA, BDCs). Als Regel verworfen (Strategie 11.22), als Hinweis nützlich.
+  const regular = (payments ?? []).filter((p) => !/special|extra/i.test(p.period ?? ""));
+  if (regular.length >= 4) {
+    const sorted = regular.map((p) => p.value).sort((x, y) => x - y);
+    const median = sorted[Math.floor(sorted.length / 2)]!;
+    const outliers = regular.filter((p) => p.value > median * 2.5).map((p) => p.date);
+    if (outliers.length > 0) {
+      say(
+        `Zahlung ${outliers.slice(-3).join(", ")} über dem 2,5-Fachen der üblichen Dividende; vermutlich eine Sonderdividende, die das Dividendenniveau hebt.`,
+      );
+    }
+  }
+  // Zwei Schlussdividenden in einem Kalenderjahr: Der Anbieter ordnet nach Zahlungsjahr, das erzeugt scheinbare Kürzungen
+  // (Strategie 11.21).
+  const finals = new Map<number, number>();
+  for (const p of payments ?? [])
+    if (/^final$/i.test(p.period ?? "")) finals.set(Number(p.date.slice(0, 4)), (finals.get(Number(p.date.slice(0, 4))) ?? 0) + 1);
+  const doubled = [...finals].filter(([, n]) => n >= 2).map(([year]) => year);
+  if (doubled.length > 0) {
+    say(
+      `Zwei Schlussdividenden im Kalenderjahr ${doubled.join(", ")}: Die Historie ordnet nach Zahlungsjahr; Kürzungen und Dividendenniveau können scheinbar sein.`,
+    );
   }
 
   // „Rückkäufe“ ohne sinkende Aktienzahl: oft Tilgungen oder Rücknahmen anderer Papiere (Stabilus, PGAS, Hua Xia).
