@@ -51,6 +51,27 @@ describe("Prüfung der Anbieterdaten", () => {
     expect(dataWarnings({ ...base, payments: finals })[0]).toMatch(/Zwei Schlussdividenden im Kalenderjahr 2025/);
   });
 
+  it("hält Zwischen- und Schlussdividenden, Splits, Unterwährungen und alte Jahre auseinander", () => {
+    // Halbjährlich: Schluss 0,80, Zwischen 0,20 – das übliche Verhältnis ist keine Sonderdividende.
+    const semi = [2020, 2021, 2022, 2023, 2024, 2025].flatMap((y) => [
+      { date: `${y}-04-15`, value: 0.8, period: "Final" },
+      { date: `${y}-09-15`, value: 0.2, period: "Interim" },
+    ]);
+    expect(dataWarnings({ ...base, payments: semi })).toEqual([]);
+    // Ein Split im Fenster: Die Aktienzahl verdoppelt sich, die Rückkäufe sind trotzdem echt.
+    const split = steadyYears((y) => (y.shares = y.fiscalYear >= 2023 ? 200 : 100));
+    expect(dataWarnings({ ...base, years: split, netBuybacksPerShare: 4, splits: [{ date: "2023-05-01", ratio: 2 }] })).toEqual([]);
+    // Pence zählen als Pfund.
+    expect(dataWarnings({ ...base, stock: { ...stock, country: "GB", reportingCurrency: "GBX" } })).toEqual([]);
+    // Zwei Schlussdividenden vor Jahren, seither normal: kein Hinweis mehr.
+    const old = [
+      { date: "2012-01-10", value: 1, period: "Final  Dividend" },
+      { date: "2012-12-10", value: 1, period: "Final  Dividend" },
+      ...[2023, 2024, 2025].map((y) => ({ date: `${y}-05-01`, value: 1, period: "Final  Dividend" })),
+    ];
+    expect(dataWarnings({ ...base, payments: old })).toEqual([]);
+  });
+
   it("meldet offensichtlich falsche Felder der Abschlüsse", () => {
     const broken = steadyYears((y, i) => {
       if (i === 9) y.ebit = (y.revenue ?? 0) * 2;

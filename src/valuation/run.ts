@@ -18,7 +18,7 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  * seit der Bewertung auch aus der neuen Rechnung kommen können. Ältere Tagesstände im Verlauf bleiben, wie sie gerechnet
  * wurden; an der Versionsgrenze kann der Verlauf deshalb springen.
  */
-export const CALC_VERSION = 11;
+export const CALC_VERSION = 10;
 
 /**
  * Version der Strategie, wie sie im Kopf von `docs/STRATEGIE.md` steht (ein Test vergleicht beide). Steigt bei jeder Änderung,
@@ -136,6 +136,7 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
         payments,
         netBuybacksPerShare: proposals.details.netBuybacksPerShare,
         price,
+        splits: history.splits,
       }),
     );
   }
@@ -223,7 +224,11 @@ export function assess(db: Database, stock: Stock, updates: readonly InputUpdate
     const proposal = currentProposals(jev)[key.replace(/^risk\./, "")];
     const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
     const jevNote = fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : null;
-    db.setManualInput(stock.id, key, value, note ?? jevNote ?? before?.note ?? "");
+    // Eine eigene Notiz bleibt beim Ändern des Werts. Eine automatische („Opus-Einschätzung“, „Jev-Vorschlag … übernommen“)
+    // gehörte zum alten Wert: Ändert ihn ein Mensch, ist er kein Opus- oder Jev-Wert mehr.
+    const automatic = before !== undefined && /^(Opus|Jev-Vorschlag)/.test(before.note);
+    const keptNote = before && (!automatic || Math.abs(before.value - value) < 1e-12) ? before.note : "";
+    db.setManualInput(stock.id, key, value, note ?? jevNote ?? keptNote);
   }
   return valueStock(db, stock, date);
 }

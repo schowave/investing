@@ -132,7 +132,7 @@ Regeln:
   (`src/judgement/situation.ts`).
 - Bewertungen von außen, etwa durch ein Modell wie Opus: `pnpm run bewertung:dossier` schreibt je Aktie alles, was zur
   Bewertung gehört, als JSON; `pnpm run bewertung:setzen` übernimmt Ergebnisdateien als Werte von Hand (Notiz
-  „Opus-Einschätzung“), mit derselben Prüfung wie die Aktienseite und passender Berichtswährung, und rechnet danach Datenvorrat
+  „Opus-Einschätzung“; ändert ein Mensch den Wert, fällt die Notiz weg), mit derselben Prüfung wie die Aktienseite und passender Berichtswährung, und rechnet danach Datenvorrat
   und Portfolios neu (`src/valuation/assessmentFile.ts`; Ablauf im Skill `.claude/skills/opus-bewertung`).
 
 ## 4. Daten
@@ -236,7 +236,8 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
   Abschluss, der Zinsen und Minderheiten mitzählt, wie bei chinesischen Titeln); Netto-Rückkäufe über 5 % des Kurses je Jahr bei nicht gesunkener
   Aktienzahl (Stabilus, PGAS); EBIT über dem Umsatz, fehlender operativer Cashflow in mindestens zwei, Schulden ohne
   Zinsaufwand in mindestens zwei der letzten fünf Jahre; eine Dividende der letzten drei Jahre über dem 2,5-Fachen der
-  Zahlungen im Jahr davor und danach, ohne Kennzeichnung als Sonderzahlung; zwei Schlussdividenden in einem Kalenderjahr. Die Muster stammen aus der Opus-Bewertung von 150 Titeln; als
+  Zahlungen derselben Art im Jahr davor und danach, ohne Kennzeichnung als Sonderzahlung; zwei Schlussdividenden in einem Kalenderjahr der letzten drei Jahre. Ein Split im
+  Fenster der Rückkäufe schaltet deren Hinweis ab; Unterwährungen (GBX, ZAC) zählen als Hauptwährung. Die Muster stammen aus der Opus-Bewertung von 150 Titeln; als
   Regeln für die Rechnung sind die beiden Dividendenmuster geprüft und verworfen (Strategie 11.21, 11.22).
 - Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss und Kurs-Gewinn-Verhältnis: Wer es setzt, hat
   Kurs und Zahlen angesehen, und ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet (FinVolution

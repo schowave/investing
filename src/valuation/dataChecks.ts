@@ -3,6 +3,7 @@
 // kehrten dort am häufigsten wieder.
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
+import { MINOR_UNIT } from "./valuation.ts";
 
 /** Währung des Sitzlands (ISO-Ländercode → Währung) für die Länder des Datenbestands. */
 const COUNTRY_CURRENCY: Record<string, string> = {
@@ -87,17 +88,21 @@ export interface DataCheckInput {
   netBuybacksPerShare: number | null;
   /** Kurs in Berichtswährung. */
   price: number | null;
+  /** Aktiensplits; ein Split im Fenster der Rückkäufe macht den Vergleich der Aktienzahl wertlos. */
+  splits?: readonly { date: string; ratio: number }[];
 }
 
 /** Hinweise zu verdächtigen Anbieterdaten, jeder als ganzer Satz mit „Daten prüfen:“ am Anfang. */
-export function dataWarnings({ stock, years, payments, netBuybacksPerShare, price }: DataCheckInput): string[] {
+export function dataWarnings({ stock, years, payments, netBuybacksPerShare, price, splits = [] }: DataCheckInput): string[] {
   const warnings: string[] = [];
   const say = (text: string) => warnings.push(`Daten prüfen: ${text}`);
   const last = years.at(-1);
 
   // Stammdaten: Berichtswährung passt weder zum Sitzland noch zu einer üblichen Bilanzwährung (HDFC: TWD statt INR).
   const home = COUNTRY_CURRENCY[stock.country];
-  if (home && stock.reportingCurrency !== home && !COMMON_REPORTING.has(stock.reportingCurrency)) {
+  // Unterwährungen (GBX, ZAC, ILA) zählen als ihre Hauptwährung.
+  const reporting = MINOR_UNIT[stock.reportingCurrency.toUpperCase()]?.currency ?? stock.reportingCurrency;
+  if (home && reporting !== home && !COMMON_REPORTING.has(reporting)) {
     say(
       `Berichtswährung ${stock.reportingCurrency} passt nicht zum Sitzland ${stock.country} (${home}); Rückfluss und Rendite stehen womöglich in der falschen Währung.`,
     );
@@ -125,16 +130,18 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
 
   // Vermutete Sonderdividenden: eine Zahlung über dem 2,5-Fachen des Medians, ohne Kennzeichnung als Sonderzahlung (GDEV,
   // SIGA, BDCs). Als Regel verworfen (Strategie 11.22), als Hinweis nützlich.
-  // Verglichen wird mit den Zahlungen der umliegenden zwei Jahre, damit eine wachsende Dividende nicht auffällt; geprüft werden
-  // nur die letzten drei Jahre, die das Dividendenniveau tragen.
+  // Verglichen wird mit Zahlungen derselben Art (Schluss mit Schluss, Quartal mit Quartal) aus den umliegenden zwei Jahren,
+  // damit weder eine wachsende Dividende noch das übliche Verhältnis von Zwischen- zu Schlussdividende auffällt. Geprüft
+  // werden nur die letzten drei Jahre, die das Dividendenniveau tragen.
+  const kind = (p: { period?: string }) => (/final/i.test(p.period ?? "") ? "final" : (p.period ?? "").trim().toLowerCase());
   const regular = (payments ?? []).filter((p) => !/special|extra/i.test(p.period ?? ""));
   const latest = regular.reduce((max, p) => (p.date > max ? p.date : max), "");
   const days = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
-  const outliers = regular
-    .filter((p) => latest !== "" && days(p.date, latest) <= 3 * 365)
+  const recentPayments = regular.filter((p) => latest !== "" && days(p.date, latest) <= 3 * 365);
+  const outliers = recentPayments
     .filter((p) => {
       const around = regular
-        .filter((q) => q !== p && days(q.date, p.date) <= 365)
+        .filter((q) => q !== p && kind(q) === kind(p) && days(q.date, p.date) <= 365)
         .map((q) => q.value)
         .sort((x, y) => x - y);
       return around.length >= 3 && p.value > around[Math.floor(around.length / 2)]! * 2.5;
@@ -145,11 +152,11 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
       `Zahlung ${outliers.slice(-3).join(", ")} über dem 2,5-Fachen der üblichen Dividende; vermutlich eine Sonderdividende, die das Dividendenniveau hebt.`,
     );
   }
-  // Zwei Schlussdividenden in einem Kalenderjahr: Der Anbieter ordnet nach Zahlungsjahr, das erzeugt scheinbare Kürzungen
-  // (Strategie 11.21).
+  // Zwei Schlussdividenden in einem Kalenderjahr der letzten drei Jahre: Der Anbieter ordnet nach Zahlungsjahr, das erzeugt
+  // scheinbare Kürzungen (Strategie 11.21).
   const finals = new Map<number, number>();
-  for (const p of payments ?? [])
-    if (/^final$/i.test(p.period ?? "")) finals.set(Number(p.date.slice(0, 4)), (finals.get(Number(p.date.slice(0, 4))) ?? 0) + 1);
+  for (const p of recentPayments)
+    if (kind(p) === "final") finals.set(Number(p.date.slice(0, 4)), (finals.get(Number(p.date.slice(0, 4))) ?? 0) + 1);
   const doubled = [...finals].filter(([, n]) => n >= 2).map(([year]) => year);
   if (doubled.length > 0) {
     say(
@@ -161,7 +168,10 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
   const recent = years.slice(-6);
   const first = recent[0]?.shares;
   const end = recent.at(-1)?.shares;
+  const splitInWindow =
+    recent.length > 0 && splits.some((sp) => Math.abs(sp.ratio - 1) >= 0.2 && Number(sp.date.slice(0, 4)) >= recent[0]!.fiscalYear);
   if (
+    !splitInWindow &&
     netBuybacksPerShare &&
     price &&
     price > 0 &&

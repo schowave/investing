@@ -147,6 +147,12 @@ describe("Bewerten mit Eingaben von Hand", () => {
     // Ohne neue Notiz bleibt die alte stehen.
     assess(db, stock, [{ key: "risk.moat", value: 0.06 }], "2025-06-01");
     expect(db.manualInputs(stock.id)[0]?.note).toBe("Marke");
+    // Eine automatische Notiz gehört zum Wert: Ändert ein Mensch den Wert, fällt sie weg.
+    assess(db, stock, [{ key: "risk.moat", value: 0.06, note: "Opus-Einschätzung vom 2025-06-01" }], "2025-06-01");
+    assess(db, stock, [{ key: "risk.moat", value: 0.06 }], "2025-06-01");
+    expect(db.manualInputs(stock.id)[0]?.note).toBe("Opus-Einschätzung vom 2025-06-01");
+    assess(db, stock, [{ key: "risk.moat", value: 0.07 }], "2025-06-01");
+    expect(db.manualInputs(stock.id)[0]?.note).toBe("");
     assess(db, stock, [{ key: "risk.moat", value: null }], "2025-06-02");
     expect(db.manualInputs(stock.id)).toEqual([]);
     db.close();

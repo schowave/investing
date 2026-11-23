@@ -624,7 +624,10 @@ export class Database {
    * Wer die Werte von Hand eines Titels gesetzt hat, für die Liste des Datenvorrats: „opus“ (Notiz „Opus-Einschätzung“), „jev“
    * (übernommene Jev-Vorschläge), „hand“ (sonst), „vorschlag“ (Jev hat eingestuft, nichts übernommen). Titel ohne beides fehlen.
    */
-  assessmentSources(stockIds: readonly string[]): Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }> {
+  assessmentSources(
+    stockIds: readonly string[],
+    levelsVersion: number,
+  ): Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }> {
     const result = new Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }>();
     if (stockIds.length === 0) return result;
     const ids = [...new Set(stockIds)];
@@ -645,7 +648,8 @@ export class Database {
     const judged = this.#db
       .select({ stockId: t.judgements.stockId, createdAt: t.judgements.createdAt })
       .from(t.judgements)
-      .where(inArray(t.judgements.stockId, ids))
+      // Vorschläge einer älteren Fassung der Stufen gelten nicht mehr (wie currentProposals).
+      .where(and(inArray(t.judgements.stockId, ids), eq(t.judgements.levelsVersion, levelsVersion)))
       .all();
     for (const row of judged)
       if (!result.has(row.stockId)) result.set(row.stockId, { source: "vorschlag", date: row.createdAt.slice(0, 10) });
@@ -955,7 +959,8 @@ export class Database {
     const anyInput = sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id})`;
     if (assessed === "offen") return sql`NOT ${anyInput}`;
     if (assessed === "bewertet") return anyInput;
-    return sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id} AND ${t.manualInputs.note} LIKE 'Opus%')`;
+    // substr statt LIKE: LIKE ist in SQLite ohne Rücksicht auf Groß- und Kleinschreibung, startsWith in assessmentSources nicht.
+    return sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id} AND substr(${t.manualInputs.note}, 1, 4) = 'Opus')`;
   }
 
   #rated(filter: ScreeningFilter): SQL | undefined {
@@ -1006,7 +1011,7 @@ export class Database {
     ELSE 'keine-loesung' END`;
 
   /** Titel ohne berechenbare Rendite je Grund, soweit Region und Suche passen. */
-  ratingGaps(filter: Pick<ScreeningFilter, "region" | "query">): Record<RatingGap, number> {
+  ratingGaps(filter: Pick<ScreeningFilter, "region" | "query" | "assessed">): Record<RatingGap, number> {
     const rows = this.#db
       .select({ gap: Database.#gapSql, n: count() })
       .from(t.screening)
@@ -1029,7 +1034,7 @@ export class Database {
   /** Titel ohne berechenbare Rendite aus einem Grund, nach Name. */
   unrated(
     gap: RatingGap,
-    filter: Pick<ScreeningFilter, "region" | "query">,
+    filter: Pick<ScreeningFilter, "region" | "query" | "assessed">,
     limit: number,
     offset = 0,
   ): { stock: Stock; row: ScreeningRow }[] {

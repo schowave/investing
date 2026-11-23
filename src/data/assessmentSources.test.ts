@@ -20,13 +20,15 @@ describe("Herkunft der Bewertung für den Datenvorrat", () => {
       proposals: {},
       levelsVersion: 2,
     });
-    const sources = db.assessmentSources(["OPUS.US", "JEV.US", "HAND.US", "VORSCHLAG.US", "LEER.US"]);
+    const sources = db.assessmentSources(["OPUS.US", "JEV.US", "HAND.US", "VORSCHLAG.US", "LEER.US"], 2);
     expect(sources.get("OPUS.US")?.source).toBe("opus");
     expect(sources.get("JEV.US")?.source).toBe("jev");
     expect(sources.get("HAND.US")?.source).toBe("hand");
     expect(sources.get("VORSCHLAG.US")).toEqual({ source: "vorschlag", date: "2026-11-21" });
     expect(sources.has("LEER.US")).toBe(false);
-    expect(db.assessmentSources([])).toEqual(new Map());
+    expect(db.assessmentSources([], 2)).toEqual(new Map());
+    // Ein Jev-Urteil nach einer älteren Fassung der Stufen ist kein offener Vorschlag mehr.
+    expect(db.assessmentSources(["VORSCHLAG.US"], 3).has("VORSCHLAG.US")).toBe(false);
   });
 
   it("filtert den Datenvorrat nach bewertet, mit Opus bewertet und unbewertet", () => {

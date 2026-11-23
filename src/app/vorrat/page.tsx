@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FINANCIAL_STAND_INS } from "../../calc/risk.ts";
 import type { RatingGap } from "../../data/db.ts";
+import { LEVELS_VERSION } from "../../judgement/factors.ts";
 import { MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS } from "../../valuation/valuation.ts";
 import { addStocks, setWatched } from "../actions.ts";
 import { amount, isoDate, percent } from "../format.ts";
@@ -101,7 +102,10 @@ export default async function Stockpile(props: {
   const rawPage = Number(params.seite);
   const page = Number.isInteger(rawPage) ? Math.min(Math.max(rawPage, 1), pages) : 1;
   const ranked = gap ? [] : db.screening(filter, LIMIT, (page - 1) * LIMIT);
-  const sources = db.assessmentSources(ranked.map((r) => r.stock.id));
+  const sources = db.assessmentSources(
+    ranked.map((r) => r.stock.id),
+    LEVELS_VERSION,
+  );
   const gaps = db.ratingGaps(filter);
   const gapTotal = GAP_ORDER.reduce((sum, key) => sum + gaps[key], 0);
   const gapPage = gap ? db.unrated(gap, filter, LIMIT, (page - 1) * LIMIT) : [];
