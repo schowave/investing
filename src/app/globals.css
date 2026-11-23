@@ -776,6 +776,94 @@ details.more[open] > summary {
   color: var(--muted);
 }
 
+/* ---------- Dokumente aus docs/ (Strategie, Änderungsprotokoll) ---------- */
+.prose h3 {
+  margin: 22px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.prose ol {
+  margin-bottom: 12px;
+  padding-left: 22px;
+}
+.prose li > ul,
+.prose li > ol {
+  margin: 4px 0 0;
+}
+.prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+.prose pre.formula {
+  white-space: pre;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.prose pre.formula code {
+  font-size: 13px;
+}
+.prose td {
+  vertical-align: top;
+}
+.prose .scroll {
+  margin: 4px 0 16px;
+}
+.prose .scroll table {
+  margin: 0;
+}
+.document .prose {
+  max-width: 96ch;
+}
+.document .prose > p:first-child {
+  color: var(--muted);
+}
+.toc h2,
+.daily h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.toc ol {
+  list-style: none;
+  padding-left: 0;
+  columns: 2 280px;
+  column-gap: 32px;
+}
+.toc li {
+  break-inside: avoid;
+  margin-bottom: 6px;
+}
+.toc li li {
+  margin: 2px 0 0 14px;
+  font-size: 13px;
+}
+.toc a,
+.prose a {
+  color: var(--data);
+  text-decoration: none;
+}
+.toc a:hover,
+.prose a:hover {
+  text-decoration: underline;
+}
+.toc li li a {
+  color: var(--muted);
+}
+.daily dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 40px;
+  margin-top: 10px;
+}
+.daily dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.daily dd {
+  font-size: 18px;
+  font-weight: 600;
+}
+
 /* ---------- Schmale Bildschirme ---------- */
 @media (max-width: 1100px) {
   .columns,
@@ -1032,4 +1120,67 @@ details.guide dt {
 details.guide dd {
   margin: 0;
   color: var(--muted);
+}
+
+/* ---------- Druck: das Dokument ohne Navigation und Tageswerte, als PDF für Leser ohne Zugang.
+   Am Ende der Datei, damit es die Regeln für schmale Bildschirme übersteuert (A4 ist schmaler als 820px). ---------- */
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+  body {
+    background: #fff;
+    font-size: 11pt;
+  }
+  .sidebar,
+  .topbar,
+  .no-print {
+    display: none;
+  }
+  .shell {
+    display: block;
+  }
+  .canvas {
+    padding: 0;
+  }
+  .card {
+    border: 0;
+  }
+  .card-body {
+    padding: 0;
+  }
+  .card + .card {
+    margin-top: 16px;
+  }
+  .toc ol {
+    columns: 1;
+  }
+  .document .prose,
+  .prose {
+    max-width: none;
+  }
+  .prose h2 {
+    break-before: auto;
+    break-after: avoid;
+  }
+  .prose h3 {
+    break-after: avoid;
+  }
+  .prose tr,
+  .prose pre {
+    break-inside: avoid;
+  }
+  .scroll {
+    overflow: visible;
+  }
+  .prose pre.formula {
+    white-space: pre-wrap;
+    background: #f4f5f7;
+  }
+  a {
+    color: inherit;
+  }
+  .legal {
+    margin-top: 16px;
+  }
 }

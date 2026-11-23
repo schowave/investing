@@ -116,8 +116,8 @@ export default async function PortfolioPage(props: {
           <h1>{portfolio.name}</h1>
           <p className="finding">{finding}</p>
           <p className="meta">
-            Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} ·
-            Untergrenze {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte
+            Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} · Hürde{" "}
+            {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte
           </p>
         </div>
         <div className="title-actions">
@@ -166,8 +166,8 @@ export default async function PortfolioPage(props: {
         <div className="card-head">
           <h2>Ist gegen Ziel</h2>
           <span className="meta">
-            Kandidat wird ein Titel mit vollständiger Bewertung, Risikowert unter 75 % und mehr als {percent(profile.minReturn)} innerer
-            Rendite; aufgenommen werden die besten zuerst
+            Kandidat wird ein Titel mit vollständiger Bewertung, Risikowert unter 75 % und mindestens {percent(profile.minReturn)} innerer
+            Rendite (Hürde); aufgenommen werden die besten zuerst
           </span>
         </div>
         {view.rows.length === 0 ? (

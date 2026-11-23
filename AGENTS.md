@@ -1,7 +1,8 @@
 # investing
 
 Bewertung und Watchlist für Dividendenaktien: Next.js-Oberfläche, Skripte für Abgleich und Import, SQLite in `data/`.
-Fachliche Grundlage: `docs/SPEZIFIKATION.md`.
+Fachliche Grundlage: `docs/STRATEGIE.md` (was die Strategie tut und warum; maßgeblich für Regeln und Werte) und
+`docs/SPEZIFIKATION.md` (wie die Anwendung sie umsetzt).
 
 ## Befehle
 
@@ -14,8 +15,8 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
 | `mise run fmt`                  | Formatieren und sichere Lint-Korrekturen (Biome)                                                      |
 | `mise run dev`                  | Oberfläche auf http://localhost:3000                                                                  |
 | `mise run sync`                 | Täglicher Abgleich, vorher Sicherung nach `data/backups` (braucht `.env.local` mit `EODHD_API_TOKEN`) |
-| `pnpm run backtest`             | Rückblick auf die Strategie, auch zum Vergleich zweier Stände (`--vergleich`); Spezifikation 15.1     |
-| `pnpm run forward`              | Vorwärtsprotokoll: was die Anwendung vorgeschlagen hätte und was daraus wurde; Spezifikation 15.2     |
+| `pnpm run backtest`             | Rückblick auf die Strategie, auch zum Vergleich zweier Stände (`--vergleich`); Spezifikation 8.1      |
+| `pnpm run forward`              | Vorwärtsprotokoll: was die Anwendung vorgeschlagen hätte und was daraus wurde; Spezifikation 8.2      |
 | `pnpm run <skript> <argumente>` | Einzelne Skripte aus `package.json`; Argumente **ohne** `--`, pnpm reicht es sonst ans Skript weiter  |
 
 ## Regeln für Änderungen
@@ -23,11 +24,21 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
 - Versionen sind exakt festgelegt (`package.json`, `mise.toml`, Actions per Digest); Renovate hebt sie an.
   pnpm lehnt Pakete ab, die jünger als einen Tag sind – dann eine ältere Version nehmen, die Sperre nicht lockern.
 - Daten von außen (EODHD, EZB, IWF, Formulare der Server Actions) mit zod prüfen, bevor sie weiterverarbeitet werden.
+- `docs/STRATEGIE.md` ist für Regeln und Werte maßgeblich, der Code folgt. Keine Regeländerung ohne Änderung an `STRATEGIE.md` im
+  selben Commit. `src/valuation/strategyDocument.test.ts` vergleicht die Tabellen mit Schlüsseln (6.2, 10.1, 10.3), Raster, Stufen,
+  Profile, Bandbreite, Kurzfassung und Version mit dem Code; Zahlen in Formeln, Beispielen und Begründungen prüft er nicht
+  (Liste in Spezifikation 1). Neue Werte gehören in eine dieser Tabellen, nicht in den Regeltext.
+- Kreislauf für Änderungen an der Strategie: (1) Anregung als prüfbare Vermutung unter „Offene Fragen“ (Strategie 11) eintragen;
+  (2) mit dem Rückblick gegen `main` prüfen (nächster Punkt); (3) Ergebnis in `docs/STRATEGIE-AENDERUNGEN.md` festhalten (Datum,
+  Version, betroffene Regel, vorher/nachher, Kennzahlen, Entscheidung), auch verworfene Versuche; (4) bei Annahme `STRATEGIE.md`,
+  Code und Tests in einem Commit, `STRATEGY_VERSION` (`src/valuation/run.ts`) und die Version im Kopf des Dokuments erhöhen.
+  Reine Textänderungen erhöhen die Version nicht. Der Stufenplan dazu steht in `docs/Selbstlernende-Strategie.md`.
 - Änderungen, die das Zielportfolio ändern sollen (Rechenmodell, Profile, Auswahl), vor dem Commit mit dem Rückblick prüfen: auf `main`
   `pnpm run backtest --name main`, auf dem Zweig `pnpm run backtest --name aenderung --vergleich main` (derselbe Checkout, dieselbe
   Datenbank, derselbe Tag; mehrere Minuten, beim ersten Mal mit Netz für EZB und Yahoo; `--zufall 0 --ohne-index` ist die schnelle
-  Fassung). Median der Fenster, Anteil besserer Fenster, Güte (auch im schwachen Viertel), Umschlag und größten Rückgang in die Commit-Nachricht, dazu die Grenzen aus
-  Spezifikation 15.1. Ein Vorsprung nur im Mittel oder in einem Zeitraum trägt keine Änderung. Refactorings ohne Wirkung brauchen das nicht.
+  Fassung). Median der Fenster, Anteil besserer Fenster, Güte (auch im schwachen Viertel), Umschlag und größten Rückgang in die
+  Commit-Nachricht und ins Änderungsprotokoll, dazu die Grenzen aus Strategie 8.3. Ein Vorsprung nur im Mittel oder in einem
+  Zeitraum trägt keine Änderung. Refactorings ohne Wirkung brauchen das nicht.
 - Neue Logik bekommt Tests; `mise run check` bricht, wenn die Abdeckung unter die Schwellen in `vitest.config.ts` fällt.
 - `!` (Non-Null-Assertion) ist erlaubt: `noUncheckedIndexedAccess` ist an, `!` markiert geprüfte Stellen.
 

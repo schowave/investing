@@ -59,6 +59,8 @@ COPY package.json next.config.ts tsconfig.json ./
 COPY src ./src
 COPY scripts ./scripts
 COPY db ./db
+# Die Seite „Strategie“ liest das maßgebliche Dokument und sein Änderungsprotokoll zur Laufzeit (src/app/documents.ts).
+COPY docs/STRATEGIE.md docs/STRATEGIE-AENDERUNGEN.md ./docs/
 # Betriebsdateien für den LXC; investing-update.sh übernimmt sie von hier.
 COPY deploy/lxc ./deploy/lxc
 ENV PATH="/opt/node/bin:$PATH" \

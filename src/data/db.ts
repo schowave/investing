@@ -126,6 +126,8 @@ export interface ForwardLogEntry extends ForwardLogRow {
   arm: string;
   profile: string;
   calcVersion: number;
+  /** Version der Strategie (`docs/STRATEGIE.md`), nach der der Eintrag entstand. */
+  strategyVersion: string;
 }
 
 export interface ScreeningRow {
@@ -715,8 +717,18 @@ export class Database {
   }
 
   referenceRate(key: string): number | null {
-    const row = this.#db.select({ value: t.referenceRates.value }).from(t.referenceRates).where(eq(t.referenceRates.key, key)).get();
-    return row ? row.value : null;
+    return this.referenceRateEntry(key)?.value ?? null;
+  }
+
+  /** Bezugsgröße mit dem Tag, für den sie gilt; `null`, wenn sie nie geladen wurde. */
+  referenceRateEntry(key: string): { value: number; date: string } | null {
+    return (
+      this.#db
+        .select({ value: t.referenceRates.value, date: t.referenceRates.date })
+        .from(t.referenceRates)
+        .where(eq(t.referenceRates.key, key))
+        .get() ?? null
+    );
   }
 
   /** Datum des jüngsten Kurses je Aktie. */
@@ -1118,7 +1130,7 @@ export class Database {
     date: string,
     arm: string,
     profile: string,
-    calcVersion: number,
+    versions: { calcVersion: number; strategyVersion: string },
     rows: readonly ForwardLogRow[],
     done: { key: string; value: string },
   ): void {
@@ -1128,7 +1140,7 @@ export class Database {
         .run();
       for (const row of rows)
         tx.insert(t.forwardLog)
-          .values({ date, arm, profile, calcVersion, ...row })
+          .values({ date, arm, profile, ...versions, ...row })
           .run();
       const updatedAt = new Date().toISOString();
       tx.insert(t.settings)

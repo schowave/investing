@@ -307,6 +307,11 @@ export const forwardLog = sqliteTable(
     /** Kurs in Euro am Tag des Eintrags. */
     priceEur: real("price_eur").notNull(),
     calcVersion: integer("calc_version").notNull(),
+    /**
+     * Version der Strategie (`docs/STRATEGIE.md`), nach der das Zielportfolio entstand. Einträge aus der Zeit vor dieser Spalte
+     * tragen "1.0" (Vorbehalt in `docs/STRATEGIE-AENDERUNGEN.md`).
+     */
+    strategyVersion: text("strategy_version").notNull().default("1.0"),
   },
   (t) => [primaryKey({ columns: [t.date, t.arm, t.profile, t.stockId] })],
 );

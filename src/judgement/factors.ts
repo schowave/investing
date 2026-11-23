@@ -1,4 +1,4 @@
-// Stufen der Urteilsfaktoren für Jev (Spezifikation Abschnitt 6.4).
+// Stufen der Urteilsfaktoren (Strategie 6.3) und wie Jev sie vorschlägt (Spezifikation Abschnitt 3).
 // Jev wählt keine Prozentzahl, sondern schätzt für jede Stufe eine Wahrscheinlichkeit. Der Vorschlag ist der
 // danach gewichtete Abzug. Die Stufen stehen auf Englisch, weil Jev und die Unterlagen englisch sind.
 //

@@ -1,5 +1,5 @@
 // Rückblick auf die Strategie: was das Zielportfolio der Anwendung in den letzten Jahren gebracht hätte, und der Vergleich
-// zweier Stände, um eine Änderung an der Strategie zu prüfen (Spezifikation Abschnitt 15).
+// zweier Stände, um eine Änderung an der Strategie zu prüfen (Spezifikation Abschnitt 8.1, Ergebnisse in Strategie 8).
 //
 // Aufruf: pnpm run backtest [Optionen]
 //           --name <name>        Name des Laufs und der Datei (Standard: lauf), liegt neben der Datenbank in backtest/

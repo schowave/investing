@@ -7,6 +7,8 @@ export interface ForwardSnapshot {
   date: string;
   arm: string;
   profile: string;
+  /** Strategieversion des Eintrags; innerhalb eines Eintrags für alle Positionen gleich. */
+  strategyVersion: string;
   positions: { stockId: string; weight: number; priceEur: number }[];
 }
 
@@ -14,7 +16,7 @@ export function groupSnapshots(entries: readonly ForwardLogEntry[]): ForwardSnap
   const byKey = new Map<string, ForwardSnapshot>();
   for (const e of entries) {
     const key = `${e.date}|${e.arm}|${e.profile}`;
-    const snapshot = byKey.get(key) ?? { date: e.date, arm: e.arm, profile: e.profile, positions: [] };
+    const snapshot = byKey.get(key) ?? { date: e.date, arm: e.arm, profile: e.profile, strategyVersion: e.strategyVersion, positions: [] };
     snapshot.positions.push({ stockId: e.stockId, weight: e.weight, priceEur: e.priceEur });
     byKey.set(key, snapshot);
   }

@@ -29,7 +29,7 @@ describe("reviewOf", () => {
   it("nennt, was sich über die Bandbreite hinaus verschoben hat", () => {
     const now = { payoutLevel: 2.5, growth: 0.025, earningsLevel: 7.2, numberRisk: 0.32 };
     expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: basis, now }).changes).toEqual([
-      "Rückfluss 3,00 → 2,50 (−17 %)",
+      "Rückflussniveau 3,00 → 2,50 (−17 %)",
       "Gewinnniveau 6,00 → 7,20 (+20 %)",
       "Wachstum 5,0 % → 2,5 %",
       "Risiko aus Zahlen 20 % → 32 %",
@@ -43,7 +43,7 @@ describe("reviewOf", () => {
       before: { ...basis, growth: null, payoutLevel: 0 },
       now: { ...basis, earningsLevel: null, payoutLevel: 1 },
     });
-    expect(review.changes).toEqual(["Rückfluss 0,00 → 1,00", "Gewinnniveau: kein Vorschlag mehr", "Wachstum: neu"]);
+    expect(review.changes).toEqual(["Rückflussniveau 0,00 → 1,00", "Gewinnniveau: kein Vorschlag mehr", "Wachstum: neu"]);
   });
 
   it("zeigt bei negativem Gewinnniveau die Richtung richtig", () => {
@@ -112,7 +112,7 @@ describe("Prüfstand aus der Datenbank", () => {
       "eodhd",
     );
     const later = computeValuation(db, stock, "2026-06-02").review;
-    expect(later.changes).toEqual(["Rückfluss 3,00 → 2,50 (−17 %)"]);
+    expect(later.changes).toEqual(["Rückflussniveau 3,00 → 2,50 (−17 %)"]);
     expect(later.overdue).toBe(true);
     db.close();
   });

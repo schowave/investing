@@ -84,8 +84,10 @@ Bereits gehaltene Titel bekommen in der Sortierung einen kleinen Aufschlag. So w
 Zehntelprozentpunkt umgeschichtet. Es gibt keine Stop-Loss-Marken: Ein gefallener Kurs erhöht die innere
 Rendite und führt eher zu einem Nachkaufvorschlag. Alle Änderungen sind Vorschläge.
 
-Die vollständigen Regeln, Formeln und eigenen Annahmen stehen in
-[`docs/SPEZIFIKATION.md`](docs/SPEZIFIKATION.md) und in der Anwendung auf der Seite „Strategie“.
+Die vollständigen Regeln, Formeln und eigenen Setzungen stehen in [`docs/STRATEGIE.md`](docs/STRATEGIE.md), maßgeblich und
+für Leser ohne Code geschrieben; die Anwendung zeigt dasselbe Dokument auf der Seite „Strategie“ (als PDF über die
+Druckansicht). Geprüfte Änderungen stehen in [`docs/STRATEGIE-AENDERUNGEN.md`](docs/STRATEGIE-AENDERUNGEN.md), wie die
+Anwendung die Strategie umsetzt in [`docs/SPEZIFIKATION.md`](docs/SPEZIFIKATION.md).
 
 ## Was die Anwendung kann
 
@@ -192,7 +194,7 @@ src/
   app/         Oberfläche (Next.js)
 scripts/       Kommandozeile: Abgleich, Importe, Sicherung, Wartung
 db/migrations/ Von drizzle-kit erzeugte Migrationen
-docs/          Fachliche Spezifikation
+docs/          Strategie (maßgeblich), Änderungsprotokoll, Spezifikation der Anwendung, Recherche
 data/          Datenbank, Sicherungen, Protokolle (nicht im Repository)
 ```
 

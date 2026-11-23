@@ -146,7 +146,7 @@ description = "Image lokal bauen (investing:dev, investing:latest), wie es das C
 run = "./scripts/docker-image.sh"
 
 [tasks."docker:smoke"]
-description = "Gebautes Image mit leerer Datenbank starten: /healthz, Seiten, Worker (IMAGE, VERSION wie beim Bauen)"
+description = "Gebautes Image mit leerer Datenbank starten: /healthz, Seiten (auch Strategie), Worker (IMAGE, VERSION wie beim Bauen)"
 run = '''
 set -e
 image="${IMAGE:-investing}:${VERSION:-dev}"
@@ -159,6 +159,8 @@ trap 'docker rm -f investing-smoke investing-smoke-worker >/dev/null' EXIT
 for _ in $(seq 1 60); do
   if curl -sf localhost:3999/healthz | grep -q "\"version\":\"${VERSION:-dev}\""; then
     curl -sf -o /dev/null localhost:3999/ && curl -sf -o /dev/null localhost:3999/abgleich || { echo "Seiten antworten nicht"; exit 1; }
+    # Die Strategie liest docs/*.md zur Laufzeit: fehlt ein Dokument im Image, antworten diese Seiten mit einem Fehler.
+    curl -sf -o /dev/null localhost:3999/strategie && curl -sf -o /dev/null localhost:3999/strategie/aenderungen || { echo "Strategie-Seiten antworten nicht (docs im Image?)"; exit 1; }
     docker logs investing-smoke-worker 2>&1 | grep -q "Worker bereit" || { docker logs investing-smoke-worker; exit 1; }
     echo "Rauchtest ok: $image (Oberfläche und Worker)"
     exit 0

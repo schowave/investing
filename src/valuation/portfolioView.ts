@@ -1,4 +1,4 @@
-// Ist-Bestand gegen Zielportfolio (Spezifikation Abschnitt 7). Reine Rechnung.
+// Ist-Bestand gegen Zielportfolio (Strategie 7). Reine Rechnung.
 
 import type { Profile } from "../calc/index.ts";
 import { EXCLUSION_SCORE, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";

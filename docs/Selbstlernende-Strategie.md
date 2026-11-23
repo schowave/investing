@@ -2,8 +2,9 @@
 
 Stand: 20.11.2026. Status: Entwurf zum Verproben.
 
-Ziel ist, die Strategie „Rückflussrendite" (Spezifikation) kontrolliert zu verbessern, ohne sie an Zufall und Rückschaufehler
-anzupassen. Die Anwendung schlägt weiter nur vor; jede Änderung geht durch die Spezifikation und die Tests.
+Ziel ist, die Strategie „Rückflussrendite" (`docs/STRATEGIE.md`) kontrolliert zu verbessern, ohne sie an Zufall und
+Rückschaufehler anzupassen. Die Anwendung schlägt weiter nur vor; jede Änderung geht durch `STRATEGIE.md`, das
+Änderungsprotokoll (`docs/STRATEGIE-AENDERUNGEN.md`) und die Tests, nach dem Kreislauf in `AGENTS.md`.
 
 Grundsatz: Erst die Messung vertrauenswürdig machen, dann Parameter suchen, erst zuletzt maschinell lernen. Mit den heutigen
 Daten (rund zehn Jahre Abschlüsse, nur etwa drei unabhängige Dreijahreszeiträume) würde ein Lernverfahren vor allem Zufall und
@@ -27,7 +28,7 @@ nächste beginnt.
 
 - **Was:** `pnpm run backtest` rechnet die Strategie rückwirkend (Zielportfolio je Quartal, Euro, Kosten, Vergleich mit
   MSCI World und mit einer Zufallsauswahl) und vergleicht zwei Läufe, etwa `main` gegen eine Änderung. Beschreibung in
-  Spezifikation Abschnitt 15.
+  Spezifikation Abschnitt 8.1; Ergebnisse der geltenden Fassung in Strategie 8.
 - **Verproben:** Derselbe Stand liefert bei zweimaligem Lauf dieselben Zahlen. Lauf vom 20.11.2026 (Tauschschwelle 3 Punkte, Oktober 2016
   bis November 2026, nach Kosten, Start 100): Strategie +562 %, 20,7 % p. a., Schwankung 25 %, größter Rückgang −34 %, Median der
   Dreijahresfenster +67 %; Zufallsauswahl (Median) +179 %, keiner von 50 Läufen schlägt die Strategie; MSCI World +217 % (Kurse bis zum
@@ -57,7 +58,7 @@ nächste beginnt.
 - **Was:** Ein Gütemaß, das nicht auf einen Rohstoffzyklus passt: Rendite über Bargeld je Schwankung und Rendite je größtem Rückgang,
   nach Kosten, über die rollenden Fenster (Median und schwaches Viertel). Der Bericht stellt es neben Index und Zufallsauswahl
   (die Läufe der Tabelle unten sind ohne beide gerechnet). Es steht im Bericht und im Vergleich
-  von `pnpm run backtest` (Spezifikation 15.1, `quality` in `src/backtest/report.ts`) und wird aus den gespeicherten Läufen gerechnet.
+  von `pnpm run backtest` (Spezifikation 8.1, `quality` in `src/backtest/report.ts`) und wird aus den gespeicherten Läufen gerechnet.
 - **Verproben (20.11.2026, Läufe ohne Zufall und Index, 2016-10 bis 2026-11):** Das Maß setzt die bekannten Fälle in die erwartete
   Reihenfolge, 5 Punkte fallen im schwachen Viertel und im Fenstermedian zurück:
 
@@ -76,7 +77,8 @@ nächste beginnt.
 ### Stufe 4: Kleine, erklärbare Parametersuche
 
 - **Was:** Fünf bis zehn Stellschrauben absuchen: Tauschschwelle, Basislimit, Mindestposition, Gewichte der Risikoabzüge,
-  Marktwertgrenze, Hürde. Ergebnis sind Vorschläge für die Spezifikation, kein automatisches Übernehmen.
+  Marktwertgrenze, Hürde. Ergebnis sind Vorschläge für `STRATEGIE.md` (als offene Frage, Strategie 11), kein automatisches
+  Übernehmen.
 - **Überanpassung vermeiden:** Walk-forward (auf den Jahren bis t suchen, auf den folgenden prüfen, dann weiterrollen); für Parameter,
   die noch nicht gesehen wurden, bleibt der jüngste Zeitraum (ab Oktober 2023) gesperrt. Er ist für die Tauschschwelle schon verbraucht (sie
   wurde mit Läufen über die ganze Reihe gewählt); ihr ehrlicher Holdout ist allein das Vorwärtsprotokoll; mitzählen, wie viele Varianten schon
@@ -105,7 +107,7 @@ nächste beginnt.
 
 ## Leitplanken
 
-- Die Anwendung macht Vorschläge; ein Mensch übernimmt sie über Spezifikation und Tests.
+- Die Anwendung macht Vorschläge; ein Mensch übernimmt sie über `STRATEGIE.md`, das Änderungsprotokoll und die Tests.
 - Kein automatischer Push: ein Push auf `main` ist ein Deployment.
 - Jede Strategieänderung nennt im Commit den Vergleich des Werkzeugs (Gesamtrendite, Schwankung, größter Rückgang, Güte, Umschlag,
   Anteil der Fenster, in denen sie besser ist) und die bekannten Grenzen.

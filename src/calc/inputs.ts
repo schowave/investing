@@ -1,4 +1,4 @@
-// Vorschläge für die Eingaben (Spezifikation Abschnitt 5).
+// Vorschläge für die Eingaben (Strategie 3 und 4).
 // Alle Reihen sind Geschäftsjahre, ältestes zuerst: zehn Werte, bei jüngeren Unternehmen mindestens fünf.
 
 import { toLocalTerms } from "./innerReturn.ts";
@@ -246,7 +246,7 @@ export interface GrowthParams {
   /** Wachstum ohne zusätzliches Kapital (Preissteigerungen). */
   inflationAllowance: number;
   /**
-   * Obergrenze, wenn das Gewinnwachstum nicht bestimmbar ist und der Vorschlag aus dem Umsatz kommt: das Endwachstum.
+   * Obergrenze, wenn das Gewinnwachstum nicht bestimmbar ist und der Vorschlag aus dem Umsatz kommt: das Dauerwachstum.
    * Die Geschichte sagt dann nichts Verlässliches über überdurchschnittliches Wachstum.
    */
   maxGrowthFromRevenue: number;
@@ -267,7 +267,7 @@ export const DEFAULT_GROWTH_PARAMS: GrowthParams = {
 
 /**
  * Parameter des Wachstumsvorschlags für eine Währung: Die Grenzen gelten in Euro-Kaufkraft und werden um den
- * Inflationsabstand verschoben (Spezifikation Abschnitt 4.4). Beim Abstand 0 bleiben sie unverändert.
+ * Inflationsabstand verschoben (Strategie 4.6). Beim Abstand 0 bleiben sie unverändert.
  */
 export function growthParamsFor(inflationGap: number, base: GrowthParams = DEFAULT_GROWTH_PARAMS): GrowthParams {
   return {
@@ -317,7 +317,7 @@ export function growthProposal(
     retentionCap = retention * (args.earningsLevel / args.equityPerShare) + params.inflationAllowance;
   }
   if (args.historicalGrowth === null) {
-    // Verluste am Anfang oder Ende der Reihe: Statt des Gewinns trägt der Umsatz, aber nur bis zum Endwachstum,
+    // Verluste am Anfang oder Ende der Reihe: Statt des Gewinns trägt der Umsatz, aber nur bis zum Dauerwachstum,
     // damit Zykliker nicht vom Tief aus hochgerechnet werden. Bei Verlusten am Ende höchstens 0 (vorsichtigste Annahme).
     if (args.revenueGrowth == null) return { value: null, shrinking: false, retentionCap, fromRevenue: false };
     const cap = Math.min(args.lossesAtEnd ? params.inflationGap : params.maxGrowthFromRevenue, retentionCap ?? Infinity);

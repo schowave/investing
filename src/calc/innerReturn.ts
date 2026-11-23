@@ -1,4 +1,4 @@
-// Innere Rendite (Spezifikation Abschnitt 4).
+// Innere Rendite (Strategie 5).
 
 export interface ReturnInputs {
   /** Rückflussniveau R0 je Aktie, erwartet für das kommende Jahr. */
@@ -39,7 +39,7 @@ export const DEFAULT_RETURN_PARAMS: ReturnParams = {
 };
 
 /**
- * Rechnet einen Wert in Euro-Kaufkraft in die Berichtswährung um (Spezifikation Abschnitt 4.4): `(1 + w) · (1 + Abstand) − 1`.
+ * Rechnet einen Wert in Euro-Kaufkraft in die Berichtswährung um (Strategie 4.6): `(1 + w) · (1 + Abstand) − 1`.
  * Beim Abstand 0 bleibt der Wert bitgleich.
  */
 export function toLocalTerms(euroValue: number, inflationGap: number): number {
@@ -62,7 +62,7 @@ export function returnParamsFor(inflationGap: number, base: ReturnParams = DEFAU
 }
 
 /**
- * Ausschüttungsquote am Ende der Abschmelzphase (Spezifikation Abschnitt 4.3). Wer wächst, behält Gewinn ein; flacht das
+ * Ausschüttungsquote am Ende der Abschmelzphase (Strategie 4.5). Wer wächst, behält Gewinn ein; flacht das
  * Wachstum ab, wird dieser Gewinn frei und fließt zurück. Angerechnet wird das nur, soweit die einbehaltenen Gewinne
  * bisher Wachstum gebracht haben: Ein Unternehmen, das einbehält und trotzdem nicht wächst, bleibt bei seiner Quote.
  * Liefert `null`, wenn kein Gewinnniveau vorliegt oder schon mehr als der Gewinn zurückfließt.
@@ -142,7 +142,7 @@ function scaled(inputs: ReturnInputs, factor: number): Pick<ReturnInputs, "payou
   return { payoutLevel: inputs.payoutLevel * factor, earningsLevel: inputs.earningsLevel == null ? null : inputs.earningsLevel * factor };
 }
 
-/** Bandbreite der inneren Rendite (Abschnitt 4.1). */
+/** Bandbreite der inneren Rendite (Strategie 5.2). */
 export function scenarioReturns(
   price: number,
   inputs: ReturnInputs,

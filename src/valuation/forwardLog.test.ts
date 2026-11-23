@@ -5,7 +5,7 @@ import { steadyYears, stock } from "../test/fixtures.ts";
 import { logForward } from "./forwardLog.ts";
 import { recomputeAll } from "./recompute.ts";
 import type { StockValuation } from "./run.ts";
-import { assess, computeValuation } from "./run.ts";
+import { assess, CALC_VERSION, computeValuation, STRATEGY_VERSION } from "./run.ts";
 import { MIN_MARKET_CAP_EUR } from "./universe.ts";
 
 const DATE = "2026-11-19";
@@ -47,6 +47,17 @@ function valueAll(db: Database): Map<string, StockValuation> {
   return new Map(db.stocks({ includeStockpile: true }).map((s) => [s.id, computeValuation(db, s, DATE)]));
 }
 
+describe("saveForwardLog", () => {
+  it("speichert die übergebene Strategieversion, nicht den Standardwert der Spalte", () => {
+    const db = new Database(":memory:");
+    addStock(db, "A.US");
+    const row = { stockId: "A.US", weight: 0.1, innerReturn: 0.08, riskScore: 0.2, priceEur: CLOSE };
+    db.saveForwardLog(DATE, "zahlen", "fokussiert", { calcVersion: 99, strategyVersion: "2.3" }, [row], { key: "k", value: "v" });
+    expect(db.forwardLog()).toMatchObject([{ calcVersion: 99, strategyVersion: "2.3" }]);
+    db.close();
+  });
+});
+
 describe("logForward", () => {
   it("protokolliert im Arm „zahlen“ je Profil das Zielportfolio mit dem Kurs von heute und lässt den Monat danach in Ruhe", () => {
     const db = new Database(":memory:");
@@ -58,6 +69,7 @@ describe("logForward", () => {
     const rows = db.forwardLog();
     expect(new Set(rows.map((r) => `${r.arm}|${r.profile}`))).toEqual(new Set(["zahlen|fokussiert", "zahlen|global"]));
     expect(rows.every((r) => r.date === DATE && r.priceEur === CLOSE && r.weight > 0 && r.innerReturn > 0)).toBe(true);
+    expect(rows.every((r) => r.calcVersion === CALC_VERSION && r.strategyVersion === STRATEGY_VERSION)).toBe(true);
 
     // Derselbe Monat: nichts Neues, auch nicht an einem anderen Tag.
     expect(logForward(db, "2026-11-25", valued)).toBe(0);

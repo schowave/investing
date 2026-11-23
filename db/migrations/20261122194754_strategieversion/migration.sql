@@ -1,0 +1,1 @@
+ALTER TABLE `forward_log` ADD `strategy_version` text DEFAULT '1.0' NOT NULL;

@@ -1,4 +1,4 @@
-// Täglicher Abgleich (Spezifikation Abschnitt 8): Kurse und Wechselkurse laden, dann Bewertungen und
+// Täglicher Abgleich (Spezifikation Abschnitt 5): Kurse und Wechselkurse laden, dann Bewertungen und
 // Zielportfolios neu rechnen und als Tagesstand speichern (`recomputeAll`). Ein Fehler bei einem Titel hält den Lauf nicht auf.
 //
 // Der Abgleich richtet sich nach dem Tagesbudget des Tarifs. Reicht es nicht für alle Titel, kommen zuerst

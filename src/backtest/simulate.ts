@@ -183,7 +183,7 @@ export function simulate(input: SimulationInput): SimulationResult {
                   action === "verkaufen"
                     ? candidateIds.has(id)
                       ? "aus dem Zielportfolio verdrängt (Rang oder Limit)"
-                      : "kein Kandidat mehr (Rendite unter Untergrenze, Risiko, Daten oder Marktwert)"
+                      : "kein Kandidat mehr (Rendite unter der Hürde, Risiko, Daten oder Marktwert)"
                     : undefined,
               };
             })

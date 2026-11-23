@@ -1,5 +1,5 @@
 // Bewertung einer Aktie: Vorschläge aus den Fundamentaldaten, manuelle Übersteuerung, innere Rendite.
-// Reine Rechnung ohne Datenbank- und Netzzugriff (Spezifikation Abschnitte 4 bis 6).
+// Reine Rechnung ohne Datenbank- und Netzzugriff (Strategie 3 bis 6).
 
 import type { Region, ReturnInputs, RiskClass, RiskFactorId, RiskRatings, ScenarioReturns } from "../calc/index.ts";
 import {
@@ -66,7 +66,7 @@ export interface Proposals {
     fiscalYears: number[];
     earningsLevel: number | null;
     /**
-     * Gewinnniveau für die Ausschüttungsquote der Rechnung (4.3), wenn ein Deckel den Rückfluss gesenkt hat: im Verhältnis
+     * Gewinnniveau für die Ausschüttungsquote der Rechnung (Strategie 4.5), wenn ein Deckel den Rückfluss gesenkt hat: im Verhältnis
      * gedeckelt zu ungedeckelt gekürzt, sodass die Quote die des ungedeckelten Rückflusses bleibt. Gilt nur für den
      * vorgeschlagenen Rückfluss; bei einem Wert von Hand rechnet die Quote mit `earningsLevel`. Fehlt, wenn kein Deckel greift.
      */
@@ -181,7 +181,7 @@ function allNumbers(values: readonly (number | null)[]): values is number[] {
  * @param years Geschäftsjahre, ältestes zuerst (beliebig viele; verwendet werden die letzten zehn).
  * @param reportingPerEur Einheiten der Berichtswährung je Euro; `null`, wenn kein Wechselkurs vorliegt.
  * @param currentYear Kalenderjahr der Bewertung, für die Existenzdauer.
- * @param inflationGap Erwartete Inflation der Berichtswährung minus die des Euro; verschiebt die Wachstumsgrenzen (Abschnitt 4.4).
+ * @param inflationGap Erwartete Inflation der Berichtswährung minus die des Euro; verschiebt die Wachstumsgrenzen (Strategie 4.6).
  */
 export function proposeInputs(
   stock: Stock,
@@ -320,7 +320,7 @@ export function proposeInputs(
     return amount === null ? null : amount / shares[i]!;
   });
   // Der freie Cashflow des Anbieters ist operativer Cashflow minus Investitionen; der operative Cashflow rechnet die
-  // aktienbasierte Vergütung als nicht zahlungswirksamen Aufwand wieder hinzu (Abschnitt 5). Sie kostet die Eigentümer
+  // aktienbasierte Vergütung als nicht zahlungswirksamen Aufwand wieder hinzu (Strategie 3.6). Sie kostet die Eigentümer
   // aber Verwässerung, deshalb mindert sie den tragbaren Rückfluss. Banken und Versicherer rechnen aus dem Gewinn,
   // der sie schon als Aufwand enthält.
   const compensationPerShare = usable.values.map((v, i) => (v === null ? null : v / shares[i]!));
@@ -343,7 +343,7 @@ export function proposeInputs(
       ? Math.max(0, cashLevel.cashFlow - cashLevel.compensation - repayment)
       : null;
   details.sustainableFrom = stock.isFinancial ? "earnings" : realEstate ? "operatingCashFlow" : "freeCashFlow";
-  if (realEstate) notes.push("Immobilienwert: Der tragbare Rückfluss kommt aus dem operativen Cashflow statt aus dem freien Cashflow.");
+  if (realEstate) notes.push("Immobilienwert: Der Rückflussdeckel kommt aus dem operativen Cashflow statt aus dem freien Cashflow.");
   if (cashLevel !== null) {
     details.cashFlowWindow = {
       years: cashLevel.windowYears,
@@ -360,7 +360,7 @@ export function proposeInputs(
     }
     if (cyclical && short)
       notes.push(
-        `Zyklus: Die Reihe hat nur ${ten.length} Jahre; ein ganzer Zyklus ist womöglich nicht abgedeckt, der tragbare Rückfluss kann zu hoch sein.`,
+        `Zyklus: Die Reihe hat nur ${ten.length} Jahre; ein ganzer Zyklus ist womöglich nicht abgedeckt, der Rückflussdeckel kann zu hoch sein.`,
       );
   }
   Object.assign(details, { earningsLevel: level, dividendLevel: divLevel, netBuybacksPerShare: buybacks, sustainablePayout: sustainable });
@@ -379,7 +379,7 @@ export function proposeInputs(
     payout = proposal.value;
     values.payoutLevel = payout;
     if (proposal.capped)
-      notes.push(`Rückfluss auf den tragbaren Wert gedeckelt (${(divLevel + buybacks).toFixed(2)} auf ${payout.toFixed(2)}).`);
+      notes.push(`Ausschüttungsniveau ${(divLevel + buybacks).toFixed(2)} auf den Rückflussdeckel ${payout.toFixed(2)} begrenzt.`);
     // Hätte der Deckel ohne den Abzug der Vergütung nicht gegriffen, sagt der Hinweis es.
     if (
       proposal.capped &&
@@ -393,7 +393,7 @@ export function proposeInputs(
     if (payout === 0) notes.push("Rückflussniveau ist 0, eine innere Rendite lässt sich daraus nicht rechnen.");
   }
 
-  // Greift ein Deckel, bleibt die Quote der Rechnung (4.3) die des ungedeckelten Rückflusses: Das Gewinnniveau geht im
+  // Greift ein Deckel, bleibt die Quote der Rechnung (Strategie 4.5) die des ungedeckelten Rückflusses: Das Gewinnniveau geht im
   // Verhältnis gedeckelt zu ungedeckelt gekürzt ein. Unabhängig davon, ob Eigenkapital vorliegt.
   if (payout !== null && payout < divLevel + buybacks && level !== null && level > 0)
     details.payoutEarningsLevel = (level * payout) / (divLevel + buybacks);
@@ -416,7 +416,7 @@ export function proposeInputs(
     const params = growthParamsFor(inflationGap);
     // Einbehalten ist, was vom Gewinn nicht ausgeschüttet wird. Eine Deckelung des Rückflusses (freier Cashflow, Zyklus,
     // Vergütung, Tilgung) ist kein einbehaltener Gewinn: Die Grenze aus Einbehaltung
-    // rechnet mit dem ungedeckelten Rückfluss. Dasselbe gilt für die Quote der Rechnung (4.3): Das Gewinnniveau geht im
+    // rechnet mit dem ungedeckelten Rückfluss. Dasselbe gilt für die Quote der Rechnung (Strategie 4.5): Das Gewinnniveau geht im
     // Verhältnis gedeckelt zu ungedeckelt gekürzt ein, die Quote bleibt die des ungedeckelten Rückflusses.
     const uncapped = divLevel + buybacks;
     const growth = growthProposal(

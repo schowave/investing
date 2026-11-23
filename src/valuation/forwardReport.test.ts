@@ -12,6 +12,7 @@ const entry = (over: Partial<ForwardLogEntry>): ForwardLogEntry => ({
   riskScore: 0.2,
   priceEur: 100,
   calcVersion: 8,
+  strategyVersion: "1.0",
   ...over,
 });
 
@@ -26,6 +27,7 @@ describe("Vorwärtsprotokoll auswerten", () => {
   it("fasst die Einträge je Datum, Arm und Profil zusammen", () => {
     expect(snapshots).toHaveLength(3);
     expect(snapshots[0]!.positions.map((p) => p.stockId)).toEqual(["A.US", "B.US"]);
+    expect(snapshots[0]!.strategyVersion).toBe("1.0");
   });
 
   it("rechnet die Kursrendite gewichtet, Bargeld zählt null", () => {
@@ -44,7 +46,10 @@ describe("Vorwärtsprotokoll auswerten", () => {
   });
 
   it("meldet 0 Deckung für ein leeres Portfolio", () => {
-    expect(snapshotResult({ date: "d", arm: "a", profile: "p", positions: [] }, () => 1)).toMatchObject({ covered: 0, invested: 0 });
+    expect(snapshotResult({ date: "d", arm: "a", profile: "p", strategyVersion: "1.0", positions: [] }, () => 1)).toMatchObject({
+      covered: 0,
+      invested: 0,
+    });
   });
 
   it("misst die Überschneidung zweier Arme als Summe der kleineren Gewichte", () => {

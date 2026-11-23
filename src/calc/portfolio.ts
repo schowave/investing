@@ -1,4 +1,4 @@
-// Zielportfolio (Spezifikation Abschnitt 7). Gewichte sind Anteile am Portfolio (0.08 = 8 %).
+// Zielportfolio (Strategie 7). Gewichte sind Anteile am Portfolio (0.08 = 8 %).
 
 import { EXCLUSION_SCORE } from "./risk.ts";
 
@@ -24,7 +24,7 @@ export const PROFILE_FOCUSED: Profile = {
   maxPerSectorAndRegion: null,
   maxSectorShare: null,
   maxRegionShare: null,
-  // 3 Punkte statt 1: Rückblick 2016 bis 2026, siehe Spezifikation 7.3.
+  // 3 Punkte statt 1: Rückblick 2016 bis 2026, siehe Strategie 7.4.
   swapThreshold: 0.03,
   minReturn: 0.03,
 };
@@ -137,7 +137,7 @@ export interface Proposal {
   change: number;
 }
 
-/** Kauf- und Verkaufsvorschläge aus Ist-Bestand und Zielportfolio (Abschnitt 7.4). */
+/** Kauf- und Verkaufsvorschläge aus Ist-Bestand und Zielportfolio (Strategie 7.4). */
 export function proposals(stocks: readonly Stock[], target: TargetPortfolio): Proposal[] {
   const targetWeight = new Map(target.positions.map((p) => [p.id, p.weight]));
   const result: Proposal[] = [];

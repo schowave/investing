@@ -181,11 +181,11 @@ export default async function StockPage(props: {
     const reasons: { key: string; text: string; anchor?: string }[] = [];
     if (v.price === null) reasons.push({ key: "price", text: "kein Kurs" });
     if (v.inputs.payoutLevel === undefined) {
-      reasons.push({ key: "payout", text: "Rückfluss je Aktie fehlt", anchor: "#payoutLevel" });
+      reasons.push({ key: "payout", text: "Rückflussniveau je Aktie fehlt", anchor: "#payoutLevel" });
     } else if (v.inputs.payoutLevel <= 0) {
       reasons.push({
         key: "payout",
-        text: "Rückfluss je Aktie ist 0",
+        text: "Rückflussniveau je Aktie ist 0",
         anchor: "#payoutLevel",
       });
     }
@@ -386,7 +386,7 @@ export default async function StockPage(props: {
       )}
       {v.complete && needsReview(review) && (
         <div className="notice">
-          <strong>Bewertung prüfen.</strong>{" "}
+          <strong>Prüfung der Bewertung fällig.</strong>{" "}
           {review.overdue && `Sie ist vom ${isoDate(review.assessedOn)} und damit älter als ${REVIEW_MONTHS} Monate. `}
           {review.changes.length > 0 &&
             `Seit dem ${isoDate(review.assessedOn)} haben sich die Vorschläge aus den Zahlen verschoben: ${review.changes.join("; ")}. `}
@@ -427,7 +427,7 @@ export default async function StockPage(props: {
               Ausschüttungsquote steigt in der Rechnung von {percent(v.payoutRatio.now, 0)} auf {percent(v.payoutRatio.terminal, 0)}, wenn
               das Wachstum abflacht
               {v.payoutRatio.uncappedPayout !== null &&
-                `. Die Quote bezieht sich auf den ungedeckelten Rückfluss ${amount(v.payoutRatio.uncappedPayout)} (Dividende plus Netto-Rückkäufe) gegen das Gewinnniveau ${amount(d.earningsLevel)}; der gedeckelte Rückfluss ${amount(v.inputs.payoutLevel)} wächst im selben Verhältnis mit`}
+                `. Die Quote bezieht sich auf das Ausschüttungsniveau ${amount(v.payoutRatio.uncappedPayout)} (Dividende plus Netto-Rückkäufe) gegen das Gewinnniveau ${amount(d.earningsLevel)}; das durch den Rückflussdeckel begrenzte Rückflussniveau ${amount(v.inputs.payoutLevel)} wächst im selben Verhältnis mit`}
             </span>
           )}
           {Math.abs(v.inflationGap) >= 0.005 && v.localReturn !== null && (
@@ -500,14 +500,19 @@ export default async function StockPage(props: {
             <table>
               {head}
               <tbody>
-                {numberRow("payoutLevel", "Rückfluss je Aktie", "Dividende plus Netto-Rückkäufe, wie du sie fürs kommende Jahr erwartest", {
-                  min: 0,
-                  max: 1e9,
-                  step: 0.01,
-                  unit: "",
-                  asPercent: false,
-                  range: currency,
-                })}
+                {numberRow(
+                  "payoutLevel",
+                  "Rückflussniveau je Aktie",
+                  "Dividende plus Netto-Rückkäufe, wie du sie fürs kommende Jahr erwartest, höchstens der Rückflussdeckel",
+                  {
+                    min: 0,
+                    max: 1e9,
+                    step: 0.01,
+                    unit: "",
+                    asPercent: false,
+                    range: currency,
+                  },
+                )}
                 {numberRow(
                   "growth",
                   "Wachstum zu Beginn",
@@ -687,12 +692,20 @@ export default async function StockPage(props: {
                     <td className="num">{amount(d.netBuybacksPerShare)}</td>
                   </tr>
                   <tr>
+                    <td>Ausschüttungsniveau je Aktie (Summe der beiden)</td>
+                    <td className="num">
+                      {d.dividendLevel === null || d.netBuybacksPerShare === null
+                        ? amount(null)
+                        : amount(d.dividendLevel + d.netBuybacksPerShare)}
+                    </td>
+                  </tr>
+                  <tr>
                     <td>Tilgung überhöhter Schulden je Aktie</td>
                     <td className="num">{amount(d.debtRepaymentPerShare)}</td>
                   </tr>
                   <tr>
                     <td>
-                      Tragbarer Rückfluss je Aktie
+                      Rückflussdeckel je Aktie
                       {d.sustainableFrom === "operatingCashFlow" && ", aus dem operativen Cashflow"}
                       {d.sustainableFrom === "earnings" && ", aus dem Gewinnniveau"}
                     </td>

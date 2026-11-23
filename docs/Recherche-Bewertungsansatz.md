@@ -1,6 +1,15 @@
 # Recherche: Bewertungsansatz im Spiegel der Primärquellen
 
-Stand: 20.11.2026. Grundlage: `docs/SPEZIFIKATION.md` vom selben Tag, Rechnung in `src/calc/`.
+Stand: 20.11.2026. Grundlage: `docs/SPEZIFIKATION.md` vom selben Tag, Rechnung in `src/calc/`. Abschnittsnummern der
+Spezifikation beziehen sich auf diese Fassung. Seit dem 22.11.2026 stehen die Regeln in `docs/STRATEGIE.md`, die Umsetzung in
+der neu nummerierten Spezifikation. Umrechnung alt → neu: 2 → Strategie 9.1, 10; 3 → Strategie 2; 4 → Strategie 5.1;
+4.1 → Strategie 5.2; 4.2 → Spezifikation 2; 4.3 → Strategie 4.5; 4.4 → Strategie 4.6; 5 → Strategie 3.1 bis 3.8 und 4.1 bis
+4.3 (Datenbehandlung: Spezifikation 4); 6.1 → Strategie 6.1, 6.4; 6.2 → Strategie 6.2; 6.3 → Strategie 6.5; 6.4 → Strategie
+6.3 und Spezifikation 3; 7.1 → Strategie 7.1, 5.3; 7.2 → Strategie 7.2; 7.3 → Strategie 7.3, 7.4; 7.4 → Strategie 7.4;
+8 → Spezifikation 5; 8.1 → Strategie 7.5; 9 → Spezifikation 4 (Plausibilität 4.1); 9.1 → Spezifikation 4.2; 10 →
+Spezifikation 6; 11 → Spezifikation 7; 12 → Strategie 10; 13 → Strategie 11 und Spezifikation 9; 14 → Spezifikation 10;
+15 → Spezifikation 8 und Strategie 8. Abschnittsnummern ohne „Spezifikation“ in diesem Dokument (etwa „4.3“ bei der
+Untergrenze) meinen die Abschnitte dieser Recherche.
 
 Zweck: belegtes Material für Verbesserungsvorschläge. Die Datei nennt, was die Primärquellen zu den Bausteinen des
 Ansatzes sagen, was die Spezifikation tut und wo beides auseinanderliegt. Die Vorschläge daraus stehen in Abschnitt 4.

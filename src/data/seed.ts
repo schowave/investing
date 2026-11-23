@@ -1,4 +1,4 @@
-// Start-Watchlist (Spezifikation Abschnitt 10). Stammdaten sind in der Anwendung änderbar.
+// Start-Watchlist (Spezifikation Abschnitt 6). Stammdaten sind in der Anwendung änderbar.
 
 import type { Stock } from "./db.ts";
 

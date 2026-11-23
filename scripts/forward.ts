@@ -25,12 +25,12 @@ const today = Date.now();
 console.log(
   "Kursrendite seit dem Eintrag, ohne Dividenden, ohne Kosten; Bargeld zählt 0. Arm zahlen = Datenvorrat ohne Urteile, urteil = Watchlist mit Urteilen.",
 );
-console.log("Datum       Profil      Arm     Titel  investiert  Kurse da  Alter   Rendite");
+console.log("Datum       Profil      Arm     Version  Titel  investiert  Kurse da  Alter   Rendite");
 for (const s of snapshots) {
   const r = snapshotResult(s, priceNow);
   const days = Math.round((today - Date.parse(s.date)) / 864e5);
   console.log(
-    `${s.date}  ${s.profile.padEnd(10)}  ${s.arm.padEnd(6)}  ${String(r.positions).padStart(5)}  ${percent(r.invested, 0).padStart(10)}  ${percent(r.covered, 0).padStart(8)}  ${`${days} T`.padStart(5)}  ${percent(r.priceReturn).padStart(8)}`,
+    `${s.date}  ${s.profile.padEnd(10)}  ${s.arm.padEnd(6)}  ${s.strategyVersion.padEnd(7)}  ${String(r.positions).padStart(5)}  ${percent(r.invested, 0).padStart(10)}  ${percent(r.covered, 0).padStart(8)}  ${`${days} T`.padStart(5)}  ${percent(r.priceReturn).padStart(8)}`,
   );
 }
 

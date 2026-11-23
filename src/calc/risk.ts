@@ -1,4 +1,4 @@
-// Risikobewertung (Spezifikation Abschnitt 6).
+// Risikobewertung (Strategie 6).
 // Abzüge sind positive Anteile (0.25 = 25 %), Boni negative.
 
 export const RISK_FACTORS = {
@@ -26,7 +26,7 @@ export const RISK_FACTOR_IDS = Object.keys(RISK_FACTORS) as RiskFactorId[];
 export const MANUAL_FOR_FINANCIALS: readonly RiskFactorId[] = ["financing", "returnOnCapital", "ebitMargin"];
 
 /**
- * Ersatzabzug für diese drei Faktoren, solange bei einem Finanzwert kein Urteil gesetzt ist (Spezifikation 6.1). Etwa der
+ * Ersatzabzug für diese drei Faktoren, solange bei einem Finanzwert kein Urteil gesetzt ist (Strategie 6.4). Etwa der
  * mittlere Abzug der Nicht-Finanzwerte mit berechenbarer, plausibler Rendite (Finanzierung 9,9 %, Kapitalrendite 4,7 %,
  * EBIT-Marge 2,7 %, Stand 20.11.2026; über alle Nicht-Finanzwerte wären es 16,5 %, 9,1 %, 6,5 %). Vergleichsgruppe sind
  * also die Titel, mit denen ein Finanzwert in der Rangliste konkurriert; fehlende Information zählt nicht wie das beste
@@ -90,7 +90,7 @@ export function defaultProbability(score: number, params: DefaultProbabilityPara
   return params.base + params.perScore * score;
 }
 
-// --- Vorschlagsregeln für die Zahlenfaktoren (Abschnitt 6.2) ---
+// --- Vorschlagsregeln für die Zahlenfaktoren (Strategie 6.2) ---
 
 /** Linear von `worstDeduction` bei `worst` auf 0 bei `good`. */
 function interpolate(value: number, worst: number, good: number, worstDeduction: number): number {
@@ -98,7 +98,7 @@ function interpolate(value: number, worst: number, good: number, worstDeduction:
   return worstDeduction * (1 - Math.min(1, Math.max(0, position)));
 }
 
-/** Ein Jahr gilt als Einbruch, wenn der Gewinn unter diesem Anteil des Mittels der Vorjahre liegt. */
+/** Ein Jahr gilt als Einbruch, wenn der Gewinn unter diesem Anteil des Medians der bis zu drei Vorjahre liegt. */
 const COLLAPSE = 0.5;
 /** Beim operativen Ergebnis genügt ein Rückgang auf diesen Anteil, um einen Einbruch des Gewinns zu bestätigen. */
 const OPERATING_COLLAPSE = 0.7;
@@ -119,7 +119,7 @@ function levelBefore(series: readonly (number | null)[], index: number): number 
  *
  * Das Buch rechnet mit bereinigten Gewinnen. Die Zahlen des Anbieters sind unbereinigt, deshalb zählt ein Verlust oder
  * Einbruch nur, wenn ihn auch das operative Ergebnis zeigt: Steuereffekte und Abschreibungen unterhalb des EBIT (etwa
- * die US-Steuerreform 2017) sind keine Schwäche des Geschäfts. Gemessen wird am Mittel der drei Vorjahre, damit das
+ * die US-Steuerreform 2017) sind keine Schwäche des Geschäfts. Gemessen wird am Median der bis zu drei Vorjahre, damit das
  * Jahr nach einem einmaligen Sondergewinn nicht als Einbruch gilt.
  *
  * @param operatingResult EBIT derselben Jahre; `null`, wo es fehlt. Ohne EBIT entscheidet der Gewinn allein.

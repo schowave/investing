@@ -39,7 +39,7 @@ for (const { stock, priceDate, proposals, valuation: v } of results.filter((r) =
     `\n${stock.id}  ${stock.name}  (${stock.reportingCurrency}, Geschäftsjahre ${d.fiscalYears[0]} bis ${d.fiscalYears.at(-1)}, Kurs vom ${priceDate ?? "–"})`,
   );
   console.log(
-    `  Gewinnniveau ${amount(d.earningsLevel)}, Dividendenniveau ${amount(d.dividendLevel)}, Netto-Rückkäufe ${amount(d.netBuybacksPerShare)}, tragbarer Rückfluss ${amount(d.sustainablePayout)}`,
+    `  Gewinnniveau ${amount(d.earningsLevel)}, Dividendenniveau ${amount(d.dividendLevel)}, Netto-Rückkäufe ${amount(d.netBuybacksPerShare)}, Rückflussdeckel ${amount(d.sustainablePayout)}`,
   );
   console.log(
     `  Wachstum historisch ${percent(d.historicalGrowth)}, Umsatz je Aktie ${percent(d.revenueGrowth)}, Grenze aus Einbehaltung ${percent(d.retentionCap)}`,

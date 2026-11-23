@@ -10,7 +10,7 @@ import { PROFILE_FOCUSED, PROFILE_GLOBAL, targetPortfolio, withHurdle } from "..
 import type { Database } from "../data/db.ts";
 import { BOND_KEY } from "./portfolioRun.ts";
 import type { StockValuation } from "./run.ts";
-import { CALC_VERSION, computeValuation } from "./run.ts";
+import { CALC_VERSION, computeValuation, STRATEGY_VERSION } from "./run.ts";
 import { fingerprint, isCommonShare, MIN_MARKET_CAP_EUR } from "./universe.ts";
 import { doubtfulNumbers } from "./valuation.ts";
 
@@ -151,7 +151,7 @@ export function logForward(db: Database, date: string, valued: ReadonlyMap<strin
           priceEur: candidate.priceEur,
         };
       });
-      db.saveForwardLog(date, arm, name, CALC_VERSION, rows, { key, value: month });
+      db.saveForwardLog(date, arm, name, { calcVersion: CALC_VERSION, strategyVersion: STRATEGY_VERSION }, rows, { key, value: month });
       logged += rows.length;
     }
   }

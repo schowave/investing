@@ -19,6 +19,13 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  */
 export const CALC_VERSION = 9;
 
+/**
+ * Version der Strategie, wie sie im Kopf von `docs/STRATEGIE.md` steht (ein Test vergleicht beide). Steigt bei jeder Änderung,
+ * die das Zielportfolio verändern kann, im selben Commit wie das Dokument und der Eintrag in `docs/STRATEGIE-AENDERUNGEN.md`;
+ * reine Textänderungen lassen sie stehen. `CALC_VERSION` bleibt der technische Auslöser fürs Neurechnen.
+ */
+export const STRATEGY_VERSION = "1.0";
+
 /** Gespeicherter Tagesstand; nur `calcVersion` und die Vorschläge werden wieder gelesen. */
 const StoredDetails = z.object({
   // Fehlt bei Tagesständen, die vor der Einführung der Version gespeichert wurden.
@@ -45,8 +52,8 @@ export interface StockValuation {
 }
 
 /**
- * Erwartete Inflation der Berichtswährung minus die des Euro (IWF-Prognose, Abschnitt 7.1). Sie macht die Rendite mit
- * dem Euro vergleichbar und verschiebt die Wachstumsgrenzen (Abschnitt 4.4). Für den Euro und ohne Prognose 0; fehlt die
+ * Erwartete Inflation der Berichtswährung minus die des Euro (IWF-Prognose, Strategie 5.3). Sie macht die Rendite mit
+ * dem Euro vergleichbar und verschiebt die Wachstumsgrenzen (Strategie 4.6). Für den Euro und ohne Prognose 0; fehlt die
  * Prognose einer Fremdwährung, ist `missing` gesetzt.
  */
 export function inflationGapOf(db: Database, stock: Stock): { gap: number; missing: boolean } {

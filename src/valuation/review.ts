@@ -1,8 +1,8 @@
-// Wann eine Bewertung wieder angesehen werden muss (Spezifikation Abschnitt 8). Reine Rechnung.
+// Wann eine Bewertung wieder angesehen werden muss (Strategie 7.5). Reine Rechnung.
 //
 // Der Autor versieht jede Bewertung mit einem Datum und gleicht monatlich ab, ob sich die Zahlen seither verschoben
 // haben: Bei wenigen Prozent bleibt die Bewertung stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an
-// (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Abschnitt 4.1: Was über sie hinausgeht,
+// (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Strategie 5.2: Was über sie hinausgeht,
 // deckt die Bewertung nicht mehr ab.
 
 import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS, toEuroTerms } from "../calc/index.ts";
@@ -60,7 +60,7 @@ function levelChange(label: string, before: number | null, now: number | null, t
   return `${label} ${number(before, 2)} → ${number(now, 2)}${Number.isFinite(shift) ? ` (${signed(shift)})` : ""}`;
 }
 
-/** @param inflationGap Verglichen wird in Euro-Kaufkraft (Spezifikation 4.4); angezeigt werden die nominalen Werte. */
+/** @param inflationGap Verglichen wird in Euro-Kaufkraft (Strategie 4.6); angezeigt werden die nominalen Werte. */
 function pointChange(
   label: string,
   before: number | null,
@@ -102,7 +102,7 @@ export function reviewOf(args: {
     before === null
       ? []
       : [
-          levelChange("Rückfluss", before.payoutLevel, now.payoutLevel, spread.payoutFactor),
+          levelChange("Rückflussniveau", before.payoutLevel, now.payoutLevel, spread.payoutFactor),
           levelChange("Gewinnniveau", before.earningsLevel, now.earningsLevel, spread.payoutFactor),
           pointChange("Wachstum", before.growth, now.growth, spread.growthPoints, 1, args.inflationGap),
           pointChange("Risiko aus Zahlen", before.numberRisk, now.numberRisk, RISK_SHIFT, 0),

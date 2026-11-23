@@ -72,7 +72,7 @@ export default function Ranking() {
 
       <dl className="card figures">
         <div className="figure">
-          <dt>Anleiherendite</dt>
+          <dt>Hürde (Anleiherendite)</dt>
           <dd>{percent(hurdle)}</dd>
           <span className="sub">
             {bondYield === null

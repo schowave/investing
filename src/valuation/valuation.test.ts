@@ -50,7 +50,7 @@ describe("proposeInputs", () => {
       2026,
     );
     expect(values.payoutLevel).toBeCloseTo(2.5);
-    expect(notes.some((n) => n.includes("gedeckelt"))).toBe(true);
+    expect(notes.some((n) => n.includes("auf den Rückflussdeckel"))).toBe(true);
   });
 
   it("macht bei weniger als fünf Jahren nur Vorschläge aus den Stammdaten", () => {
@@ -156,7 +156,7 @@ describe("proposeInputs", () => {
     expect(notes.some((n) => n.includes("von Hand"))).toBe(true);
   });
 
-  it("nimmt bei Immobilienwerten den operativen statt des freien Cashflows als tragbaren Rückfluss", () => {
+  it("nimmt bei Immobilienwerten den operativen statt des freien Cashflows als Rückflussdeckel", () => {
     const years = steadyYears((y) => {
       y.freeCashFlow = -500;
       y.operatingCashFlow = 3000;
@@ -226,7 +226,7 @@ describe("proposeInputs", () => {
     expect(details.earningsGrowthTotal!).toBeGreaterThan(details.earningsGrowthPerShare!);
   });
 
-  it("zieht die Tilgung überhöhter Schulden vom tragbaren Rückfluss ab und bewertet die Finanzierung", () => {
+  it("zieht die Tilgung überhöhter Schulden vom Rückflussdeckel ab und bewertet die Finanzierung", () => {
     // EBITDA rund 1174 im letzten Jahr; Nettoschulden 5000 liegen über dem Dreifachen, der Überhang wird in zehn Jahren getilgt.
     const years = steadyYears((y) => {
       y.netDebt = 5000;
@@ -856,7 +856,7 @@ describe("Tragbarer Rückfluss über den Zyklus und aktienbasierte Vergütung", 
         y.stockBasedCompensation = sbc;
       });
 
-    it("mindert den tragbaren Rückfluss und bringt den Deckel zum Greifen, mit Hinweis", () => {
+    it("mindert den Rückflussdeckel und bringt den Deckel zum Greifen, mit Hinweis", () => {
       const without = proposeInputs(stock, dilutive(null), 1, 2026);
       expect(without.details.sustainablePayout).toBeCloseTo(4);
       expect(without.values.payoutLevel).toBeCloseTo(3);
@@ -955,7 +955,7 @@ describe("Deckel und Einbehaltung", () => {
     expect(base(withPay)!).toBeLessThan(base(without)!);
   });
 
-  it("senkt ein niedrigerer tragbarer Rückfluss bei sonst gleichen Daten die Rendite, hebt sie nie (Gitter)", () => {
+  it("senkt ein niedrigerer Rückflussdeckel bei sonst gleichen Daten die Rendite, hebt sie nie (Gitter)", () => {
     for (const equity of [300, 1000, 5000, 1e9]) {
       for (const grower of [false, true]) {
         let previous = Infinity;
@@ -1022,7 +1022,7 @@ describe("Deckel und Einbehaltung", () => {
     expect(evaluated(noEquity, manual).returns!.base!).toBeCloseTo(evaluated(withEquity, manual).returns!.base!, 12);
   });
 
-  it("behandelt Deckel 0, ungedeckelten Rückfluss 0 und ungedeckelten Rückfluss über dem Gewinn", () => {
+  it("behandelt Deckel 0, Ausschüttungsniveau 0 und Ausschüttungsniveau über dem Gewinn", () => {
     // Deckel 0: Der Cashflow trägt nichts; keine Rendite, aber auch kein Fehler.
     const zero = proposeInputs(stock, years(0, null), 1, 2026);
     expect(zero.values.payoutLevel).toBe(0);
@@ -1050,7 +1050,7 @@ describe("Deckel und Einbehaltung", () => {
     expect(valuation.payoutRatio).toBeNull();
   });
 
-  it("nennt den ungedeckelten Rückfluss, auf den sich die Quote bezieht", () => {
+  it("nennt das Ausschüttungsniveau, auf das sich die Quote bezieht", () => {
     const capped = evaluate({ payoutLevel: 2.5, growth: 0.06 }, {}, 100, 0, 6, 4);
     expect(capped.payoutRatio?.now).toBeCloseTo(2.5 / 4);
     // Ungedeckelt: 2,5 / (4 / 6) = 3,75.

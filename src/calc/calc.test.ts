@@ -138,7 +138,7 @@ describe("steigende Ausschüttungsquote", () => {
 describe("Eingaben", () => {
   it("rechnet die BASF-Werte aus dem Buch nach", () => {
     expect(historicalGrowth(BASF)!).toBeCloseTo(0.155, 3);
-    // Das Buch rundet das Wachstum vor der Hochrechnung auf 15,5 %; Toleranz laut Spezifikation 0,01.
+    // Das Buch rundet das Wachstum vor der Hochrechnung auf 15,5 %; Toleranz laut Spezifikation 7: 0,01.
     expect(Math.abs(levelFromAverage(BASF, 10)! - 5.42)).toBeLessThan(0.01);
     expect(Math.abs(levelFromAverage(BASF, 5)! - 5.38)).toBeLessThan(0.01);
     expect(Math.abs(earningsLevel(BASF)! - 5.38)).toBeLessThan(0.01);
@@ -474,7 +474,7 @@ describe("Schulden, Währung und Hürde", () => {
   });
 });
 
-describe("Wachstumsgrenzen je Währung (Abschnitt 4.4)", () => {
+describe("Wachstumsgrenzen je Währung (Strategie 4.6)", () => {
   const LIRA = 0.175;
   const euroCompany = { payoutLevel: 5, growth: 0.085, defaultProbability: 0.02 };
   // Dasselbe Unternehmen in Lira: Rückfluss des kommenden Jahres, Gewinn und Wachstum nominal um den Abstand höher.
