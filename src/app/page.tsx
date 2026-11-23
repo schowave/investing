@@ -3,6 +3,7 @@ import { EXCLUSION_SCORE, PROFILE_FOCUSED, positionLimit } from "../calc/index.t
 import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { needsReview } from "../valuation/review.ts";
+import { priceToEarnings } from "../valuation/valuation.ts";
 import { startSync } from "./actions.ts";
 import { amount, isoDate, percent } from "./format.ts";
 import { stockPath } from "./origin.ts";
@@ -132,6 +133,7 @@ export default function Ranking() {
                   const base = v.returns?.base ?? null;
                   const excluded = v.riskFloor >= EXCLUSION_SCORE;
                   const link = stockPath(stock.id);
+                  const kgv = priceToEarnings(v.price, row.proposals.details.earningsLevel);
                   return [
                     index === firstBelow && firstBelow > 0 ? (
                       <tr className="threshold" key="threshold">
@@ -170,7 +172,10 @@ export default function Ranking() {
                       </td>
                       <td className="num wide-only">
                         {amount(v.price)}
-                        <small>{stock.reportingCurrency}</small>
+                        <small>
+                          {stock.reportingCurrency}
+                          {kgv !== null && ` · KGV ${amount(kgv, 1)}`}
+                        </small>
                       </td>
                       <td className="num wide-only">{amount(v.inputs.payoutLevel)}</td>
                       <td className="num wide-only">{percent(v.inputs.growth)}</td>

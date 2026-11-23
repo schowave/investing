@@ -775,10 +775,18 @@ function implausibleReason(price: number | null, payoutLevel: number | undefined
 
 /**
  * Warum Zahlen und Kurs nicht zusammenpassen, oder `null`. Dann ist die Rendite nicht ernst zu nehmen.
- * Eine Prüfung für Rangliste, Datenvorrat, Aktien- und Portfolioseite.
+ * Eine Prüfung für Rangliste, Datenvorrat, Aktien- und Portfolioseite. Ist das Rückflussniveau von Hand gesetzt, hat ein
+ * Mensch Kurs und Zahlen angesehen: Dann prüft sie nur noch auf einen unbereinigten Split, nicht mehr auf die Grenzen für
+ * Rückfluss und Kurs-Gewinn-Verhältnis (ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet).
  */
 export function doubtfulNumbers(valuation: Valuation, proposals: Proposals): string | null {
   const split = proposals.details.unadjustedSplit;
   if (split) return `Aktiensplit vom ${split.date} ist in den Zahlen nicht bereinigt.`;
+  if (valuation.manual.includes("payoutLevel")) return null;
   return implausibleReason(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel);
+}
+
+/** Kurs-Gewinn-Verhältnis: Kurs geteilt durch das Gewinnniveau (Strategie 3.3), nicht durch den Gewinn eines Jahres. */
+export function priceToEarnings(price: number | null, earningsLevel: number | null): number | null {
+  return price !== null && price > 0 && earningsLevel !== null && earningsLevel > 0 ? price / earningsLevel : null;
 }

@@ -45,9 +45,12 @@ describe("loadPortfolio", () => {
     const db = prepared();
     const id = db.createPortfolio("Depot", "fokussiert");
     expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").doubtful.size).toBe(0);
-    // Rückfluss von 20 bei Kurs 40: typisch für einen Hinterlegungsschein mit anderer Stückelung.
-    db.setManualInput(stock.id, "payoutLevel", 20);
-    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").doubtful.get(stock.id)).toBe("Rückfluss ist 50 % des Kurses.");
+    // Ein Kurs weit unter den Zahlen: typisch für einen Hinterlegungsschein mit anderer Stückelung.
+    db.saveManualPrice(stock.id, "2026-11-20", 1);
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-20").doubtful.get(stock.id)).toMatch(/^Rückfluss ist \d+ % des Kurses\.$/);
+    // Wer das Rückflussniveau von Hand setzt, hat Kurs und Zahlen angesehen: keine Warnung mehr.
+    db.setManualInput(stock.id, "payoutLevel", 0.05);
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-20").doubtful.size).toBe(0);
   });
 
   it("führt gehaltene Titel ohne Kurs als nicht bewertet", () => {

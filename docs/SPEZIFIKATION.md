@@ -207,6 +207,12 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
 - Titel der Watchlist und gehaltene Titel werden markiert: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen
   den Grund, und ihre Rendite zählt nicht in den Schnitt des Portfolios. Aus dem Zielportfolio nimmt die Prüfung sie nicht; das
   Urteil liegt beim Nutzer.
+- Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss und Kurs-Gewinn-Verhältnis: Wer es setzt, hat
+  Kurs und Zahlen angesehen, und ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet (FinVolution
+  nach dem Zinsdeckel 2025). Ein unbereinigter Split wird weiter gemeldet. Rückblick und Vorwärtsprotokoll rechnen ohne Werte von
+  Hand und sind nicht betroffen.
+- Aktienseite (bei „Kurs“) und Rangliste zeigen das KGV als Kurs geteilt durch das Gewinnniveau (Strategie 3.3), nicht durch den
+  Gewinn eines einzelnen Jahres.
 - Die früheren Schwellen (20 % und das Dreifache) trafen, was der Autor als Gelegenheit nennt: Petrobras, Halyk und Stalexport
   mit rund 20 % Ausschüttung, Höegh Autoliners mit über 25 % und einem Kurs beim Dreifachen des Gewinns. Über den heutigen
   Schwellen liegen im Datenvorrat fast nur Vorzugspapiere und Hinterlegungsscheine.

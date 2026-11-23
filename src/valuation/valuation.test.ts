@@ -18,6 +18,7 @@ import {
   parseManualInput,
   priceInReportingCurrency,
   priceSensitivity,
+  priceToEarnings,
   proposeInputs,
   unadjustedSplit,
   withSuggestions,
@@ -553,19 +554,30 @@ describe("doubtfulNumbers", () => {
     expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBeNull();
     // Kurs beim Anderthalbfachen des Gewinnniveaus; kleiner Rückfluss, damit nur diese Regel greift.
     const earnings = proposals.details.earningsLevel!;
-    const cheap = evaluate(proposals.values, { payoutLevel: earnings * 0.1 }, earnings * 1.5);
+    const cheap = evaluate({ ...proposals.values, payoutLevel: earnings * 0.1 }, {}, earnings * 1.5);
     expect(doubtfulNumbers(cheap, proposals)).toBe("Kurs ist nur das 1,5-Fache des Gewinnniveaus.");
     // Ein Kurs-Gewinn-Verhältnis von 3 und ein Viertel des Kurses als Rückfluss kommen vor (Höegh Autoliners).
-    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: earnings * 0.75 }, earnings * 3), proposals)).toBeNull();
-    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 20 }, 40), proposals)).toBe("Rückfluss ist 50 % des Kurses.");
+    expect(doubtfulNumbers(evaluate({ ...proposals.values, payoutLevel: earnings * 0.75 }, {}, earnings * 3), proposals)).toBeNull();
+    expect(doubtfulNumbers(evaluate({ ...proposals.values, payoutLevel: 20 }, {}, 40), proposals)).toBe("Rückfluss ist 50 % des Kurses.");
+    // Mit einem Rückflussniveau von Hand hat ein Mensch die Zahlen angesehen: keine Warnung mehr über die Grenzen.
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: earnings * 0.1 }, earnings * 1.5), proposals)).toBeNull();
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 20 }, 40), proposals)).toBeNull();
   });
 
-  it("nennt einen unbereinigten Split zuerst", () => {
+  it("rechnet das KGV gegen das Gewinnniveau und nur mit Kurs und positivem Gewinn", () => {
+    expect(priceToEarnings(30, 2)).toBe(15);
+    expect(priceToEarnings(null, 2)).toBeNull();
+    expect(priceToEarnings(30, -1)).toBeNull();
+    expect(priceToEarnings(30, null)).toBeNull();
+  });
+
+  it("nennt einen unbereinigten Split zuerst, auch bei einem Rückflussniveau von Hand", () => {
     const shares = steadyYears((y) => (y.shares = y.fiscalYear >= 2025 ? 500 : 100));
     const proposals = proposeInputs(stock, shares, 1, 2026, { dividendsByYear: null, splits: [{ date: "2025-02-11", ratio: 5 }] });
     expect(doubtfulNumbers(evaluate(proposals.values, {}, 40), proposals)).toBe(
       "Aktiensplit vom 2025-02-11 ist in den Zahlen nicht bereinigt.",
     );
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 1 }, 40), proposals)).toMatch(/Aktiensplit/);
   });
 });
 

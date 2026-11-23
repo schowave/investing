@@ -22,7 +22,14 @@ import { rankingHurdle } from "../../../valuation/ranking.ts";
 import { needsReview, REVIEW_MONTHS } from "../../../valuation/review.ts";
 import { computeValuation } from "../../../valuation/run.ts";
 import type { InputKey } from "../../../valuation/valuation.ts";
-import { doubtfulNumbers, growthInputBounds, growthRangeText, priceSensitivity, withSuggestions } from "../../../valuation/valuation.ts";
+import {
+  doubtfulNumbers,
+  growthInputBounds,
+  growthRangeText,
+  priceSensitivity,
+  priceToEarnings,
+  withSuggestions,
+} from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
@@ -99,6 +106,7 @@ export default async function StockPage(props: {
   const years = db.fundamentals(stock.id).slice(-10);
   const history = db.valuationHistory(stock.id, 12);
   const d = proposals.details;
+  const pe = priceToEarnings(v.price, d.earningsLevel);
   const hurdle = rankingHurdle(db);
   const excluded = v.riskFloor >= EXCLUSION_SCORE;
   const { payoutLevel, growth } = v.inputs;
@@ -440,7 +448,10 @@ export default async function StockPage(props: {
         <div className="figure">
           <dt>Kurs</dt>
           <dd className={v.price === null ? "muted-value" : ""}>{amount(v.price)}</dd>
-          <span className="sub">{v.price === null ? "kein Kurs oder kein Wechselkurs" : `${currency}, ${isoDate(priceDate)}`}</span>
+          <span className="sub">
+            {v.price === null ? "kein Kurs oder kein Wechselkurs" : `${currency}, ${isoDate(priceDate)}`}
+            {pe !== null && `; KGV ${amount(pe, 1)} (Kurs zu Gewinnniveau)`}
+          </span>
         </div>
         <div className="figure">
           <dt>Risikowert{openWithoutStandIn > 0 ? ", Untergrenze" : ""}</dt>
