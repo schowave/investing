@@ -53,6 +53,10 @@ run = "pnpm run test"
 description = "Unit-Tests mit Abdeckung; bricht unter den Schwellen in vitest.config.ts (Bericht: coverage/index.html)"
 run = "pnpm exec vitest run --coverage"
 
+[tasks."strategy:imprint"]
+description = "Abdruck der Strategie (src/valuation/imprints) neu schreiben: bei neuer STRATEGY_VERSION oder bewusst ohne Wirkung"
+run = "STRATEGY_IMPRINT=schreiben pnpm exec vitest run src/valuation/strategyImprint.test.ts"
+
 [tasks.knip]
 description = "Ungenutzte Dateien, Exporte und Abhängigkeiten (knip)"
 run = "pnpm exec knip"

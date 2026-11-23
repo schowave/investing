@@ -1,6 +1,6 @@
 # Spezifikation: Anwendung zur Strategie „Rückflussrendite“
 
-Stand: 22.11.2026.
+Stand: 23.11.2026.
 
 ## 1. Zweck und Verhältnis zur Strategie
 
@@ -36,6 +36,21 @@ der Strategie nicht.
   die Formeln selbst (dafür die Abnahmefälle in Abschnitt 7), ausgeschriebene Zahlwörter, Begründung, Herkunft und Schwächen,
   Abschnitte 8, 9 und 11 sowie Stützpunkte, die im Code nur als Teil einer Formel stehen (Hochrechnung um die halbe Reihe, die
   Kontrolle über fünf Jahre und die Obergrenze aus drei Jahren beim Gewinnniveau).
+- **Abdruck je Version:** Was der Abgleich nicht sieht (geänderte Logik ohne neuen Wert, geänderte Werte ohne neue Version),
+  fängt `src/valuation/strategyImprint.test.ts`. Er rechnet elf Beispielaktien (ruhig, wachsend, schrumpfend, gedeckelt,
+  verschuldet, zyklisch in Fremdwährung, Bank, jung, Dividendenkürzung, ohne Ausschüttung) durch Vorschlag, Bewertung und das
+  Zielportfolio beider Profile mit und ohne bindende Hürde und vergleicht Ergebnis und alle Parameter auf zwölf Stellen mit
+  `src/valuation/imprints/strategie-<Version>.json`. Eine neue Version schreibt ihren Abdruck mit `mise run strategy:imprint`;
+  ändert sich der Abdruck einer bestehenden Version, ist das eine Änderung ohne Wirkung auf das Zielportfolio und wird im Commit
+  so gekennzeichnet (nächster Punkt).
+- **Prüfung beim Commit:** Der Hook `commit-msg` (`scripts/check-commit.ts`, Regeln in `src/repo/commitDocs.ts`) lehnt einen
+  Commit ab, der Regel-Code ändert (`src/calc`, `src/judgement/factors.ts`, die Regel-Dateien in `src/valuation` bis zum Abgleich
+  von Bestand und Ziel), ohne `STRATEGIE.md` mitzuändern, oder Werkzeuge (`src/backtest`, Vorwärtsprotokoll, `scripts/backtest.ts`,
+  `scripts/forward.ts`) ohne `STRATEGIE.md` oder diese Spezifikation – es sei denn, die Nachricht enthält eine Zeile „Strategie:
+  ohne Wirkung“. Steigt `STRATEGY_VERSION`, verlangt er außerdem das Änderungsprotokoll, den Abdruck genau dieser Version und
+  die Kennzahlen des Rückblicks (Median, Anteil besserer Fenster, Güte, Umschlag, größter Rückgang) in der Nachricht. Gelöschte
+  Abdrücke lehnt er ab. Bei `--amend` prüft er den ganzen neuen Commit; Merges und `fixup!`/`squash!` lässt er durch.
+  Ob der Inhalt der Dokumente stimmt, prüft der Hook nicht; er erinnert nur.
 - **Quellen der Strategie und ihre Dateien:** Strategie 9.1 nennt die Quellen für Leser ohne Zugang zum Repository; hier die
   Ablage: Interview im Podcast „Bulle & Mensch“ → `docs/Interview.md`; Gespräch Börsenradio → `docs/podcast.md`; Quelle R
   (eigene Recherche) → `docs/Recherche-Bewertungsansatz.md` (Abschnittsnummern wie in Strategie zitiert). Folien „Yield Investing“ (Stand 23.11.2026), Buch und

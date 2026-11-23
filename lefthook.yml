@@ -11,3 +11,9 @@ pre-commit:
     check:
       run: mise run check
       priority: 2
+
+# Regel-Code nur mit STRATEGIE.md/SPEZIFIKATION.md oder der Zeile „Strategie: ohne Wirkung“ (src/repo/commitDocs.ts).
+commit-msg:
+  commands:
+    strategie:
+      run: mise exec -- node scripts/check-commit.ts {1}

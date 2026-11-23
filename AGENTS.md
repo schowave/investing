@@ -28,6 +28,15 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
   selben Commit. `src/valuation/strategyDocument.test.ts` vergleicht die Tabellen mit Schlüsseln (6.2, 10.1, 10.3), Raster, Stufen,
   Profile, Bandbreite, Kurzfassung und Version mit dem Code; Zahlen in Formeln, Beispielen und Begründungen prüft er nicht
   (Liste in Spezifikation 1). Neue Werte gehören in eine dieser Tabellen, nicht in den Regeltext.
+- `src/valuation/strategyImprint.test.ts` rechnet feste Beispielaktien bis zum Zielportfolio und vergleicht mit
+  `src/valuation/imprints/strategie-<Version>.json`. Bricht er, hat sich die Rechnung geändert: Regeländerung → Version erhöhen
+  (Kreislauf unten), dann `mise run strategy:imprint`; bewusst ohne Wirkung → `mise run strategy:imprint` und im Commit eine
+  Zeile `Strategie: ohne Wirkung`. Alte Abdrücke bleiben liegen.
+- Der Hook `commit-msg` (`scripts/check-commit.ts`) lehnt Commits ab, die Regel-Code (`src/calc`, `src/judgement/factors.ts`,
+  Regel-Dateien in `src/valuation`) ohne `STRATEGIE.md` ändern oder Werkzeuge (`src/backtest`, Vorwärtsprotokoll,
+  `scripts/backtest.ts`, `scripts/forward.ts`) ohne `STRATEGIE.md` oder `SPEZIFIKATION.md`, außer mit `Strategie: ohne Wirkung`;
+  bei neuer `STRATEGY_VERSION` verlangt er Änderungsprotokoll, den neuen Abdruck und die Kennzahlen des Rückblicks (Median,
+  Anteil besserer Fenster, Güte, Umschlag, größter Rückgang) in der Nachricht. Nicht mit `--no-verify` umgehen.
 - Kreislauf für Änderungen an der Strategie: (1) Anregung als prüfbare Vermutung unter „Offene Fragen“ (Strategie 11) eintragen;
   (2) mit dem Rückblick gegen `main` prüfen (nächster Punkt); (3) Ergebnis in `docs/STRATEGIE-AENDERUNGEN.md` festhalten (Datum,
   Version, betroffene Regel, vorher/nachher, Kennzahlen, Entscheidung), auch verworfene Versuche; (4) bei Annahme `STRATEGIE.md`,

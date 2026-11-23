@@ -1,0 +1,1078 @@
+{
+  "version": "1.0",
+  "parameters": {
+    "FULL_YEARS": 10,
+    "MIN_YEARS": 5,
+    "EXCLUSION_SCORE": 0.75,
+    "REVIEW_MONTHS": 12,
+    "MIN_MARKET_CAP_EUR": 300000000,
+    "DEFAULT_GROWTH_PARAMS": {
+      "maxGrowth": 0.085,
+      "minGrowth": -0.05,
+      "inflationAllowance": 0.02,
+      "maxGrowthFromRevenue": 0.03,
+      "inflationGap": 0
+    },
+    "DEFAULT_RETURN_PARAMS": {
+      "fadeYears": 15,
+      "maxTerminalGrowth": 0.03,
+      "inflationAllowance": 0.02,
+      "returnOnRetained": 0.1,
+      "inflationGap": 0
+    },
+    "DEFAULT_DEBT_PARAMS": {
+      "maxDebtToEbitda": 3,
+      "repaymentYears": 10
+    },
+    "DEFAULT_SCENARIO_SPREAD": {
+      "payoutFactor": 0.1,
+      "growthPoints": 0.01
+    },
+    "DEFAULT_PROBABILITY_PARAMS": {
+      "base": 0.005,
+      "perScore": 0.05
+    },
+    "FINANCIAL_STAND_INS": {
+      "financing": 0.1,
+      "returnOnCapital": 0.05,
+      "ebitMargin": 0.025
+    },
+    "RISK_FACTORS": {
+      "earnings": {
+        "label": "Gewinn- und Umsatzentwicklung",
+        "maxDeduction": 0.5,
+        "bonus": 0.1,
+        "manual": false
+      },
+      "financing": {
+        "label": "Finanzierung",
+        "maxDeduction": 0.5,
+        "bonus": 0,
+        "manual": false
+      },
+      "size": {
+        "label": "Größe",
+        "maxDeduction": 0.4,
+        "bonus": 0,
+        "manual": false
+      },
+      "age": {
+        "label": "Existenzdauer",
+        "maxDeduction": 0.3,
+        "bonus": 0,
+        "manual": false
+      },
+      "sector": {
+        "label": "Branche",
+        "maxDeduction": 0.25,
+        "bonus": 0,
+        "manual": true
+      },
+      "country": {
+        "label": "Land",
+        "maxDeduction": 0.25,
+        "bonus": 0,
+        "manual": false
+      },
+      "moat": {
+        "label": "Wettbewerbsvorteile",
+        "maxDeduction": 0.2,
+        "bonus": 0.2,
+        "manual": true
+      },
+      "returnOnCapital": {
+        "label": "Rendite auf eingesetztes Kapital",
+        "maxDeduction": 0.15,
+        "bonus": 0.05,
+        "manual": false
+      },
+      "ebitMargin": {
+        "label": "EBIT-Marge",
+        "maxDeduction": 0.15,
+        "bonus": 0.05,
+        "manual": false
+      },
+      "management": {
+        "label": "Management",
+        "maxDeduction": 1,
+        "bonus": 0.1,
+        "manual": true
+      },
+      "forecast": {
+        "label": "Zuverlässigkeit der Prognosen",
+        "maxDeduction": 0.4,
+        "bonus": 0,
+        "manual": true
+      },
+      "cashFlow": {
+        "label": "Free Cashflow und Ausschüttung",
+        "maxDeduction": 0.25,
+        "bonus": 0,
+        "manual": false
+      },
+      "dependencies": {
+        "label": "Abhängigkeiten",
+        "maxDeduction": 0.2,
+        "bonus": 0,
+        "manual": true
+      },
+      "currency": {
+        "label": "Währung",
+        "maxDeduction": 0.1,
+        "bonus": 0,
+        "manual": false
+      },
+      "situation": {
+        "label": "Aktuelle Situation",
+        "maxDeduction": 0.3,
+        "bonus": 0,
+        "manual": true
+      }
+    },
+    "JUDGED_LEVELS": {
+      "sector": [0, 0.08, 0.15, 0.25],
+      "moat": [-0.2, -0.1, 0, 0.1, 0.2],
+      "management": [-0.1, 0, 0.15, 0.4, 1],
+      "forecast": [0, 0.05, 0.12, 0.25, 0.4],
+      "dependencies": [0, 0.1, 0.2],
+      "situation": [0, 0.1, 0.2, 0.3]
+    },
+    "PROFILE_FOCUSED": {
+      "baseLimit": 0.15,
+      "minPosition": 0.03,
+      "maxPerSectorAndRegion": null,
+      "maxSectorShare": null,
+      "maxRegionShare": null,
+      "swapThreshold": 0.03,
+      "minReturn": 0.03
+    },
+    "PROFILE_GLOBAL": {
+      "baseLimit": 0.065,
+      "minPosition": 0.02,
+      "maxPerSectorAndRegion": 2,
+      "maxSectorShare": 0.2,
+      "maxRegionShare": 0.4,
+      "swapThreshold": 0.02,
+      "minReturn": 0.03
+    },
+    "BACKTEST_OPTIONS": {
+      "profile": "fokussiert",
+      "every": 1,
+      "randomRuns": 200,
+      "windowMonths": 36,
+      "cost": 0.0025,
+      "cashRate": 0.034,
+      "minCapEur": 300000000,
+      "delistLoss": 0.5
+    }
+  },
+  "examples": [
+    {
+      "id": "RUHIG",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 4,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0200000161111,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0,
+        "risk.moat": -0.2,
+        "risk.management": -0.1,
+        "risk.forecast": 0,
+        "risk.dependencies": 0,
+        "risk.situation": 0
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0,
+      "riskClass": "hervorragend",
+      "defaultProbability": 0.005,
+      "returns": {
+        "cautious": 0.0706509632805,
+        "base": 0.0880634632805,
+        "optimistic": 0.111727640861
+      },
+      "localReturn": 0.0880634632805,
+      "payoutRatio": null
+    },
+    {
+      "id": "RUHIG.TEUER",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 4,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0200000161111,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.08,
+        "risk.moat": -0.1,
+        "risk.management": 0,
+        "risk.forecast": 0.05,
+        "risk.dependencies": 0.1,
+        "risk.situation": 0.1
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.28,
+      "riskClass": "durchschnittlich",
+      "defaultProbability": 0.019,
+      "returns": {
+        "cautious": 0.0187990276162,
+        "base": 0.0318790276162,
+        "optimistic": 0.0486732821526
+      },
+      "localReturn": 0.0318790276162,
+      "payoutRatio": null
+    },
+    {
+      "id": "WACHSTUM",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3.357947691,
+        "growth": 0.0200000275627,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 8.31923627235,
+        "dividendLevel": 2.357947691,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 11.1958877095,
+        "historicalGrowth": 0.12,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.12,
+        "earningsGrowthTotal": 0.12,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0200000275627,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 11.1958877095,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3.357947691,
+        "growth": 0.0200000275627,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.08,
+        "risk.moat": -0.1,
+        "risk.management": 0,
+        "risk.forecast": 0.05,
+        "risk.dependencies": 0.1,
+        "risk.situation": 0.1
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.28,
+      "riskClass": "durchschnittlich",
+      "defaultProbability": 0.019,
+      "returns": {
+        "cautious": 0.0402222273121,
+        "base": 0.0555224968965,
+        "optimistic": 0.0785110819197
+      },
+      "localReturn": 0.0555224968965,
+      "payoutRatio": {
+        "now": 0.403636533579,
+        "terminal": 0.403636809206,
+        "uncappedPayout": null
+      }
+    },
+    {
+      "id": "SCHRUMPF",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": -0.05,
+        "risk.earnings": 0,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": -0.05,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 3.18497804894,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 4,
+        "historicalGrowth": -0.0630116968196,
+        "revenueGrowth": -0.03,
+        "earningsGrowthPerShare": -0.0630116968196,
+        "earningsGrowthTotal": -0.0630116968196,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0200000010277,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": [
+        "Gewinn schrumpft: Gemessen sind −6,3 %, der Vorschlag ist die Untergrenze von −5 %; der Rückfluss schrumpft damit dauerhaft."
+      ],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": -0.05,
+        "risk.earnings": 0,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": -0.05,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.15,
+        "risk.moat": 0,
+        "risk.management": 0.15,
+        "risk.forecast": 0.12,
+        "risk.dependencies": 0.2,
+        "risk.situation": 0.2
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.92,
+      "riskClass": "Spekulation",
+      "defaultProbability": 0.051,
+      "returns": {
+        "cautious": -0.02253,
+        "base": -0.00355,
+        "optimistic": 0.01543
+      },
+      "localReturn": -0.00355,
+      "payoutRatio": null
+    },
+    {
+      "id": "DECKEL",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 2.5,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 3,
+        "sustainablePayout": 2.5,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.020000005,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 2.5,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0,
+        "payoutEarningsLevel": 2.95
+      },
+      "notes": ["Ausschüttungsniveau 5.00 auf den Rückflussdeckel 2.50 begrenzt."],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 2.5,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.08,
+        "risk.moat": -0.1,
+        "risk.management": 0,
+        "risk.forecast": 0.05,
+        "risk.dependencies": 0.1,
+        "risk.situation": 0.1
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.28,
+      "riskClass": "durchschnittlich",
+      "defaultProbability": 0.019,
+      "returns": {
+        "cautious": 0.0524333133305,
+        "base": 0.0692504561877,
+        "optimistic": 0.0880389197677
+      },
+      "localReturn": 0.0692504561877,
+      "payoutRatio": null
+    },
+    {
+      "id": "SCHULDEN",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0.12,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 3.52288759634,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0.477112403661,
+        "retentionCap": 0.0200000161111,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": ["Hohe Schulden: 0.48 je Aktie und Jahr sind für die Tilgung angesetzt und zählen nicht als Rückfluss."],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0.12,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.08,
+        "risk.moat": -0.1,
+        "risk.management": 0,
+        "risk.forecast": 0.05,
+        "risk.dependencies": 0.1,
+        "risk.situation": 0.1
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.4,
+      "riskClass": "durchschnittlich",
+      "defaultProbability": 0.025,
+      "returns": {
+        "cautious": 0.088617840903,
+        "base": 0.110067840903,
+        "optimistic": 0.138981937052
+      },
+      "localReturn": 0.110067840903,
+      "payoutRatio": null
+    },
+    {
+      "id": "ZYKLIKER",
+      "proposals": {
+        "risk.currency": 0.1,
+        "risk.country": 0.125,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0261200081278,
+        "risk.earnings": 0,
+        "risk.size": 0.00551902468776,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.05
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 4.46300657441,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 4.8,
+        "historicalGrowth": 0.0313103064775,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0313103064775,
+        "earningsGrowthTotal": 0.0313103064775,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0261200081278,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4.8,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0.1,
+        "risk.country": 0.125,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0261200081278,
+        "risk.earnings": 0,
+        "risk.size": 0.00551902468776,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.05,
+        "risk.sector": 0.15,
+        "risk.moat": 0,
+        "risk.management": 0.15,
+        "risk.forecast": 0.12,
+        "risk.dependencies": 0.2,
+        "risk.situation": 0.2
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 1.25051902469,
+      "riskClass": "Spekulation",
+      "defaultProbability": 0.0675259512344,
+      "returns": {
+        "cautious": -0.022448861099,
+        "base": -0.0091516346584,
+        "optimistic": 0.00729764248751
+      },
+      "localReturn": -0.00320654446635,
+      "payoutRatio": {
+        "now": 0.672192601553,
+        "terminal": 0.672192682346,
+        "uncappedPayout": null
+      }
+    },
+    {
+      "id": "BANK",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {
+        "risk.financing": 0.1,
+        "risk.returnOnCapital": 0.05,
+        "risk.ebitMargin": 0.025
+      },
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 5.9,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": null,
+        "retentionCap": 0.0240800161111,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "earnings"
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 3,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0,
+        "risk.moat": -0.2,
+        "risk.management": -0.1,
+        "risk.forecast": 0,
+        "risk.dependencies": 0,
+        "risk.situation": 0,
+        "risk.financing": 0.05,
+        "risk.returnOnCapital": 0.05,
+        "risk.ebitMargin": 0.05
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0,
+      "riskClass": "hervorragend",
+      "defaultProbability": 0.005,
+      "returns": {
+        "cautious": 0.0589130112355,
+        "base": 0.075469916946,
+        "optimistic": 0.0954541224729
+      },
+      "localReturn": 0.0797717966138,
+      "payoutRatio": null
+    },
+    {
+      "id": "JUNG",
+      "proposals": {
+        "risk.currency": 0.1,
+        "risk.country": 0.125,
+        "risk.age": 0.105882352941,
+        "payoutLevel": 3,
+        "growth": 0.0169400161111,
+        "risk.earnings": 0,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 2,
+        "netBuybacksPerShare": 1,
+        "sustainablePayout": 4,
+        "historicalGrowth": 0.0180252699925,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0180252699925,
+        "earningsGrowthTotal": 0.0180252699925,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0169400161111,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": ["Nur 7 statt 10 Geschäftsjahre: Niveau und Wachstum stehen auf einer kürzeren Reihe und sind unsicherer."],
+      "inputs": {
+        "risk.currency": 0.1,
+        "risk.country": 0.125,
+        "risk.age": 0.105882352941,
+        "payoutLevel": 3,
+        "growth": 0.0169400161111,
+        "risk.earnings": 0,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0,
+        "risk.sector": 0.25,
+        "risk.moat": 0.1,
+        "risk.management": 0.4,
+        "risk.forecast": 0.25,
+        "risk.dependencies": 0.2,
+        "risk.situation": 0.3
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 1.98088235294,
+      "riskClass": "Spekulation",
+      "defaultProbability": 0.104044117647,
+      "returns": {
+        "cautious": -0.0312329663916,
+        "base": -0.0151787747412,
+        "optimistic": 0.00738283718235
+      },
+      "localReturn": -0.018133238417,
+      "payoutRatio": {
+        "now": 0.508474576271,
+        "terminal": 0.508474737867,
+        "uncappedPayout": null
+      }
+    },
+    {
+      "id": "KUERZUNG",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 1.17032758817,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.05
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 0.970327588169,
+        "netBuybacksPerShare": 0.2,
+        "sustainablePayout": 3.7,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.020000026276,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0.3
+      },
+      "notes": [],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 1.17032758817,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.05,
+        "risk.sector": 0.08,
+        "risk.moat": -0.1,
+        "risk.management": 0,
+        "risk.forecast": 0.05,
+        "risk.dependencies": 0.1,
+        "risk.situation": 0.1
+      },
+      "missing": [],
+      "complete": true,
+      "riskScore": 0.33,
+      "riskClass": "durchschnittlich",
+      "defaultProbability": 0.0215,
+      "returns": {
+        "cautious": 0.0236565923377,
+        "base": 0.0375314692842,
+        "optimistic": 0.0628909899228
+      },
+      "localReturn": 0.0375314692842,
+      "payoutRatio": null
+    },
+    {
+      "id": "OHNE.AUSSCHUETTUNG",
+      "proposals": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 0,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.125
+      },
+      "standIns": {},
+      "details": {
+        "fiscalYears": [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025],
+        "earningsLevel": 5.9,
+        "dividendLevel": 0,
+        "netBuybacksPerShare": 0,
+        "sustainablePayout": 4,
+        "historicalGrowth": 0.0185311188749,
+        "revenueGrowth": 0.03,
+        "earningsGrowthPerShare": 0.0185311188749,
+        "earningsGrowthTotal": 0.0185311188749,
+        "debtRepaymentPerShare": 0,
+        "retentionCap": 0.0200000327778,
+        "dividendsFromHistory": false,
+        "unadjustedSplit": null,
+        "sustainableFrom": "freeCashFlow",
+        "cashFlowWindow": {
+          "years": 5,
+          "fiveYearAverage": 4,
+          "longMedian": null,
+          "usedLong": false
+        },
+        "compensationPerShare": 0
+      },
+      "notes": ["Rückflussniveau ist 0, eine innere Rendite lässt sich daraus nicht rechnen."],
+      "inputs": {
+        "risk.currency": 0,
+        "risk.country": 0,
+        "risk.age": 0,
+        "payoutLevel": 0,
+        "growth": 0.0185311188749,
+        "risk.earnings": -0.1,
+        "risk.size": 0,
+        "risk.financing": 0,
+        "risk.returnOnCapital": 0.15,
+        "risk.ebitMargin": 0,
+        "risk.cashFlow": 0.125,
+        "risk.sector": 0,
+        "risk.moat": -0.2,
+        "risk.management": -0.1,
+        "risk.forecast": 0,
+        "risk.dependencies": 0,
+        "risk.situation": 0
+      },
+      "missing": [],
+      "complete": false,
+      "riskScore": 0,
+      "riskClass": "hervorragend",
+      "defaultProbability": 0.005,
+      "returns": {
+        "cautious": null,
+        "base": null,
+        "optimistic": null
+      },
+      "localReturn": null,
+      "payoutRatio": null
+    }
+  ],
+  "portfolios": {
+    "fokussiert ohne Anleiherendite": {
+      "positions": [
+        {
+          "id": "SCHULDEN",
+          "weight": 0.09
+        },
+        {
+          "id": "RUHIG",
+          "weight": 0.15
+        },
+        {
+          "id": "BANK",
+          "weight": 0.15
+        },
+        {
+          "id": "DECKEL",
+          "weight": 0.108
+        },
+        {
+          "id": "RUHIG.TEUER",
+          "weight": 0.108
+        },
+        {
+          "id": "WACHSTUM",
+          "weight": 0.108
+        },
+        {
+          "id": "KUERZUNG",
+          "weight": 0.1005
+        }
+      ],
+      "cash": 0.1855
+    },
+    "fokussiert bei 5 % Anleiherendite": {
+      "positions": [
+        {
+          "id": "SCHULDEN",
+          "weight": 0.09
+        },
+        {
+          "id": "RUHIG",
+          "weight": 0.15
+        },
+        {
+          "id": "BANK",
+          "weight": 0.15
+        },
+        {
+          "id": "DECKEL",
+          "weight": 0.108
+        },
+        {
+          "id": "WACHSTUM",
+          "weight": 0.108
+        }
+      ],
+      "cash": 0.394
+    },
+    "global ohne Anleiherendite": {
+      "positions": [
+        {
+          "id": "SCHULDEN",
+          "weight": 0.05
+        },
+        {
+          "id": "RUHIG",
+          "weight": 0.065
+        },
+        {
+          "id": "BANK",
+          "weight": 0.065
+        },
+        {
+          "id": "DECKEL",
+          "weight": 0.0468
+        },
+        {
+          "id": "RUHIG.TEUER",
+          "weight": 0.1
+        }
+      ],
+      "cash": 0.6732
+    },
+    "global bei 5 % Anleiherendite": {
+      "positions": [
+        {
+          "id": "SCHULDEN",
+          "weight": 0.05
+        },
+        {
+          "id": "RUHIG",
+          "weight": 0.065
+        },
+        {
+          "id": "BANK",
+          "weight": 0.065
+        },
+        {
+          "id": "DECKEL",
+          "weight": 0.0468
+        }
+      ],
+      "cash": 0.7732
+    }
+  }
+}
