@@ -4,11 +4,12 @@ import type { SyncReport } from "../sync/dailySync.ts";
 import { BOND_KEY } from "../valuation/portfolioRun.ts";
 import { needsReview } from "../valuation/review.ts";
 import { priceToEarnings } from "../valuation/valuation.ts";
-import { startSync } from "./actions.ts";
+import { startSync, unwatchStocks } from "./actions.ts";
 import { amount, isoDate, percent } from "./format.ts";
 import { stockPath } from "./origin.ts";
 import { RangeLegend, ReturnRange, scaleFor } from "./parts.tsx";
 import { PendingButton } from "./pendingButton.tsx";
+import { SelectAll } from "./selectAll.tsx";
 import { database, watchlistRanking } from "./server.ts";
 
 export const dynamic = "force-dynamic";
@@ -111,110 +112,122 @@ export default function Ranking() {
         {rows.length === 0 ? (
           <p className="empty">Noch keine Titel auf der Watchlist.</p>
         ) : (
-          <div className="scroll">
-            <table className="ranking">
-              <thead>
-                <tr>
-                  <th>Aktie</th>
-                  <th className="num">Innere Rendite</th>
-                  <th className="wide-only">Bandbreite, 0 bis {percent(scaleMax, 0)}</th>
-                  <th className="num wide-only">Kurs</th>
-                  <th className="num wide-only">Rückfluss</th>
-                  <th className="num wide-only">Wachstum</th>
-                  <th className="num">Risiko</th>
-                  <th className="num wide-only">Limit</th>
-                  <th>Stand</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => {
-                  const { stock, valuation: v, review } = row;
-                  const suspect = row.doubtful;
-                  const base = v.returns?.base ?? null;
-                  const excluded = v.riskFloor >= EXCLUSION_SCORE;
-                  const link = stockPath(stock.id);
-                  const kgv = priceToEarnings(v.price, row.proposals.details.earningsLevel);
-                  return [
-                    index === firstBelow && firstBelow > 0 ? (
-                      <tr className="threshold" key="threshold">
-                        <td colSpan={9}>Darunter liegt der Basisfall unter der Anleiherendite von {percent(hurdle)}</td>
-                      </tr>
-                    ) : null,
-                    <tr key={stock.id} className={base !== null && base >= hurdle && !suspect ? "" : "below"}>
-                      <td>
-                        <Link className="name" href={link}>
-                          {stock.name}
-                        </Link>
-                        <small>
-                          {stock.sector} · {stock.region}
-                        </small>
-                      </td>
-                      <td className="num">
-                        <span className="return">{percent(base)}</span>
-                        {suspect ? (
-                          <small>Zahlen passen nicht zum Kurs</small>
-                        ) : (
-                          Math.abs(v.inflationGap) >= 0.005 && <small>nach {percent(v.inflationGap)} Währungsabzug</small>
-                        )}
-                      </td>
-                      <td className="wide-only">
-                        {suspect ? (
-                          <span className="meta">nicht belastbar</span>
-                        ) : (
-                          <ReturnRange
-                            cautious={v.returns?.cautious ?? null}
-                            base={base}
-                            optimistic={v.returns?.optimistic ?? null}
-                            hurdle={hurdle}
-                            scaleMax={scaleMax}
-                          />
-                        )}
-                      </td>
-                      <td className="num wide-only">
-                        {amount(v.price)}
-                        <small>
-                          {stock.reportingCurrency}
-                          {kgv !== null && ` · KGV ${amount(kgv, 1)}`}
-                        </small>
-                      </td>
-                      <td className="num wide-only">{amount(v.inputs.payoutLevel)}</td>
-                      <td className="num wide-only">{percent(v.inputs.growth)}</td>
-                      <td className="num">
-                        {percent(v.riskScore, 0)}
-                        <small>{v.riskClass}</small>
-                      </td>
-                      <td className="num wide-only">{excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}</td>
-                      <td>
-                        {excluded ? (
-                          <span className="tag bad">ausgeschlossen</span>
-                        ) : v.complete ? (
-                          row.clears && !suspect ? (
-                            <span className="tag ok">Kandidat</span>
+          <form action={unwatchStocks}>
+            <div className="scroll">
+              <table className="ranking">
+                <thead>
+                  <tr>
+                    <th className="select" scope="col">
+                      <SelectAll name="ids" label="Alle Titel auswählen" />
+                    </th>
+                    <th>Aktie</th>
+                    <th className="num">Innere Rendite</th>
+                    <th className="wide-only">Bandbreite, 0 bis {percent(scaleMax, 0)}</th>
+                    <th className="num wide-only">Kurs</th>
+                    <th className="num wide-only">Rückfluss</th>
+                    <th className="num wide-only">Wachstum</th>
+                    <th className="num">Risiko</th>
+                    <th className="num wide-only">Limit</th>
+                    <th>Stand</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => {
+                    const { stock, valuation: v, review } = row;
+                    const suspect = row.doubtful;
+                    const base = v.returns?.base ?? null;
+                    const excluded = v.riskFloor >= EXCLUSION_SCORE;
+                    const link = stockPath(stock.id);
+                    const kgv = priceToEarnings(v.price, row.proposals.details.earningsLevel);
+                    return [
+                      index === firstBelow && firstBelow > 0 ? (
+                        <tr className="threshold" key="threshold">
+                          <td colSpan={10}>Darunter liegt der Basisfall unter der Anleiherendite von {percent(hurdle)}</td>
+                        </tr>
+                      ) : null,
+                      <tr key={stock.id} className={base !== null && base >= hurdle && !suspect ? "" : "below"}>
+                        <td className="select">
+                          <input type="checkbox" name="ids" value={stock.id} aria-label={`${stock.name} auswählen`} />
+                        </td>
+                        <td>
+                          <Link className="name" href={link}>
+                            {stock.name}
+                          </Link>
+                          <small>
+                            {stock.sector} · {stock.region}
+                          </small>
+                        </td>
+                        <td className="num">
+                          <span className="return">{percent(base)}</span>
+                          {suspect ? (
+                            <small>Zahlen passen nicht zum Kurs</small>
                           ) : (
-                            <span className="tag">unter der Anleiherendite</span>
-                          )
-                        ) : (
-                          <Link className="tag warn" href={`${link}#urteil`}>
-                            {v.missing.length > 0 ? `${v.missing.length} offen, bewerten` : "Kurs fehlt"}
-                          </Link>
-                        )}
-                        {v.complete && needsReview(review) && (
-                          <Link
-                            className="tag warn"
-                            href={`${link}#urteil`}
-                            title={review.overdue ? "Bewertung älter als ein Jahr" : review.changes.join("; ")}
-                          >
-                            prüfen
-                          </Link>
-                        )}
-                        {v.complete && review.assessedOn && <small>bewertet am {isoDate(review.assessedOn)}</small>}
-                      </td>
-                    </tr>,
-                  ];
-                })}
-              </tbody>
-            </table>
-          </div>
+                            Math.abs(v.inflationGap) >= 0.005 && <small>nach {percent(v.inflationGap)} Währungsabzug</small>
+                          )}
+                        </td>
+                        <td className="wide-only">
+                          {suspect ? (
+                            <span className="meta">nicht belastbar</span>
+                          ) : (
+                            <ReturnRange
+                              cautious={v.returns?.cautious ?? null}
+                              base={base}
+                              optimistic={v.returns?.optimistic ?? null}
+                              hurdle={hurdle}
+                              scaleMax={scaleMax}
+                            />
+                          )}
+                        </td>
+                        <td className="num wide-only">
+                          {amount(v.price)}
+                          <small>
+                            {stock.reportingCurrency}
+                            {kgv !== null && ` · KGV ${amount(kgv, 1)}`}
+                          </small>
+                        </td>
+                        <td className="num wide-only">{amount(v.inputs.payoutLevel)}</td>
+                        <td className="num wide-only">{percent(v.inputs.growth)}</td>
+                        <td className="num">
+                          {percent(v.riskScore, 0)}
+                          <small>{v.riskClass}</small>
+                        </td>
+                        <td className="num wide-only">{excluded ? "–" : percent(positionLimit(PROFILE_FOCUSED.baseLimit, v.riskScore))}</td>
+                        <td>
+                          {excluded ? (
+                            <span className="tag bad">ausgeschlossen</span>
+                          ) : v.complete ? (
+                            row.clears && !suspect ? (
+                              <span className="tag ok">Kandidat</span>
+                            ) : (
+                              <span className="tag">unter der Anleiherendite</span>
+                            )
+                          ) : (
+                            <Link className="tag warn" href={`${link}#urteil`}>
+                              {v.missing.length > 0 ? `${v.missing.length} offen, bewerten` : "Kurs fehlt"}
+                            </Link>
+                          )}
+                          {v.complete && needsReview(review) && (
+                            <Link
+                              className="tag warn"
+                              href={`${link}#urteil`}
+                              title={review.overdue ? "Bewertung älter als ein Jahr" : review.changes.join("; ")}
+                            >
+                              prüfen
+                            </Link>
+                          )}
+                          {v.complete && review.assessedOn && <small>bewertet am {isoDate(review.assessedOn)}</small>}
+                        </td>
+                      </tr>,
+                    ];
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="selection-actions">
+              <PendingButton className="quiet" label="Auswahl aus der Watchlist nehmen" pendingLabel="Wird entfernt …" />
+              <span className="meta">Die Titel gehen zurück in den Datenvorrat; ihre Bewertungen bleiben erhalten.</span>
+            </div>
+          </form>
         )}
       </section>
       <p className="meta" style={{ marginTop: 10 }}>

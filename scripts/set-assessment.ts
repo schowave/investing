@@ -6,8 +6,8 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Database } from "../src/data/db.ts";
-import { parseAssessment } from "../src/valuation/assessmentFile.ts";
+import { Database, MODEL_NOTE } from "../src/data/db.ts";
+import { assessmentUpdates, parseAssessment } from "../src/valuation/assessmentFile.ts";
 import { recomputeAll } from "../src/valuation/recompute.ts";
 import { assess, inflationGapOf } from "../src/valuation/run.ts";
 
@@ -24,7 +24,7 @@ const targets =
     : args;
 const db = new Database(process.env.INVESTING_DB ?? "data/investing.sqlite");
 const today = new Date().toISOString().slice(0, 10);
-const note = process.env.BEWERTUNG_NOTIZ ?? `Opus-Einschätzung vom ${today}`;
+const note = process.env.BEWERTUNG_NOTIZ ?? `${MODEL_NOTE.opus} vom ${today}`;
 const pct = (x: number | null | undefined) => (x == null ? "–" : `${(x * 100).toFixed(1)} %`);
 let failed = 0;
 for (const target of targets) {
@@ -50,12 +50,8 @@ for (const target of targets) {
     failed++;
     continue;
   }
-  const { valuation: v } = assess(
-    db,
-    stock,
-    fields.map((f) => ({ ...f, note })),
-    today,
-  );
+  // Werte des Vorfilters (Haiku), die Opus nicht überschreibt, fallen weg.
+  const { valuation: v } = assess(db, stock, assessmentUpdates(db, id, fields, note), today);
   console.log(
     `ok     ${id.padEnd(10)} ${fields.length} Werte; Risiko ${pct(v.riskScore)} (${v.riskClass}), Rendite ${pct(v.returns?.base)}`,
   );

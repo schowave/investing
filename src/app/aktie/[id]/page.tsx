@@ -12,7 +12,7 @@ import {
   RISK_FACTORS,
   returnParamsFor,
 } from "../../../calc/index.ts";
-import type { FundamentalsYear } from "../../../data/db.ts";
+import { type FundamentalsYear, sourceOfNote } from "../../../data/db.ts";
 import { storedSnapshot } from "../../../data/eodhdSnapshot.ts";
 import { currentProposals, LEVELS_VERSION } from "../../../judgement/factors.ts";
 import { RESEARCH_MAX_AGE_DAYS, reusableResearchDate } from "../../../judgement/judge.ts";
@@ -26,12 +26,13 @@ import {
   doubtfulNumbers,
   growthInputBounds,
   growthRangeText,
+  INPUT_KEYS,
   priceSensitivity,
   priceToEarnings,
   withSuggestions,
 } from "../../../valuation/valuation.ts";
 import { refreshStockData, requestJudgement, saveInputs, saveManualPrice, setWatched } from "../../actions.ts";
-import { amount, isoDate, percent } from "../../format.ts";
+import { amount, isoDate, percent, SOURCE_LABEL } from "../../format.ts";
 import { originLabel, safeOrigin, stockPath } from "../../origin.ts";
 import { ReturnRange, scaleFor } from "../../parts.tsx";
 import { PendingButton } from "../../pendingButton.tsx";
@@ -121,6 +122,20 @@ export default async function StockPage(props: {
   const following = position >= 0 ? ranked[position + 1] : undefined;
   const origin = <input type="hidden" name="von" value={von} />;
   const judgement = db.judgement(stock.id);
+  // Woher jeder Wert von Hand stammt (Opus, Haiku, Jev, Mensch), an der Notiz erkannt; nur Eingaben, die die Rechnung kennt.
+  const manualSources = new Map(
+    db
+      .manualInputs(stock.id)
+      .filter((input) => (INPUT_KEYS as readonly string[]).includes(input.key))
+      .map((input) => [input.key, { source: sourceOfNote(input.note), note: input.note, date: input.updatedAt.slice(0, 10) }]),
+  );
+  const sourceSummary = (["opus", "haiku", "jev", "hand"] as const)
+    .map((source) => {
+      const entries = [...manualSources.values()].filter((entry) => entry.source === source);
+      const dates = entries.map((entry) => entry.date).sort();
+      return { source, count: entries.length, date: dates.at(-1) ?? null };
+    })
+    .filter((entry) => entry.count > 0);
   // Eine Einstufung nach älteren Stufen bleibt mit Recherche und Quellen sichtbar, schlägt aber nichts mehr vor.
   const outdated = judgement !== null && judgement.levelsVersion !== LEVELS_VERSION;
   const jevProposals = currentProposals(judgement);
@@ -286,6 +301,15 @@ export default async function StockPage(props: {
               <>
                 <strong>{show(v.inputs[key])}</strong>
                 {required && <span className="tag bad">über 0 nötig</span>}
+                {isManual ? (
+                  <small
+                    title={`${manualSources.get(key)?.note || "von Hand gesetzt"}${manualSources.get(key) ? `, gespeichert am ${isoDate(manualSources.get(key)?.date ?? null)}` : ""}`}
+                  >
+                    {SOURCE_LABEL[manualSources.get(key)?.source ?? "hand"]}
+                  </small>
+                ) : (
+                  <small>Zahlen</small>
+                )}
               </>
             )}
           </td>
@@ -568,6 +592,32 @@ export default async function StockPage(props: {
         </form>
 
         <div className="stack">
+          <section className="card">
+            <div className="card-head">
+              <h2>Wer bewertet hat</h2>
+              {review.assessedOn && <span className="meta">{isoDate(review.assessedOn)}</span>}
+            </div>
+            <div className="card-body">
+              {sourceSummary.length === 0 ? (
+                <p className="meta">Noch keine Werte von Hand; es gelten die Vorschläge aus den Zahlen.</p>
+              ) : (
+                <ul className="notes">
+                  {sourceSummary.map((entry) => (
+                    <li key={entry.source}>
+                      <span className={`tag ${entry.source === "opus" ? "ok" : ""}`}>{SOURCE_LABEL[entry.source]}</span>{" "}
+                      {entry.count === 1 ? "1 Wert" : `${entry.count} Werte`}
+                      {entry.date ? `, zuletzt am ${isoDate(entry.date)}` : ""}
+                      {entry.source === "haiku" && <span className="meta"> · Vorfilter, Opus hat noch nicht bewertet</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="meta" style={{ marginTop: 8 }}>
+                Woher jeder einzelne Wert kommt, steht in der Spalte „Es gilt“ unter dem Wert.
+              </p>
+            </div>
+          </section>
+
           <section className="card">
             <div className="card-head">
               <h2>Vorschläge von Jev</h2>

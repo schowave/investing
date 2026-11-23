@@ -29,7 +29,8 @@
     "enqueue": "node scripts/enqueue.ts",
     "research": "node --env-file-if-exists=.env.local scripts/research.ts",
     "bewertung:dossier": "node --env-file-if-exists=.env.local scripts/dossier.ts",
-    "bewertung:setzen": "node --env-file-if-exists=.env.local scripts/set-assessment.ts"
+    "bewertung:setzen": "node --env-file-if-exists=.env.local scripts/set-assessment.ts",
+    "bewertung:vorfilter": "node --env-file-if-exists=.env.local scripts/prefilter.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",

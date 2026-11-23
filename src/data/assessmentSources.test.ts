@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { stock } from "../test/fixtures.ts";
-import { Database } from "./db.ts";
+import { Database, sourceOfNote } from "./db.ts";
 
 describe("Herkunft der Bewertung für den Datenvorrat", () => {
-  it("nennt Opus vor Hand vor Jev, sonst einen offenen Jev-Vorschlag, und lässt Unbewertete weg", () => {
+  it("nennt Opus vor Hand vor Haiku vor Jev, sonst einen offenen Jev-Vorschlag, und lässt Unbewertete weg", () => {
     const db = new Database(":memory:");
-    for (const id of ["OPUS.US", "JEV.US", "HAND.US", "VORSCHLAG.US", "LEER.US"]) db.addStockIfMissing({ ...stock, id });
+    for (const id of ["OPUS.US", "JEV.US", "HAND.US", "HAIKU.US", "VORSCHLAG.US", "LEER.US"]) db.addStockIfMissing({ ...stock, id });
+    db.setManualInput("HAIKU.US", "risk.moat", 0.05, "Jev-Vorschlag vom 2026-11-20 übernommen");
+    db.setManualInput("HAIKU.US", "growth", 0.02, "Haiku-Einschätzung vom 2026-11-23");
+    expect(db.assessmentSources(["HAIKU.US"], 2).get("HAIKU.US")?.source).toBe("haiku");
+    // Eine eigene Notiz, die nur mit „Haiku“ beginnt, ist kein Wert des Vorfilters.
+    expect(sourceOfNote("Haiku-Test von Hand")).toBe("hand");
+    expect(sourceOfNote("Opus: Restvermögen")).toBe("opus");
     db.setManualInput("OPUS.US", "risk.moat", 0.05, "Jev-Vorschlag vom 2026-11-20 übernommen");
     db.setManualInput("OPUS.US", "payoutLevel", 2, "Opus-Einschätzung vom 2026-11-23");
     db.setManualInput("JEV.US", "risk.moat", 0.05, "Jev-Vorschlag vom 2026-11-20 übernommen");
@@ -50,7 +56,7 @@ describe("Herkunft der Bewertung für den Datenvorrat", () => {
         implausible: false,
       })),
     );
-    const listed = (assessed?: "bewertet" | "opus" | "offen") =>
+    const listed = (assessed?: "bewertet" | "opus" | "haiku" | "offen") =>
       db
         .screening({ assessed }, 10, 0)
         .map((r) => r.stock.id)
@@ -58,6 +64,11 @@ describe("Herkunft der Bewertung für den Datenvorrat", () => {
     expect(listed()).toEqual(["HAND.US", "LEER.US", "OPUS.US"]);
     expect(listed("bewertet")).toEqual(["HAND.US", "OPUS.US"]);
     expect(listed("opus")).toEqual(["OPUS.US"]);
+    expect(listed("haiku")).toEqual([]);
+    db.setManualInput("HAND.US", "risk.moat", 0.05, "Haiku-Einschätzung vom 2026-11-23");
+    db.setManualInput("OPUS.US", "risk.moat", 0.05, "Haiku-Einschätzung vom 2026-11-23");
+    // Mit Opus bewertete zählen nicht mehr als nur vorgefiltert.
+    expect(listed("haiku")).toEqual(["HAND.US"]);
     expect(listed("offen")).toEqual(["LEER.US"]);
     expect(db.countScreening({ assessed: "offen" })).toBe(1);
   });

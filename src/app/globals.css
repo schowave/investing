@@ -191,8 +191,19 @@ h1 {
   display: flex;
   gap: 16px;
 }
-.ranking td:first-child {
+.ranking td.select + td {
   min-width: 220px;
+}
+.ranking .select {
+  width: 1%;
+  padding-right: 0;
+}
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 24px 4px;
 }
 .ranking .range {
   min-width: 110px;

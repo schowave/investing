@@ -1,7 +1,7 @@
 # Anleitung für den bewertenden Agenten
 
 Arbeite nur lesend: keine Änderungen am Repo, keine Datenbankzugriffe, nichts committen. Schreibe nur die Ergebnisdateien
-unten, in das Verzeichnis, das dir genannt wird.
+unten, in das Verzeichnis, das dir genannt wird, unter dem Namen aus dem Auftrag (`<ID>.opus.json` oder `<ID>.haiku.json`).
 
 ## Grundlage (zuerst lesen)
 
@@ -38,7 +38,9 @@ dividends. Die meisten Titel sind frisch aus dem Datenvorrat und haben weder Jev
 
 ## Ergebnis
 
-Je Titel eine Datei `<ID>.opus.json` im selben Verzeichnis, genau so:
+Je Titel eine Datei unter dem Namen aus dem Auftrag im selben Verzeichnis, genau so. `reportingCurrency` ist
+`stock.reportingCurrency` aus dem Dossier, auch wenn du die Berichtswährung für falsch hältst (dann unter `dataIssues`
+melden); sonst wird die Datei abgewiesen. Faktoren als `sector`, `moat` usw. (`risk.sector` geht auch).
 
 ```json
 {
@@ -57,5 +59,5 @@ Je Titel eine Datei `<ID>.opus.json` im selben Verzeichnis, genau so:
 
 `growth` ist `null` oder `{"value": <Anteil>, "proposal": <Zahl>, "reason": "..."}`.
 
-Am Ende antworte mit einer kurzen Tabelle je Titel: Summe der Urteilsfaktoren, Rückflussniveau Opus vs. Vorschlag, wichtigster
+Am Ende antworte mit einer kurzen Tabelle je Titel: Summe der Urteilsfaktoren, Rückflussniveau gesetzt vs. Vorschlag, wichtigster
 Befund in einem Satz, gefundene Datenfehler. Auf Deutsch.

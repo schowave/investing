@@ -19,6 +19,9 @@ export function fieldValue(value: number | undefined, asPercent: boolean): strin
   return String(Math.round(shown * 100) / 100).replace(".", ",");
 }
 
+/** Bezeichnung der Herkunft einer Bewertung (Datenvorrat, Aktienseite). */
+export const SOURCE_LABEL = { opus: "Opus", haiku: "Haiku", jev: "Jev", hand: "von Hand", vorschlag: "Jev-Vorschlag" } as const;
+
 export function isoDate(date: string | null): string {
   if (!date) return MISSING;
   const [year, month, day] = date.split("-");

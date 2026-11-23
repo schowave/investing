@@ -35,6 +35,7 @@ const {
   startRefresh,
   startSync,
   startWikifolioSync,
+  unwatchStocks,
 } = await import("./actions.ts");
 
 const form = (fields: Record<string, string>) => {
@@ -91,6 +92,18 @@ describe("Server Actions", () => {
     await expect(saveHoldings(id, form({}))).rejects.toThrow(/gespeichert=1/);
     expect(db.holdings(id).size).toBe(0);
     await expect(saveHoldings(999, form({}))).rejects.toThrow("redirect:/portfolio");
+  });
+
+  it("nimmt ausgewählte Titel aus der Watchlist und übergeht unbekannte", async () => {
+    db.addStockIfMissing({ ...stock, id: "B.US", watched: true });
+    db.addStockIfMissing({ ...stock, id: "C.US", watched: true });
+    db.setWatched("IMB.LSE", true);
+    const data = new FormData();
+    for (const id of ["IMB.LSE", "B.US", "FEHLT.US"]) data.append("ids", id);
+    await expect(unwatchStocks(data)).rejects.toThrow("redirect:/");
+    expect(["IMB.LSE", "B.US", "C.US"].map((id) => db.stock(id)?.watched)).toEqual([false, false, true]);
+    await expect(unwatchStocks(new FormData())).rejects.toThrow("redirect:/");
+    expect(db.stock("C.US")?.watched).toBe(true);
   });
 
   it("springt nach dem Merken nur innerhalb der Anwendung zurück", async () => {

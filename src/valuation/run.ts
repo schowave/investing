@@ -4,7 +4,7 @@
 // der Bewertung. Sein Format steht deshalb nur hier, geschrieben in `valueStock`, gelesen in `computeValuation`.
 
 import { z } from "zod";
-import type { Database, Stock } from "../data/db.ts";
+import { type Database, type Stock, sourceOfNote } from "../data/db.ts";
 import { currentProposals } from "../judgement/factors.ts";
 import { dataWarnings } from "./dataChecks.ts";
 import type { Basis, Review } from "./review.ts";
@@ -224,9 +224,9 @@ export function assess(db: Database, stock: Stock, updates: readonly InputUpdate
     const proposal = currentProposals(jev)[key.replace(/^risk\./, "")];
     const fromJev = jev !== null && !before && proposal !== undefined && Math.abs(proposal.value - value) < 1e-9;
     const jevNote = fromJev ? `Jev-Vorschlag vom ${jev.createdAt.slice(0, 10)} übernommen` : null;
-    // Eine eigene Notiz bleibt beim Ändern des Werts. Eine automatische („Opus-Einschätzung“, „Jev-Vorschlag … übernommen“)
-    // gehörte zum alten Wert: Ändert ihn ein Mensch, ist er kein Opus- oder Jev-Wert mehr.
-    const automatic = before !== undefined && /^(Opus|Jev-Vorschlag)/.test(before.note);
+    // Eine eigene Notiz bleibt beim Ändern des Werts. Eine automatische („Opus-Einschätzung“, „Haiku-Einschätzung“,
+    // „Jev-Vorschlag … übernommen“) gehörte zum alten Wert: Ändert ihn ein Mensch, ist er kein Modell- oder Jev-Wert mehr.
+    const automatic = before !== undefined && sourceOfNote(before.note) !== "hand";
     const keptNote = before && (!automatic || Math.abs(before.value - value) < 1e-12) ? before.note : "";
     db.setManualInput(stock.id, key, value, note ?? jevNote ?? keptNote);
   }

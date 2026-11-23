@@ -78,6 +78,20 @@ export async function setWatched(stockId: string, watched: boolean, returnTo: st
   redirect(LocalPath.safeParse(returnTo).success ? returnTo : "/");
 }
 
+const StockIds = z.array(z.string().min(1).max(40)).max(1000);
+
+/**
+ * Legt die ausgewählten Titel der Rangliste zurück in den Datenvorrat; Bewertungen und Werte von Hand bleiben erhalten.
+ * Ohne Auswahl ändert sich nichts.
+ */
+export async function unwatchStocks(form: FormData): Promise<void> {
+  const ids = StockIds.safeParse(form.getAll("ids"));
+  const db = database();
+  if (ids.success) for (const id of new Set(ids.data)) if (db.stock(id)) db.setWatched(id, false);
+  revalidatePath("/");
+  redirect("/");
+}
+
 /** Trägt einen Kurs von Hand ein (Hauptwährung, Datum heute). */
 export async function saveManualPrice(stockId: string, form: FormData): Promise<void> {
   const von = safeOrigin(form.get("von"));

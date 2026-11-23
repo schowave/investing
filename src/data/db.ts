@@ -105,6 +105,24 @@ export interface WikifolioState {
 
 export type PortfolioSelection = "watchlist" | "bestand";
 
+/** Herkunft der Werte von Hand eines Titels im Datenvorrat (`assessmentSources`). */
+export type AssessmentSource = "opus" | "hand" | "haiku" | "jev" | "vorschlag";
+
+/**
+ * Anfang der Notizen, die Modelle und Jev an Werte von Hand schreiben; daran erkennt die Anwendung ihre Herkunft. Opus wird nur am
+ * Wort erkannt, weil ältere Notizen auch „Opus: …“ lauten.
+ */
+export const MODEL_NOTE = { opus: "Opus-Einschätzung", haiku: "Haiku-Einschätzung", jev: "Jev-Vorschlag" } as const;
+const OPUS_MARK = "Opus";
+
+/** Wer einen Wert von Hand gesetzt hat, an seiner Notiz erkannt: Opus, Haiku (Vorfilter), ein übernommener Jev-Vorschlag oder ein Mensch. */
+export function sourceOfNote(note: string): Exclude<AssessmentSource, "vorschlag"> {
+  if (note.startsWith(OPUS_MARK)) return "opus";
+  if (note.startsWith(MODEL_NOTE.haiku)) return "haiku";
+  if (note.startsWith(MODEL_NOTE.jev)) return "jev";
+  return "hand";
+}
+
 export interface StockSearchHit {
   stock: Stock;
   /** Anzahl gespeicherter Geschäftsjahre. */
@@ -126,8 +144,11 @@ export interface ScreeningFilter {
   /** Suche in Name und Symbol. */
   query?: string;
   includeImplausible?: boolean;
-  /** Nur Titel mit Werten von Hand („bewertet“), nur mit Opus-Einschätzung („opus“) oder nur ohne Werte von Hand („offen“). */
-  assessed?: "bewertet" | "opus" | "offen";
+  /**
+   * Nur Titel mit Werten von Hand („bewertet“), nur mit Opus-Einschätzung („opus“), nur mit Haiku-Einschätzung und ohne Opus
+   * („haiku“, vom Vorfilter) oder nur ohne Werte von Hand („offen“).
+   */
+  assessed?: "bewertet" | "opus" | "haiku" | "offen";
 }
 
 /** Warum für einen Titel keine innere Rendite gerechnet werden kann. */
@@ -621,14 +642,12 @@ export class Database {
   }
 
   /**
-   * Wer die Werte von Hand eines Titels gesetzt hat, für die Liste des Datenvorrats: „opus“ (Notiz „Opus-Einschätzung“), „jev“
-   * (übernommene Jev-Vorschläge), „hand“ (sonst), „vorschlag“ (Jev hat eingestuft, nichts übernommen). Titel ohne beides fehlen.
+   * Wer die Werte von Hand eines Titels gesetzt hat, für die Liste des Datenvorrats: „opus“ (Notiz „Opus-Einschätzung“), „hand“
+   * (eigene Notiz), „haiku“ (Notiz „Haiku-Einschätzung“, vom Vorfilter), „jev“ (übernommene Jev-Vorschläge), „vorschlag“ (Jev hat
+   * eingestuft, nichts übernommen). Titel ohne beides fehlen.
    */
-  assessmentSources(
-    stockIds: readonly string[],
-    levelsVersion: number,
-  ): Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }> {
-    const result = new Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }>();
+  assessmentSources(stockIds: readonly string[], levelsVersion: number): Map<string, { source: AssessmentSource; date: string | null }> {
+    const result = new Map<string, { source: AssessmentSource; date: string | null }>();
     if (stockIds.length === 0) return result;
     const ids = [...new Set(stockIds)];
     const rows = this.#db
@@ -636,9 +655,9 @@ export class Database {
       .from(t.manualInputs)
       .where(inArray(t.manualInputs.stockId, ids))
       .all();
-    const rank = { opus: 3, hand: 2, jev: 1, vorschlag: 0 } as const;
+    const rank = { opus: 4, hand: 3, haiku: 2, jev: 1, vorschlag: 0 } as const;
     for (const row of rows) {
-      const source = row.note.startsWith("Opus") ? "opus" : row.note.startsWith("Jev-Vorschlag") ? "jev" : "hand";
+      const source = sourceOfNote(row.note);
       const date = row.updatedAt.slice(0, 10);
       const known = result.get(row.stockId);
       if (!known || rank[source] > rank[known.source] || (source === known.source && date > (known.date ?? ""))) {
@@ -959,8 +978,12 @@ export class Database {
     const anyInput = sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id})`;
     if (assessed === "offen") return sql`NOT ${anyInput}`;
     if (assessed === "bewertet") return anyInput;
-    // substr statt LIKE: LIKE ist in SQLite ohne Rücksicht auf Groß- und Kleinschreibung, startsWith in assessmentSources nicht.
-    return sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id} AND substr(${t.manualInputs.note}, 1, 4) = 'Opus')`;
+    // substr statt LIKE: LIKE ist in SQLite ohne Rücksicht auf Groß- und Kleinschreibung, startsWith in sourceOfNote nicht.
+    const startsWith = (prefix: string) =>
+      sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id} AND substr(${t.manualInputs.note}, 1, ${prefix.length}) = ${prefix})`;
+    const opus = startsWith(OPUS_MARK);
+    if (assessed === "opus") return opus;
+    return sql`${startsWith(MODEL_NOTE.haiku)} AND NOT ${opus}`;
   }
 
   #rated(filter: ScreeningFilter): SQL | undefined {

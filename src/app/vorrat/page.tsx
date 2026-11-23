@@ -4,7 +4,7 @@ import type { RatingGap } from "../../data/db.ts";
 import { LEVELS_VERSION } from "../../judgement/factors.ts";
 import { MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS } from "../../valuation/valuation.ts";
 import { addStocks, setWatched } from "../actions.ts";
-import { amount, isoDate, percent } from "../format.ts";
+import { amount, isoDate, percent, SOURCE_LABEL } from "../format.ts";
 import { stockPath } from "../origin.ts";
 import { PendingButton } from "../pendingButton.tsx";
 import { database } from "../server.ts";
@@ -42,10 +42,9 @@ const ASSESSED_OPTIONS = [
   { value: "", label: "bewertet oder nicht" },
   { value: "bewertet", label: "nur bewertete" },
   { value: "opus", label: "nur mit Opus bewertete" },
+  { value: "haiku", label: "nur von Haiku vorgefilterte" },
   { value: "offen", label: "nur unbewertete" },
 ] as const;
-
-const SOURCE_LABEL = { opus: "Opus", jev: "Jev", hand: "von Hand", vorschlag: "Jev-Vorschlag" } as const;
 
 /** Woher die Werte von Hand stammen; ohne Bewertung ein Strich. */
 function AssessmentTag({ value }: { value: { source: keyof typeof SOURCE_LABEL; date: string | null } | undefined }) {
@@ -93,6 +92,7 @@ export default async function Stockpile(props: {
   const assessed = ASSESSED_OPTIONS.find((o) => o.value === params.bewertung && o.value !== "")?.value as
     | "bewertet"
     | "opus"
+    | "haiku"
     | "offen"
     | undefined;
   const filter = { query: query || undefined, region: region || undefined, maxRisk, maxReturn, includeImplausible, assessed };

@@ -133,7 +133,16 @@ Regeln:
 - Bewertungen von außen, etwa durch ein Modell wie Opus: `pnpm run bewertung:dossier` schreibt je Aktie alles, was zur
   Bewertung gehört, als JSON; `pnpm run bewertung:setzen` übernimmt Ergebnisdateien als Werte von Hand (Notiz
   „Opus-Einschätzung“; ändert ein Mensch den Wert, fällt die Notiz weg), mit derselben Prüfung wie die Aktienseite und passender Berichtswährung, und rechnet danach Datenvorrat
-  und Portfolios neu (`src/valuation/assessmentFile.ts`; Ablauf im Skill `.claude/skills/opus-bewertung`).
+  und Portfolios neu (`src/valuation/assessmentFile.ts`; Ablauf im Skill `.claude/skills/bewertung`). Davor kann ein billigeres
+  Modell vorfiltern: `pnpm run bewertung:vorfilter` setzt dessen Ergebnisdateien als Werte von Hand (Notiz
+  „Haiku-Einschätzung“), nur wo kein anderer Wert von Hand steht und nicht bei Titeln mit Opus-Einschätzung, und verwirft Titel,
+  deren Risikowert ohne Ersatzabzüge den Ausschluss plus 10 Punkte erreicht; nur der Rest wird mit Opus bewertet. Eine
+  fehlerhafte Datei setzt nichts. Die Listen stehen zusätzlich in `vorfilter.json` im Verzeichnis der Dateien. Setzt Opus einen
+  Titel, fallen dessen übrige Haiku-Werte weg. Der Datenvorrat zeigt die Herkunft „Haiku“ und filtert nach „nur von Haiku
+  vorgefilterte“ (Titel ohne Opus-Einschätzung); die Aktienseite zeigt je Wert, ob er von Opus, Haiku, Jev, von Hand oder aus den
+  Zahlen stammt, und in der Karte „Wer bewertet hat“ eine Übersicht.
+- Die Rangliste nimmt ausgewählte Titel gesammelt aus der Watchlist (Kästchen je Zeile, eines für alle im Kopf); sie gehen
+  zurück in den Datenvorrat, ihre Werte von Hand bleiben.
 
 ## 4. Daten
 

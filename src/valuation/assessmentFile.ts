@@ -1,10 +1,11 @@
 // Bewertungen von außen (etwa eines Modells wie Opus) als Datei: Dossier je Aktie zum Lesen, Ergebnisdatei zum Setzen.
-// Skripte: pnpm run bewertung:dossier, pnpm run bewertung:setzen; Ablauf im Skill .claude/skills/opus-bewertung.
+// Skripte: pnpm run bewertung:dossier, bewertung:vorfilter, bewertung:setzen; Ablauf im Skill .claude/skills/bewertung.
 
 import { z } from "zod";
-import type { Database } from "../data/db.ts";
-import { computeValuation } from "./run.ts";
-import { INPUT_KEYS, type InputKey, parseManualInput } from "./valuation.ts";
+import { EXCLUSION_SCORE } from "../calc/index.ts";
+import { type Database, type Stock, sourceOfNote } from "../data/db.ts";
+import { assess, computeValuation, inflationGapOf } from "./run.ts";
+import { INPUT_KEYS, type InputKey, parseManualInput, type Valuation } from "./valuation.ts";
 
 /** Alles, was zur Bewertung einer Aktie gehört, in einer Form, die ein Mensch oder ein Modell lesen kann. */
 export function dossier(db: Database, stockId: string, date: string): unknown {
@@ -99,4 +100,82 @@ export function parseAssessment(raw: unknown, reportingCurrency: string, inflati
     else fields.push({ key: key as InputKey, value: result.value });
   }
   return { stockId: file.stockId, fields, errors };
+}
+
+/**
+ * Puffer über dem Ausschluss, ab dem der Vorfilter einen Titel verwirft, ohne dass Opus ihn sieht. Im Vergleich vom 23.11.2026
+ * (30 Titel) zog Haiku mehr ab als Opus, bei einzelnen Titeln um 20 Punkte; ohne Puffer fielen Titel heraus, die Opus behält.
+ */
+export const PREFILTER_RISK_MARGIN = 0.1;
+
+export interface PrefilterResult {
+  verdict: "verworfen" | "opus";
+  reason: string;
+  /** Risikowert ohne Ersatzabzüge (`riskFloor`), gegen den der Ausschluss auf der Watchlist prüft (Strategie 6.4). */
+  riskFloor: number | null;
+  innerReturn: number | null;
+}
+
+type Update = { key: InputKey; value: number | null; note?: string };
+
+/** Haiku-Werte, die die Datei nicht überschreibt; sie fallen weg, damit kein alter Haiku-Wert neben einer neuen Bewertung steht. */
+function staleHaikuInputs(db: Database, stockId: string, keys: ReadonlySet<InputKey>): Update[] {
+  return db
+    .manualInputs(stockId)
+    .filter((input) => sourceOfNote(input.note) === "haiku" && !keys.has(input.key as InputKey))
+    .map((input) => ({ key: input.key as InputKey, value: null }));
+}
+
+/**
+ * Änderungen für eine Ergebnisdatei von Opus: alle Werte der Datei mit Notiz, dazu das Löschen der Haiku-Werte, die die Datei
+ * nicht überschreibt. Sonst bliebe etwa ein Wachstum von Haiku stehen, das Opus bewusst offen lässt.
+ */
+export function assessmentUpdates(db: Database, stockId: string, fields: ParsedAssessment["fields"], note: string): Update[] {
+  return [...fields.map((f) => ({ ...f, note })), ...staleHaikuInputs(db, stockId, new Set(fields.map((f) => f.key)))];
+}
+
+/**
+ * Änderungen für eine Ergebnisdatei des Vorfilters: nur Werte, die fehlen oder schon von Haiku stammen. Eigene Werte, übernommene
+ * Jev-Vorschläge und von einem Menschen geänderte Haiku-Werte (deren Notiz beim Ändern wegfällt) bleiben stehen.
+ */
+export function prefilterUpdates(db: Database, stockId: string, fields: ParsedAssessment["fields"], note: string): Update[] {
+  const existing = new Map(db.manualInputs(stockId).map((input) => [input.key, sourceOfNote(input.note)]));
+  const writable = fields.filter((f) => !existing.has(f.key) || existing.get(f.key) === "haiku");
+  return [...writable.map((f) => ({ ...f, note })), ...staleHaikuInputs(db, stockId, new Set(fields.map((f) => f.key)))];
+}
+
+/** Ob ein Titel schon mit Opus bewertet ist; der Vorfilter lässt solche Titel ganz aus. */
+export function hasOpusAssessment(db: Database, stockId: string): boolean {
+  return db.manualInputs(stockId).some((input) => sourceOfNote(input.note) === "opus");
+}
+
+/**
+ * Urteil des Vorfilters über eine Bewertung mit den Werten des billigen Modells: verworfen, wenn der Risikowert ohne
+ * Ersatzabzüge auch mit Puffer über dem Ausschluss liegt, sonst an Opus. Ohne Ersatzabzüge, weil der Ausschluss auf der
+ * Watchlist so prüft (Strategie 6.4): Ein offener Faktor eines Finanzwerts soll keinen Titel verwerfen, den ein Urteil retten
+ * kann. Die Rendite filtert nicht: Hier lag das billige Modell in beide Richtungen weit daneben (Wachstum der Zykliker).
+ */
+export function prefilterVerdict(v: Pick<Valuation, "riskFloor" | "complete" | "missing" | "returns">): PrefilterResult {
+  const limit = EXCLUSION_SCORE + PREFILTER_RISK_MARGIN;
+  const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
+  const result = { riskFloor: v.riskFloor, innerReturn: v.returns?.base ?? null };
+  if (v.riskFloor >= limit) return { ...result, verdict: "verworfen", reason: `Risikowert ${pct(v.riskFloor)} ab ${pct(limit)}` };
+  const reason = v.complete ? `Risikowert ${pct(v.riskFloor)} unter ${pct(limit)}` : `unvollständig: ${v.missing.join(", ")}`;
+  return { ...result, verdict: "opus", reason };
+}
+
+export type PrefilterOutcome = PrefilterResult | { verdict: "übersprungen"; reason: string };
+
+/**
+ * Vorfilter für einen Titel: setzt die Werte der Haiku-Datei (`prefilterUpdates`) und urteilt über die Bewertung damit. Titel mit
+ * Opus-Bewertung bleiben unberührt. Eine fehlerhafte Datei setzt nichts und schickt den Titel an Opus; Haiku-Werte eines früheren
+ * Laufs bleiben dann stehen, bis Opus sie ersetzt.
+ */
+export function prefilterStock(db: Database, stock: Stock, raw: unknown, date: string, note: string): PrefilterOutcome {
+  if (hasOpusAssessment(db, stock.id)) return { verdict: "übersprungen", reason: "schon mit Opus bewertet" };
+  const { fields, errors } = parseAssessment(raw, stock.reportingCurrency, inflationGapOf(db, stock).gap);
+  if (errors.length > 0) return { verdict: "opus", reason: `Datei fehlerhaft: ${errors.join("; ")}`, riskFloor: null, innerReturn: null };
+  const updates = prefilterUpdates(db, stock.id, fields, note);
+  const { valuation } = updates.length > 0 ? assess(db, stock, updates, date) : computeValuation(db, stock, date);
+  return prefilterVerdict(valuation);
 }

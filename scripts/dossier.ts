@@ -1,6 +1,6 @@
 // Schreibt je Aktie ein Dossier (<ID>.json) mit Vorschlägen, Werten von Hand, Jev, Recherche, Abschlüssen und Dividenden.
 // Aufruf: pnpm run bewertung:dossier <verzeichnis> <ID> [<ID> …]
-// Ablauf der Bewertung: Skill .claude/skills/opus-bewertung.
+// Ablauf der Bewertung: Skill .claude/skills/bewertung.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
