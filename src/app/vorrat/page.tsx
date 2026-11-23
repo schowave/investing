@@ -37,6 +37,29 @@ const RETURN_OPTIONS = [
   { value: "0.15", label: "Rendite bis 15 %" },
 ];
 
+const SOURCE_LABEL = { opus: "Opus", jev: "Jev", hand: "von Hand", vorschlag: "Jev-Vorschlag" } as const;
+
+/** Woher die Werte von Hand stammen; ohne Bewertung ein Strich. */
+function AssessmentTag({ value }: { value: { source: keyof typeof SOURCE_LABEL; date: string | null } | undefined }) {
+  if (!value) return <span className="meta">–</span>;
+  const label = SOURCE_LABEL[value.source];
+  if (value.source === "vorschlag")
+    return (
+      <span className="meta" title="Jev hat eingestuft, übernommen ist nichts">
+        {label}
+      </span>
+    );
+  return (
+    <span
+      className={`tag ${value.source === "opus" ? "ok" : ""}`}
+      title={value.date ? `zuletzt gesetzt am ${isoDate(value.date)}` : undefined}
+    >
+      {label}
+      {value.date ? ` ${isoDate(value.date).slice(0, 6)}` : ""}
+    </span>
+  );
+}
+
 export default async function Stockpile(props: {
   searchParams: Promise<{
     q?: string;
@@ -65,6 +88,7 @@ export default async function Stockpile(props: {
   const rawPage = Number(params.seite);
   const page = Number.isInteger(rawPage) ? Math.min(Math.max(rawPage, 1), pages) : 1;
   const ranked = gap ? [] : db.screening(filter, LIMIT, (page - 1) * LIMIT);
+  const sources = db.assessmentSources(ranked.map((r) => r.stock.id));
   const gaps = db.ratingGaps(filter);
   const gapTotal = GAP_ORDER.reduce((sum, key) => sum + gaps[key], 0);
   const gapPage = gap ? db.unrated(gap, filter, LIMIT, (page - 1) * LIMIT) : [];
@@ -247,6 +271,7 @@ export default async function Stockpile(props: {
                       <th className="num">Rückfluss</th>
                       <th className="num">Wachstum</th>
                       <th className="num">Risiko bisher</th>
+                      <th>Bewertung</th>
                       <th>Watchlist</th>
                     </tr>
                   </thead>
@@ -274,6 +299,9 @@ export default async function Stockpile(props: {
                         <td className="num">{amount(row.payoutLevel)}</td>
                         <td className="num">{percent(row.growth)}</td>
                         <td className="num">{percent(row.riskScore, 0)}</td>
+                        <td>
+                          <AssessmentTag value={sources.get(stock.id)} />
+                        </td>
                         <td>
                           <form action={setWatched.bind(null, stock.id, !stock.watched, returnTo)}>
                             <button className="quiet small" type="submit">

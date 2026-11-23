@@ -618,6 +618,38 @@ export class Database {
       .run();
   }
 
+  /**
+   * Wer die Werte von Hand eines Titels gesetzt hat, für die Liste des Datenvorrats: „opus“ (Notiz „Opus-Einschätzung“), „jev“
+   * (übernommene Jev-Vorschläge), „hand“ (sonst), „vorschlag“ (Jev hat eingestuft, nichts übernommen). Titel ohne beides fehlen.
+   */
+  assessmentSources(stockIds: readonly string[]): Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }> {
+    const result = new Map<string, { source: "opus" | "jev" | "hand" | "vorschlag"; date: string | null }>();
+    if (stockIds.length === 0) return result;
+    const ids = [...new Set(stockIds)];
+    const rows = this.#db
+      .select({ stockId: t.manualInputs.stockId, note: t.manualInputs.note, updatedAt: t.manualInputs.updatedAt })
+      .from(t.manualInputs)
+      .where(inArray(t.manualInputs.stockId, ids))
+      .all();
+    const rank = { opus: 3, hand: 2, jev: 1, vorschlag: 0 } as const;
+    for (const row of rows) {
+      const source = row.note.startsWith("Opus") ? "opus" : row.note.startsWith("Jev-Vorschlag") ? "jev" : "hand";
+      const date = row.updatedAt.slice(0, 10);
+      const known = result.get(row.stockId);
+      if (!known || rank[source] > rank[known.source] || (source === known.source && date > (known.date ?? ""))) {
+        result.set(row.stockId, { source, date });
+      }
+    }
+    const judged = this.#db
+      .select({ stockId: t.judgements.stockId, createdAt: t.judgements.createdAt })
+      .from(t.judgements)
+      .where(inArray(t.judgements.stockId, ids))
+      .all();
+    for (const row of judged)
+      if (!result.has(row.stockId)) result.set(row.stockId, { source: "vorschlag", date: row.createdAt.slice(0, 10) });
+    return result;
+  }
+
   manualInputs(stockId: string): ManualInput[] {
     return this.#db
       .select({ key: t.manualInputs.key, value: t.manualInputs.value, note: t.manualInputs.note, updatedAt: t.manualInputs.updatedAt })
