@@ -76,6 +76,8 @@ describe("Vorschau des Bestands aus dem Depot", () => {
         ["C.F", 1],
       ]),
     );
+    // Zusammengezählte Positionen stehen als Hinweis da, damit eine doppelt gelieferte Position auffällt.
+    expect(preview.warnings).toEqual([expect.stringMatching(/^A\.XETRA: 2 Positionen im Depot \(2 und 3 Stück\), zusammen 5 Stück/)]);
   });
 
   it("zählt Fonds, ETF und noch unbekannte Aktien zu den sonstigen Anlagen und nennt die fehlenden ISINs", () => {

@@ -84,6 +84,8 @@ export function previewBestand(
   const others: OtherRow[] = [];
   const missing = new Set<string>();
   const warnings: string[] = [];
+  /** Stückzahlen je Notiz aus den einzelnen Positionen der Bank, um Zusammengezähltes sichtbar zu machen. */
+  const parts = new Map<string, number[]>();
 
   for (const position of positions) {
     if (position.quantity <= 0) continue;
@@ -91,6 +93,7 @@ export function previewBestand(
     if (found && found.length > 0) {
       const id = pickListing(found, current.shares);
       shares.set(id, roundShares((shares.get(id) ?? 0) + position.quantity));
+      parts.set(id, [...(parts.get(id) ?? []), position.quantity]);
       if (!names.has(id)) names.set(id, position.name);
       isins.set(id, position.isin);
       continue;
@@ -118,6 +121,14 @@ export function previewBestand(
   });
   const order: Record<RowStatus, number> = { neu: 0, geändert: 1, weg: 2, gleich: 3 };
   rows.sort((a, b) => order[a.status] - order[b.status] || a.name.localeCompare(b.name, "de"));
+
+  // Mehrere Positionen derselben Aktie (Lagerstellen) werden addiert; liefert die Bank eine doppelt, stimmt die Summe nicht.
+  for (const [stockId, quantities] of parts) {
+    if (quantities.length < 2) continue;
+    warnings.push(
+      `${stockId}: ${quantities.length} Positionen im Depot (${quantities.map((q) => String(q).replace(".", ",")).join(" und ")} Stück), zusammen ${String(shares.get(stockId)).replace(".", ",")} Stück. Bitte mit dem Depot vergleichen, falls eine Position doppelt geliefert wurde.`,
+    );
+  }
 
   if (cashEur === null) warnings.push("Kein Verrechnungskonto zum Depot gefunden; der Barbestand bleibt, wie er ist.");
   if (cashEur !== null && cashEur < 0) warnings.push("Das Verrechnungskonto ist im Minus; der Barbestand wird 0.");
