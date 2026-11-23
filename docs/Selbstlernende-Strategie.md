@@ -127,6 +127,14 @@ nächste beginnt.
   - **Folge für Schritt B:** Mit 20 Mio. USD sind es rund 38.500 Aufrufe, eine Nacht. Die Umsatzschwelle ist noch nicht geeicht: In der
     Datenbank fehlt das Volumen, die Eichung gegen den Marktwert gelingt erst mit den Abschlüssen. Deshalb zuerst eine Zufallsauswahl
     von rund 150 Titeln über alle Umsatzstufen (etwa 1.500 Aufrufe), um zu sehen, ab welchem Umsatz der Marktwert 300 Mio. € erreicht.
+  - **Eichung der Umsatzschwelle (23.11.2026, 150 Titel, je 25 aus sechs Umsatzstufen, 1.500 Aufrufe):** 36 % der Titel haben keine
+    Bilanz mit Aktienzahl; sie wären im Rückblick ohnehin übersprungen. Marktwert = Aktienzahl mal Kurs, höchster Wert in den letzten
+    zwölf Monaten, Schwelle 330 Mio. USD (300 Mio. €). Anteil der Stufe mit Marktwert über der Schwelle (alle 25 im Nenner):
+    unter 1 Mio. USD Umsatz 8 %, 1 bis 5 Mio. 28 %, 5 bis 10 Mio. 8 %, 10 bis 20 Mio. 20 %, 20 bis 50 Mio. 32 %, ab 50 Mio. 56 %. Der
+    Umsatz ist also nur ein grober Anzeiger (je Stufe 16 bis 18 Titel mit Wert, die Zahlen schwanken stark). Hochgerechnet auf die
+    8.230 Titel mit Reihe ab 2016 und mindestens zwölf Monaten Kursen kämen rund 2.400 über die Schwelle; mit 20 Mio. USD als Grenze
+    würden etwa 1.700 davon (70 %) mit rund 3.400 Titeln (34.000 Aufrufe) erfasst, mit 1 Mio. etwa 2.200 (93 %) mit rund 6.000 Titeln
+    (60.000 Aufrufe). Der Abruf läuft deshalb nach fallendem Umsatz in Stufen und lässt sich nach jeder Stufe beenden.
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
     sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis
