@@ -126,6 +126,8 @@ export interface ScreeningFilter {
   /** Suche in Name und Symbol. */
   query?: string;
   includeImplausible?: boolean;
+  /** Nur Titel mit Werten von Hand („bewertet“), nur mit Opus-Einschätzung („opus“) oder nur ohne Werte von Hand („offen“). */
+  assessed?: "bewertet" | "opus" | "offen";
 }
 
 /** Warum für einen Titel keine innere Rendite gerechnet werden kann. */
@@ -943,8 +945,17 @@ export class Database {
       or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")),
       filter.region ? eq(t.stocks.region, filter.region) : undefined,
       pattern ? or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern)) : undefined,
+      this.#assessedWhere(filter.assessed),
       ...extra,
     );
+  }
+
+  #assessedWhere(assessed: ScreeningFilter["assessed"]): SQL | undefined {
+    if (!assessed) return undefined;
+    const anyInput = sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id})`;
+    if (assessed === "offen") return sql`NOT ${anyInput}`;
+    if (assessed === "bewertet") return anyInput;
+    return sql`EXISTS (SELECT 1 FROM ${t.manualInputs} WHERE ${t.manualInputs.stockId} = ${t.stocks.id} AND ${t.manualInputs.note} LIKE 'Opus%')`;
   }
 
   #rated(filter: ScreeningFilter): SQL | undefined {

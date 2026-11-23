@@ -37,6 +37,13 @@ const RETURN_OPTIONS = [
   { value: "0.15", label: "Rendite bis 15 %" },
 ];
 
+const ASSESSED_OPTIONS = [
+  { value: "", label: "bewertet oder nicht" },
+  { value: "bewertet", label: "nur bewertete" },
+  { value: "opus", label: "nur mit Opus bewertete" },
+  { value: "offen", label: "nur unbewertete" },
+] as const;
+
 const SOURCE_LABEL = { opus: "Opus", jev: "Jev", hand: "von Hand", vorschlag: "Jev-Vorschlag" } as const;
 
 /** Woher die Werte von Hand stammen; ohne Bewertung ein Strich. */
@@ -67,6 +74,7 @@ export default async function Stockpile(props: {
     risiko?: string;
     rendite?: string;
     alle?: string;
+    bewertung?: string;
     seite?: string;
     luecke?: string;
     lauf?: string;
@@ -81,7 +89,12 @@ export default async function Stockpile(props: {
   const db = database();
 
   const includeImplausible = params.alle === "1";
-  const filter = { query: query || undefined, region: region || undefined, maxRisk, maxReturn, includeImplausible };
+  const assessed = ASSESSED_OPTIONS.find((o) => o.value === params.bewertung && o.value !== "")?.value as
+    | "bewertet"
+    | "opus"
+    | "offen"
+    | undefined;
+  const filter = { query: query || undefined, region: region || undefined, maxRisk, maxReturn, includeImplausible, assessed };
   const gap = isGap(params.luecke) ? params.luecke : undefined;
   const total = gap ? 0 : db.countScreening(filter);
   const pages = Math.max(1, Math.ceil(total / LIMIT));
@@ -96,7 +109,14 @@ export default async function Stockpile(props: {
   // Titel ohne berechenbare Rendite (kein Kurs, zu wenige Jahre) erscheinen nur bei einer Suche.
   const rankedIds = new Set(ranked.map((r) => r.stock.id));
   const others = query.length >= 2 ? db.searchStocks(query, 40).filter((h) => !rankedIds.has(h.stock.id)) : [];
-  const base = { q: query, region, risiko: params.risiko ?? "", rendite: params.rendite ?? "", alle: params.alle ?? "" };
+  const base = {
+    q: query,
+    region,
+    risiko: params.risiko ?? "",
+    rendite: params.rendite ?? "",
+    alle: params.alle ?? "",
+    bewertung: assessed ?? "",
+  };
   /** Adresse dieser Seite mit den Filtern; `extra` setzt Seite oder Lücke. */
   const here = (extra: Record<string, string> = {}) => `/vorrat?${new URLSearchParams({ ...base, ...extra })}`;
   const returnTo = here({ ...(gap ? { luecke: gap } : {}), ...(page > 1 ? { seite: String(page) } : {}) });
@@ -167,6 +187,13 @@ export default async function Stockpile(props: {
         </select>
         <select name="rendite" defaultValue={params.rendite ?? ""} aria-label="Rendite">
           {RETURN_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <select name="bewertung" defaultValue={assessed ?? ""} aria-label="Bewertung">
+          {ASSESSED_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

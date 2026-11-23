@@ -28,4 +28,35 @@ describe("Herkunft der Bewertung für den Datenvorrat", () => {
     expect(sources.has("LEER.US")).toBe(false);
     expect(db.assessmentSources([])).toEqual(new Map());
   });
+
+  it("filtert den Datenvorrat nach bewertet, mit Opus bewertet und unbewertet", () => {
+    const db = new Database(":memory:");
+    const ids = ["OPUS.US", "HAND.US", "LEER.US"];
+    for (const id of ids) db.addStockIfMissing({ ...stock, id, watched: false });
+    db.setManualInput("OPUS.US", "payoutLevel", 2, "Opus-Einschätzung vom 2026-11-23");
+    db.setManualInput("HAND.US", "growth", 0.03, "");
+    db.saveScreening(
+      ids.map((stockId) => ({
+        stockId,
+        date: "2026-11-23",
+        priceDate: "2026-11-20",
+        price: 40,
+        payoutLevel: 2,
+        growth: 0.03,
+        riskScore: 0.2,
+        innerReturn: 0.1,
+        implausible: false,
+      })),
+    );
+    const listed = (assessed?: "bewertet" | "opus" | "offen") =>
+      db
+        .screening({ assessed }, 10, 0)
+        .map((r) => r.stock.id)
+        .sort();
+    expect(listed()).toEqual(["HAND.US", "LEER.US", "OPUS.US"]);
+    expect(listed("bewertet")).toEqual(["HAND.US", "OPUS.US"]);
+    expect(listed("opus")).toEqual(["OPUS.US"]);
+    expect(listed("offen")).toEqual(["LEER.US"]);
+    expect(db.countScreening({ assessed: "offen" })).toBe(1);
+  });
 });
