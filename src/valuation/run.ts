@@ -81,8 +81,8 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
   // Split nach dem letzten Abschluss: Der Kurs gilt schon nach dem Split, ob die Abschlüsse bereinigt sind, zeigt erst der
   // nächste. Bis dahin passen Werte je Aktie und Kurs womöglich nicht zusammen (Sandisk 2026: Faktor 8). Der Rückblick
   // überspringt solche Monate selbst (src/backtest/candidates.ts).
-  // Sprung der Aktienzahl ohne Split: nur eine Warnung der Anwendung (Spezifikation 4.1), der Rückblick prüft ihn nicht.
-  proposals.details.shareJump = shareJump(fundamentals.slice(-10), history.splits);
+  // Zeitweise andere Stückelung der Aktienzahl: nur eine Warnung der Anwendung (Spezifikation 4.1), nicht im Rückblick.
+  proposals.details.shareJump = shareJump(fundamentals.slice(-10));
   const lastYear = fundamentals.at(-1)?.fiscalYear;
   if (!proposals.details.unadjustedSplit && lastYear !== undefined) {
     const later = history.splits.find(

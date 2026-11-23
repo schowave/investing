@@ -28,8 +28,10 @@ damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
     Viertel 0,12, Umschlag 65 %, größter Rückgang −41 %.
 - **Entscheidung:** beide verworfen; schlechter in der großen Mehrheit der Fenster und im schwachen Viertel (Grenzen aus
   Strategie 8.3). Vermutlich führt der Anbieter die Aktienzahl oft über Jahre unverändert, sodass die Probe echte Rückkäufe
-  streicht. Der Sprung der Aktienzahl, ein Split nach dem letzten Abschluss und ein Kurs älter als 30 Tage bleiben Warnungen
-  der Anwendung (Spezifikation 4.1), ohne Wirkung auf Rückblick und Zielportfolio.
+  streicht. Als Warnung der Anwendung (Spezifikation 4.1), ohne Wirkung auf Rückblick und Zielportfolio, bleiben: eine
+  Aktienzahl, die zeitweise die Stückelung wechselt (Sprung um mindestens das Dreifache und später zurück; die Fassung mit
+  dem 1,8-Fachen traf fast die Hälfte des Datenvorrats, meist echte Kapitalmaßnahmen), ein Split nach dem letzten Abschluss
+  und ein Kurs älter als 30 Tage.
 
 ## 22.11.2026 · Version 1.0 · Ausgangsfassung
 

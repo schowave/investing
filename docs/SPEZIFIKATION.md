@@ -212,8 +212,9 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
   den Grund, und ihre Rendite zählt nicht in den Schnitt des Portfolios. Aus dem Zielportfolio nimmt die Prüfung sie nicht; das
   Urteil liegt beim Nutzer.
 - Nur in der Anwendung, nicht im Rückblick (dort verschlechterte die Prüfung das Ergebnis, Strategie 11.19), gelten zusätzlich
-  als unplausibel: eine Aktienzahl, die von einem Jahr aufs nächste um das 1,8-Fache oder mehr springt, ohne dass ein Split
-  dazu passt (andere Stückelung, Datenfehler, Fusion; XYF, NLB), und ein Split nach dem letzten Abschluss, solange nicht
+  als unplausibel: eine Aktienzahl, die zeitweise die Stückelung wechselt, also um mindestens das Dreifache springt und später
+  ungefähr zurück (Datenfehler; XYF, NLB; echte Kapitalmaßnahmen und Gratisaktien kehren nicht zurück und zählen nicht), und
+  ein Split nach dem letzten Abschluss, solange nicht
   erkennbar ist, ob dessen Zahlen bereinigt sind (Sandisk 2026; nur in der Anwendung, der Rückblick überspringt solche Monate
   selbst). Im Datenvorrat gilt zusätzlich ein Kurs als unbrauchbar, der älter als 30 Tage ist (`MAX_PRICE_AGE_DAYS`); meist
   gehört er zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR).

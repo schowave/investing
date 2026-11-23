@@ -98,7 +98,7 @@ export interface Proposals {
     /** Aktiensplit, um den die Reihen offenbar nicht bereinigt sind. */
     unadjustedSplit: { date: string; ratio: number } | null;
     /**
-     * Aktienzahl springt von einem Jahr aufs nächste ohne passenden Split (andere Stückelung, Datenfehler, Fusion). Nur in der
+     * Aktienzahl wechselt zeitweise die Stückelung: springt und später zurück (Datenfehler). Nur in der
      * Anwendung gesetzt (computeValuation), nicht im Rückblick: Dort verschlechterte die Prüfung das Ergebnis (Strategie 11.19).
      */
     shareJump: { fiscalYear: number; factor: number } | null;
@@ -180,30 +180,33 @@ export function splitBasis(
   return "unknown";
 }
 
-/** Ab diesem Faktor von einem Jahr aufs nächste gilt ein Sprung der Aktienzahl als unplausibel (Spezifikation 4.1). */
-const MAX_SHARE_JUMP = 1.8;
+/** Ab diesem Faktor von einem Jahr aufs nächste zählt ein Sprung der Aktienzahl für die Prüfung (Spezifikation 4.1). */
+const MIN_SHARE_JUMP = 3;
 
 /**
- * Größter Sprung der Aktienzahl von einem Jahr aufs nächste, der zu keinem Split passt. Meist eine andere Stückelung
- * (Hinterlegungsscheine, ADS), ein Datenfehler oder eine Fusion; dann passen Werte je Aktie über die Jahre nicht zusammen.
+ * Erster Sprung der Aktienzahl um mindestens `MIN_SHARE_JUMP`, auf den später ein Sprung zurück folgt (beide zusammen
+ * ungefähr Faktor 1): Die Reihe wechselt zeitweise die Stückelung (Aktien statt Hinterlegungsscheine, Tausender), ein
+ * Datenfehler (XYF, NLB). Echte Kapitalmaßnahmen und Gratisaktien kehren nicht zurück und fallen nicht darunter.
  */
 export function shareJump(
   years: readonly { fiscalYear: number; shares: number | null }[],
-  splits: readonly { date: string; ratio: number }[],
+  _splits: readonly { date: string; ratio: number }[] = [],
 ): { fiscalYear: number; factor: number } | null {
-  let worst: { fiscalYear: number; factor: number } | null = null;
+  const jumps: { fiscalYear: number; ratio: number }[] = [];
   for (let i = 1; i < years.length; i++) {
     const before = years[i - 1]!.shares;
     const now = years[i]!.shares;
     if (!before || !now || before <= 0 || now <= 0) continue;
     const ratio = now / before;
-    const factor = Math.max(ratio, 1 / ratio);
-    if (factor < MAX_SHARE_JUMP) continue;
-    const year = years[i]!.fiscalYear;
-    const explained = splits.some((s) => [year, year - 1].includes(Number(s.date.slice(0, 4))) && Math.abs(ratio / s.ratio - 1) < 0.25);
-    if (!explained && (!worst || factor > worst.factor)) worst = { fiscalYear: year, factor };
+    if (Math.max(ratio, 1 / ratio) >= MIN_SHARE_JUMP) jumps.push({ fiscalYear: years[i]!.fiscalYear, ratio });
   }
-  return worst;
+  for (const [i, first] of jumps.entries()) {
+    const back = jumps
+      .slice(i + 1)
+      .find((later) => later.ratio > 1 !== first.ratio > 1 && Math.abs(Math.log(first.ratio * later.ratio)) < Math.log(2));
+    if (back) return { fiscalYear: first.fiscalYear, factor: Math.max(first.ratio, 1 / first.ratio) };
+  }
+  return null;
 }
 
 /** Prozentzahl mit einer Nachkommastelle, deutsches Komma und echtem Minus: `0.085` wird `8,5 %`. */
@@ -836,7 +839,7 @@ export function doubtfulNumbers(valuation: Valuation, proposals: Proposals): str
   if (valuation.manual.includes("payoutLevel")) return null;
   const jump = proposals.details.shareJump;
   if (jump) {
-    return `Aktienzahl springt ${jump.fiscalYear} um den Faktor ${jump.factor.toFixed(1).replace(".", ",")} ohne passenden Split.`;
+    return `Aktienzahl springt ${jump.fiscalYear} um den Faktor ${jump.factor.toFixed(1).replace(".", ",")} und später zurück: andere Stückelung in einem Teil der Jahre.`;
   }
   return implausibleReason(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel);
 }

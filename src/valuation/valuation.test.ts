@@ -572,26 +572,21 @@ describe("doubtfulNumbers", () => {
     expect(priceToEarnings(30, null)).toBeNull();
   });
 
-  it("meldet einen Sprung der Aktienzahl ohne passenden Split", () => {
-    const jumped = steadyYears((y) => (y.shares = y.fiscalYear >= 2023 ? 20 : 100));
+  it("meldet eine Aktienzahl, die zeitweise die Stückelung wechselt", () => {
+    const jumped = steadyYears((y) => (y.shares = y.fiscalYear >= 2019 && y.fiscalYear < 2023 ? 500 : 100));
     const proposals = proposeInputs(stock, jumped, 1, 2026);
     // Den Sprung setzt nur die Anwendung (computeValuation), nicht der Rückblick.
     expect(proposals.details.shareJump).toBeNull();
-    proposals.details.shareJump = shareJump(jumped, []);
-    expect(proposals.details.shareJump).toEqual({ fiscalYear: 2023, factor: 5 });
+    proposals.details.shareJump = shareJump(jumped);
+    expect(proposals.details.shareJump).toEqual({ fiscalYear: 2019, factor: 5 });
     expect(doubtfulNumbers(evaluate({ ...proposals.values, payoutLevel: 1 }, {}, 40), proposals)).toBe(
-      "Aktienzahl springt 2023 um den Faktor 5,0 ohne passenden Split.",
+      "Aktienzahl springt 2019 um den Faktor 5,0 und später zurück: andere Stückelung in einem Teil der Jahre.",
     );
     // Mit einem Rückflussniveau von Hand hat ein Mensch die Stückelung geprüft.
     expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 1 }, 40), proposals)).toBeNull();
-    // Ein Split erklärt den Sprung; dann ist es Sache der Split-Prüfung.
-    expect(shareJump(jumped, [{ date: "2023-05-01", ratio: 0.2 }])).toBeNull();
-    expect(
-      shareJump(
-        steadyYears((y) => (y.shares = y.fiscalYear >= 2023 ? 150 : 100)),
-        [],
-      ),
-    ).toBeNull();
+    // Echte Kapitalmaßnahmen kehren nicht zurück; kleinere Sprünge zählen nicht.
+    expect(shareJump(steadyYears((y) => (y.shares = y.fiscalYear >= 2023 ? 500 : 100)))).toBeNull();
+    expect(shareJump(steadyYears((y) => (y.shares = y.fiscalYear === 2021 ? 250 : 100)))).toBeNull();
   });
 
   it("nennt einen unbereinigten Split zuerst, auch bei einem Rückflussniveau von Hand", () => {
