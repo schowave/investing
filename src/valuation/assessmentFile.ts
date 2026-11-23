@@ -79,7 +79,13 @@ export function parseAssessment(raw: unknown, reportingCurrency: string, inflati
   if (file.reportingCurrency !== reportingCurrency) {
     errors.push(`Berichtswährung ${file.reportingCurrency} passt nicht zur Aktie (${reportingCurrency}).`);
   }
-  const texts: [string, string][] = Object.entries(file.judgement).map(([factor, e]) => [`risk.${factor}`, percentText(e.value)]);
+  // Faktoren dürfen mit dem Schlüssel aus dem Dossier kommen (`risk.moat`) oder ohne Vorsilbe (`moat`); Modelle schreiben beides.
+  const texts: [string, string][] = [];
+  for (const [factor, e] of Object.entries(file.judgement)) {
+    const key = factor.startsWith("risk.") ? factor : `risk.${factor}`;
+    if (texts.some(([k]) => k === key)) errors.push(`${key}: doppelt angegeben`);
+    else texts.push([key, percentText(e.value)]);
+  }
   if (file.payoutLevel) texts.push(["payoutLevel", String(file.payoutLevel.value)]);
   if (file.growth) texts.push(["growth", percentText(file.growth.value)]);
   const fields: ParsedAssessment["fields"] = [];

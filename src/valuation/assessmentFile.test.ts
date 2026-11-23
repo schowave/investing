@@ -24,6 +24,19 @@ describe("Bewertung als Datei", () => {
     ]);
   });
 
+  it("nimmt Faktoren auch mit dem Schlüssel aus dem Dossier an und weist doppelte ab", () => {
+    const judgement = { "risk.moat": { value: -0.05 }, situation: { value: 0.1 } };
+    expect(parseAssessment(file({ judgement }), stock.reportingCurrency, 0).fields.slice(0, 2)).toEqual([
+      { key: "risk.moat", value: -0.05 },
+      { key: "risk.situation", value: 0.1 },
+    ]);
+    const twice = { moat: { value: 0 }, "risk.moat": { value: 0.05 } };
+    expect(parseAssessment(file({ judgement: twice }), stock.reportingCurrency, 0).errors).toEqual(["risk.moat: doppelt angegeben"]);
+    expect(parseAssessment(file({ judgement: { "risk.risk.moat": { value: 0 } } }), stock.reportingCurrency, 0).errors).toEqual([
+      "risk.risk.moat: unbekannte Eingabe",
+    ]);
+  });
+
   it("weist falsche Währung, unbekannte Faktoren, Werte außerhalb der Grenzen und falsche Form ab", () => {
     expect(parseAssessment(file({ reportingCurrency: "XXX" }), stock.reportingCurrency, 0).errors[0]).toMatch(/Berichtswährung XXX/);
     expect(parseAssessment(file({ judgement: { mood: { value: 0 } } }), stock.reportingCurrency, 0).errors).toEqual([
