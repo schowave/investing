@@ -277,7 +277,7 @@ describe("Datenvorrat", () => {
 describe("Fundamentaldaten aufnehmen", () => {
   const described = () => ({
     ...fundamentalsAnswer("Gleich Corp"),
-    General: { ...fundamentalsAnswer().General, Name: "Gleich Corp", Description: "Founded in 1901 in Ohio." },
+    General: { ...fundamentalsAnswer().General, Name: "Gleich Corp", Description: "Founded in 1901 in Ohio.", ISIN: "US0000000009" },
   });
 
   it("legt auf jedem Weg dieselben Stammdaten an", async () => {
@@ -304,9 +304,9 @@ describe("Fundamentaldaten aufnehmen", () => {
       const { watched: _, ...rest } = db.stock("GLC.US")!;
       return rest;
     };
-    expect(row(viaSymbol)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika" });
+    expect(row(viaSymbol)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika", isin: "US0000000009" });
     expect(row(viaIsin)).toEqual(row(viaSymbol));
-    expect(row(viaRefresh)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika" });
+    expect(row(viaRefresh)).toMatchObject({ foundedYear: 1901, country: "US", region: "Nordamerika", isin: "US0000000009" });
   });
 
   it("behält beim Auffrischen die Abschlüsse, wenn die Antwort keine enthält, und lädt die Historie trotzdem", async () => {

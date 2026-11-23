@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "9a357420-379b-4488-941a-d27143093ef0",
+  "id": "4902c46b-5178-403c-9a51-fe1966b2473d",
   "prevIds": [
-    "e76a067d-bdd2-4f9b-9bda-fe5a333294ad"
+    "62337ec5-7824-44cd-b98f-f62b80d98b95"
   ],
   "ddl": [
     {
@@ -92,6 +92,18 @@
     },
     {
       "name": "sync_runs",
+      "entityType": "tables"
+    },
+    {
+      "name": "tradable_loaded",
+      "entityType": "tables"
+    },
+    {
+      "name": "tradable_stocks",
+      "entityType": "tables"
+    },
+    {
+      "name": "unmatched_positions",
       "entityType": "tables"
     },
     {
@@ -1090,6 +1102,26 @@
     },
     {
       "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "wikifolio",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "synced_at",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
       "notNull": true,
       "autoincrement": false,
       "default": "'watchlist'",
@@ -1579,6 +1611,96 @@
       "table": "sync_runs"
     },
     {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "portfolio_id",
+      "entityType": "columns",
+      "table": "tradable_loaded"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "loaded_at",
+      "entityType": "columns",
+      "table": "tradable_loaded"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "isins",
+      "entityType": "columns",
+      "table": "tradable_loaded"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "portfolio_id",
+      "entityType": "columns",
+      "table": "tradable_stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "tradable_stocks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "portfolio_id",
+      "entityType": "columns",
+      "table": "unmatched_positions"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "isin",
+      "entityType": "columns",
+      "table": "unmatched_positions"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "quantity",
+      "entityType": "columns",
+      "table": "unmatched_positions"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value_eur",
+      "entityType": "columns",
+      "table": "unmatched_positions"
+    },
+    {
       "type": "text",
       "notNull": true,
       "autoincrement": false,
@@ -1910,6 +2032,66 @@
     },
     {
       "columns": [
+        "portfolio_id"
+      ],
+      "tableTo": "portfolios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_tradable_loaded_portfolio_id_portfolios_id_fk",
+      "entityType": "fks",
+      "table": "tradable_loaded"
+    },
+    {
+      "columns": [
+        "portfolio_id"
+      ],
+      "tableTo": "portfolios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_tradable_stocks_portfolio_id_portfolios_id_fk",
+      "entityType": "fks",
+      "table": "tradable_stocks"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_tradable_stocks_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "tradable_stocks"
+    },
+    {
+      "columns": [
+        "portfolio_id"
+      ],
+      "tableTo": "portfolios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_unmatched_positions_portfolio_id_portfolios_id_fk",
+      "entityType": "fks",
+      "table": "unmatched_positions"
+    },
+    {
+      "columns": [
         "stock_id"
       ],
       "tableTo": "stocks",
@@ -2058,6 +2240,26 @@
     },
     {
       "columns": [
+        "portfolio_id",
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "tradable_stocks_pk",
+      "entityType": "pks",
+      "table": "tradable_stocks"
+    },
+    {
+      "columns": [
+        "portfolio_id",
+        "isin"
+      ],
+      "nameExplicit": false,
+      "name": "unmatched_positions_pk",
+      "entityType": "pks",
+      "table": "unmatched_positions"
+    },
+    {
+      "columns": [
         "stock_id",
         "date"
       ],
@@ -2145,6 +2347,15 @@
       "nameExplicit": false,
       "name": "sync_runs_pk",
       "table": "sync_runs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "portfolio_id"
+      ],
+      "nameExplicit": false,
+      "name": "tradable_loaded_pk",
+      "table": "tradable_loaded",
       "entityType": "pks"
     },
     {

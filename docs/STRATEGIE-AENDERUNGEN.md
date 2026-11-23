@@ -16,7 +16,7 @@ damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
 
 - **Anlass:** Die Opus-Bewertung der oberen 50 des Datenvorrats fand bei vielen Titeln Rückkäufe, die keine sind (Tilgungen bei
   Stabilus, Rücknahmen von Vorzugsaktien bei Hua Xia, PGAS) und Sprünge der Aktienzahl ohne Split (XYF, NLB, Yancoal).
-- **Regel:** Strategie 3.5 und Plausibilitätsprüfung im Rückblick (Strategie 11.19).
+- **Regel:** Strategie 3.5 und Plausibilitätsprüfung im Rückblick (Strategie 11.20).
 - **Vorher:** Netto-Rückkäufe zählen unabhängig von der Aktienzahl; ein Sprung der Aktienzahl ist kein Ausschluss.
   **Geprüft:** (a) Rückkäufe zählen nur, wenn die Aktienzahl vom Jahr vor dem Fünfjahresfenster bis zu seinem Ende um
   mindestens 0,5 % sinkt; (b) zusätzlich gilt ein Sprung der Aktienzahl um das 1,8-Fache ohne passenden Split als unplausibel.

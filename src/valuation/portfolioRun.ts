@@ -39,6 +39,8 @@ export function loadPortfolio(
   const watchlist = portfolio.selection === "bestand" ? [] : db.stocks();
   const extra = [...holdings.keys()].filter((id) => !watchlist.some((s) => s.id === id)).map((id) => db.stock(id)!);
   const stocks = [...watchlist, ...extra];
+  // Bei einem Wikifolio nur, was sein Anlageuniversum enthält; solange es nie geladen wurde, gilt keine Einschränkung.
+  const tradable = portfolio.wikifolio === null ? null : db.tradable(portfolio.id);
 
   const doubtful = new Map<string, string>();
   const view = buildPortfolioView(
@@ -61,6 +63,7 @@ export function loadPortfolio(
         shares: holdings.get(stock.id) ?? 0,
         priceEur: price && perEur ? price.close / perEur : null,
         doubtful: reason !== null,
+        tradable: tradable === null || tradable.stockIds.has(stock.id),
       };
     }),
     portfolio.otherEur,

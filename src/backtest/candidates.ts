@@ -148,12 +148,13 @@ export function buildCandidates(
     const data = load(stock);
     if (!data) continue;
     // Eingestellte Titel mit Schuldtitel-, Datenfehler- oder Umbenennungsmuster zählen nicht (siehe `delistedArtefact`).
-    const series = [...data.bars.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, bar]) => bar);
+    const series = [...data.bars.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([month, bar]) => ({ month, ...bar }));
     if (
       delistedArtefact(
         stock,
         data.fundamentals.map((y) => y.fiscalYear),
         series,
+        data.splits,
       )
     ) {
       skipped.ausgeschlossen += months.length;

@@ -80,6 +80,22 @@ describe("buildPortfolioView", () => {
     expect(buildPortfolioView(PROFILE_FOCUSED, 1000, []).heldReturn).toBeNull();
   });
 
+  it("übergeht Kandidaten, die das Portfolio nicht kaufen kann, und rückt den nächsten nach (Strategie 7.1)", () => {
+    const view = buildPortfolioView(PROFILE_FOCUSED, 10000, [
+      item("BESTER", { innerReturn: 0.2, tradable: false }),
+      item("ZWEITER", { innerReturn: 0.15 }),
+      // Gehalten zählt als handelbar: Was im Portfolio liegt, lässt sich verkaufen.
+      item("GEHALTEN", { innerReturn: 0.12, shares: 10, tradable: false }),
+      // Kein Kandidat: taucht nicht als übergangen auf.
+      item("SCHWACH", { innerReturn: 0.01, tradable: false }),
+    ]);
+    const ids = view.rows.filter((r) => r.targetWeight > 0).map((r) => r.id);
+    expect(ids).toContain("ZWEITER");
+    expect(ids).toContain("GEHALTEN");
+    expect(ids).not.toContain("BESTER");
+    expect(view.untradable).toEqual(["BESTER"]);
+  });
+
   it("zeigt bei leerem Portfolio nur Zielgewichte", () => {
     const view = buildPortfolioView(PROFILE_FOCUSED, 0, [item("GUT")]);
     expect(view.rows[0]).toMatchObject({ action: "kaufen", changeEur: 0 });
@@ -125,6 +141,8 @@ describe("Datenbank: Portfolios, Suche, Handkurs", () => {
       cashEur: 2500,
       otherEur: 800,
       comdirectDepotId: null,
+      wikifolio: null,
+      syncedAt: null,
       selection: "watchlist",
     });
     expect([...db.holdings(id)]).toEqual([["IMB.LSE", 100]]);

@@ -195,7 +195,7 @@ Setzung.
 
 **Schwächen.** Ob zurückgekaufte Aktien die Aktienzahl tatsächlich senken, prüft die Regel nicht. Unter „Rückkäufe“ führt der
 Anbieter auch Tilgungen und Rücknahmen von Vorzugsaktien oder Anleihen (Stabilus, Hua Xia); eine Mengenprobe über die
-Aktienzahl wurde geprüft und verworfen (11.19).
+Aktienzahl wurde geprüft und verworfen (11.20).
 
 ### 3.6 Rückflussdeckel
 
@@ -831,8 +831,10 @@ Quellen nennen keine Zahl. Imperial Brands (1,8 % in den Folien) läge bei 26 % 
 
 - ihre Bewertung vollständig ist (Rückflussniveau, Wachstum und alle 15 Risikofaktoren haben einen Wert, ein Kurs liegt vor und
   die innere Rendite ist berechenbar),
-- ihr Risikowert unter dem Ausschluss liegt und
-- ihre vergleichbare innere Rendite im Basisfall mindestens die Hürde erreicht.
+- ihr Risikowert unter dem Ausschluss liegt,
+- ihre vergleichbare innere Rendite im Basisfall mindestens die Hürde erreicht und
+- das Portfolio sie kaufen kann. Ein Depot kann jede Aktie kaufen; bei einem Wikifolio muss sie im Anlageuniversum stehen. Was
+  ein Portfolio bereits hält, gilt als handelbar.
 
 Die Hürde ist die Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität (Zinsstrukturkurve der Europäischen
 Zentralbank) plus `huerde.aufschlag`, mindestens `huerde.mindestwert`; liegt keine Anleiherendite vor, gilt
@@ -844,12 +846,13 @@ Bestand“, etwa um ein Wikifolio nachzubilden); für diese gelten dieselben Bed
 Es gibt kein Renditeziel. Ausgewählt wird nach Rang, bis das Portfolio voll ist; Bargeld bleibt nur, wenn die Kandidaten
 ausgehen.
 
-**Begründung.** Was die Staatsanleihe nicht schlägt, lohnt das Risiko nicht. Das Risiko steckt bereits zweimal in der
+**Begründung.** Was die Staatsanleihe nicht schlägt, lohnt das Risiko nicht. Ein Ziel, das sich nicht kaufen lässt, ist keines:
+Ohne die Einschränkung bliebe sein Gewicht als Bargeld liegen, statt an den nächsten Kandidaten zu gehen. Das Risiko steckt bereits zweimal in der
 Rechnung, in der Ausfallwahrscheinlichkeit und im Positionslimit; ein weiterer Aufschlag würde es dreifach zählen. Bargeld
 bringt nichts.
 
 **Herkunft.** Interview: „Ich habe nicht so eine klare Zielrendite“, aber Aktien müssen Anleihen schlagen; kein Bargeld.
-Anleiherendite als Hürde ohne Aufschlag: eigene Setzung. Die frühere Regel (Anleiherendite plus 5 Punkte, mindestens 7 %, und
+Anleiherendite als Hürde ohne Aufschlag und Handelbarkeit je Portfolio: eigene Setzung. Die frühere Regel (Anleiherendite plus 5 Punkte, mindestens 7 %, und
 das schon im vorsichtigen Fall) ist gestrichen: Sie ließ im Depot des Autors nur einen von 18 Titeln zu und hielt drei Viertel
 bar.
 
@@ -1045,8 +1048,8 @@ Die Zahlen sind ein Maßstab zum Vergleichen zweier Fassungen der Strategie, kei
 
 - **Survivorship-Bias:** Der Datenbestand enthält fast nur Unternehmen, die es heute noch gibt. Gescheiterte und übernommene
   Unternehmen fehlen weitgehend; das hebt jedes Ergebnis, vermutlich stark. Ein Pilot (23.11.2026) hat 2.440 eingestellte US-Titel ab 20 Mio. USD
-  Monatsumsatz nachgeladen: Der Rückblick fiel von +562 % auf +391 % Gesamtrendite (roh +335 %), die Güte von 0,77 auf 0,60, der
-  größte Rückgang stieg von −34 % auf −42 %; getrieben von fünf gekauften Einstellungen (etwa Bed Bath & Beyond). Die Zahlen von 8.2
+  Monatsumsatz nachgeladen: Der Rückblick fiel von +562 % auf +315 % Gesamtrendite (+378 %, wenn man Cosan, einen Umtausch, nicht als Verlust zählt), die
+  Güte von 0,77 auf 0,54, der größte Rückgang stieg von −34 % auf −41 %; getrieben von sieben gekauften Einstellungen (etwa Bed Bath & Beyond). Die Zahlen von 8.2
   enthalten diese Titel nicht (Einzelheiten und Grenzen in `docs/Selbstlernende-Strategie.md`, Stufe 6).
 - **Nur Zahlenfaktoren:** Die sechs Urteilsfaktoren und alle Werte von Hand fehlen (8.1). Ob Urteile die Auswahl verbessern oder
   verschlechtern, misst der Rückblick nicht.
@@ -1215,7 +1218,7 @@ Diese Werte gehören nicht zu den Regeln der Strategie, beeinflussen aber, welch
 | ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `plausibilitaet.rueckfluss`  | 30 %       | Rückflussniveau über diesem Anteil des Kurses gilt als Datenfehler: Ausschluss im Rückblick, Arm „zahlen“ und Datenbestand; Warnung bei beobachteten Titeln, entfällt bei Rückflussniveau von Hand |
 | `plausibilitaet.kurs_gewinn` | 2-fach     | Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler, ebenso                                                                                                                        |
-| `plausibilitaet.aktienzahl`  | 3-fach     | Springt die Aktienzahl um mindestens dieses Vielfache und später ungefähr zurück, gilt das als Datenfehler; nur Warnung der Anwendung, nicht im Rückblick (11.19)                                  |
+| `plausibilitaet.aktienzahl`  | 3-fach     | Springt die Aktienzahl um mindestens dieses Vielfache und später ungefähr zurück, gilt das als Datenfehler; nur Warnung der Anwendung, nicht im Rückblick (11.20)                                  |
 | `plausibilitaet.kursalter`   | 30 Tage    | Kurs, der so weit hinter dem jüngsten Kurs seiner Börse liegt, gilt im Datenbestand als veraltet (meist ein umbenanntes Kürzel)                                                                    |
 | `handwert.wachstum_min`      | −20 %      | Kleinstes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                                                               |
 | `handwert.wachstum_max`      | 30 %       | Größtes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                                                                 |
@@ -1350,7 +1353,14 @@ mit dem Vorwärtsprotokoll prüfbar (8.4), frühestens nach etwa zwei bis drei J
 Rückblick-Lauf mit dem globalen Profil ist zwar gerechnet worden, seine Ergebnisse sind aber nicht festgehalten; die
 Tauschschwelle wurde dabei nicht verglichen.
 
-### 11.19 Rückkäufe ohne sinkende Aktienzahl
+### 11.19 Bargeldpuffer für Gebühren im Wikifolio
+
+**Vermutung.** Ein investierbares Wikifolio braucht einen kleinen Bargeldpuffer, weil wikifolio die Gebühren vom Bargeld abzieht
+und negatives Bargeld nach sieben Tagen Zwangsverkäufe auslöst; ein Puffer in Höhe der Gebühren eines Quartals kostet weniger
+Rendite als ein erzwungener Verkauf. **Stand.** Nicht geprüft. Das Wikifolio ist eine Testversion ohne Gebühren; die Frage
+wird vor der Veröffentlichung entschieden.
+
+### 11.20 Rückkäufe ohne sinkende Aktienzahl
 
 **Vermutung.** Unter „Rückkäufe“ stehen beim Anbieter oft Tilgungen oder Rücknahmen von Vorzugsaktien und Anleihen; bei
 Stabilus ergab das einen Vorschlag rund 14-mal so hoch wie der tatsächliche Rückfluss. Zählen Rückkäufe nur, wenn die
@@ -1361,7 +1371,7 @@ streicht. Ebenso verworfen: ein Sprung der Aktienzahl ohne Split (1,8-fach) als 
 Anwendung bleibt nur der Fall, dass die Aktienzahl zeitweise die Stückelung wechselt (`plausibilitaet.aktienzahl`, 10.3;
 Spezifikation 4.1).
 
-### 11.20 Dividenden nach Zahlungsjahr
+### 11.21 Dividenden nach Zahlungsjahr
 
 **Vermutung.** Der Anbieter ordnet Dividenden dem Jahr der Zahlung zu, nicht dem Geschäftsjahr, für das sie beschlossen
 wurden. Bei fallenden Gewinnen liegt das Dividendenniveau damit ein Jahr hinter der Lage (Kohleförderer, Kumba, G5, Text). Eine

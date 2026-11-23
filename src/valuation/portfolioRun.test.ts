@@ -75,4 +75,14 @@ describe("loadPortfolio", () => {
     db.setHolding(id, "OHNE.US", 3);
     expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").view.unpriced).toEqual(["OHNE.US"]);
   });
+
+  it("liest das Anlageuniversum nur bei einem Wikifolio und nur, wenn es geladen ist", () => {
+    const db = prepared();
+    const id = db.createPortfolio("Wikifolio", "fokussiert");
+    db.setWikifolio(id, "WF0SHYSEL");
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").view.untradable).toEqual([]);
+    db.setTradable(id, ["ALT.US"], "2026-11-19T06:00:00Z", 1);
+    // TEST.US ist ohne Urteil kein Kandidat und erscheint deshalb auch nicht als übergangen (Filter selbst: portfolioView.test.ts).
+    expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-19").view.untradable).toEqual([]);
+  });
 });

@@ -99,7 +99,7 @@ export interface Proposals {
     unadjustedSplit: { date: string; ratio: number } | null;
     /**
      * Aktienzahl wechselt zeitweise die Stückelung: springt und später zurück (Datenfehler). Nur in der
-     * Anwendung gesetzt (computeValuation), nicht im Rückblick: Dort verschlechterte die Prüfung das Ergebnis (Strategie 11.19).
+     * Anwendung gesetzt (computeValuation), nicht im Rückblick: Dort verschlechterte die Prüfung das Ergebnis (Strategie 11.20).
      */
     shareJump: { fiscalYear: number; factor: number } | null;
   };

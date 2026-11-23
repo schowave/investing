@@ -74,6 +74,11 @@ describe("Abruf bei der comdirect", () => {
     // Bis zur Übernahme ändert sich nichts.
     expect(db.holdings(portfolio)).toEqual(new Map([["ALT.XETRA", 4]]));
 
+    // Ein Portfolio mit Bestandsquelle wikifolio nimmt keinen Bestand aus der comdirect an.
+    db.setWikifolio(portfolio, "WF0SHYSEL");
+    await expect(applyVorschau(db, vorgang)).rejects.toThrow("kommt aus wikifolio");
+    db.setWikifolio(portfolio, null);
+
     expect(await applyVorschau(db, vorgang)).toEqual(["US0000000009"]);
     expect(db.holdings(portfolio)).toEqual(new Map([["BAS.XETRA", 12]]));
     expect(db.portfolio(portfolio)).toMatchObject({ cashEur: 1500.25, otherEur: 380, comdirectDepotId: "D1" });

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { WikifolioSymbol } from "../data/wikifolio.ts";
 import { CONFIRM_CALLS, estimateHistory, estimateRefresh, JOB_KINDS, type JobKind } from "../jobs/registry.ts";
 import { isinsIn } from "../jobs/stockpile.ts";
 import { judgeStock } from "../judgement/judge.ts";
@@ -117,7 +118,11 @@ export async function deletePortfolio(id: number): Promise<void> {
 export async function saveHoldings(id: number, form: FormData): Promise<void> {
   const db = database();
   const page = `/portfolio/${id}`;
-  if (!db.portfolio(id)) redirect("/portfolio");
+  const portfolio = db.portfolio(id);
+  if (!portfolio) redirect("/portfolio");
+  // Beim Wikifolio ist wikifolio die Quelle; von Hand geänderte Stückzahlen überschriebe der nächste Abgleich.
+  if (portfolio.wikifolio !== null)
+    redirect(`${page}?fehler=${encodeURIComponent("Der Bestand kommt aus wikifolio und lässt sich hier nicht ändern.")}`);
 
   const read = (name: string, label: string): number => {
     const text = field(form.get(name));
@@ -135,6 +140,30 @@ export async function saveHoldings(id: number, form: FormData): Promise<void> {
   db.setOtherAssets(id, other);
   for (const entry of entries) db.setHolding(id, entry.id, entry.shares);
   redirect(`${page}?gespeichert=1`);
+}
+
+const SourceForm = z.union([z.literal(""), WikifolioSymbol]);
+
+/**
+ * Setzt die Bestandsquelle eines Portfolios: ein Wikifolio-Symbol (der Bestand kommt dann aus wikifolio) oder leer für
+ * Pflege von Hand. Mit Symbol startet gleich ein Abgleich.
+ */
+export async function setPortfolioSource(id: number, form: FormData): Promise<void> {
+  const page = `/portfolio/${id}`;
+  const db = database();
+  if (!db.portfolio(id)) redirect("/portfolio");
+  const parsed = SourceForm.safeParse(field(form.get("wikifolio")));
+  if (!parsed.success) redirect(`${page}?fehler=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ungültiges Symbol.")}`);
+  const symbol = parsed.data === "" ? null : parsed.data;
+  db.setWikifolio(id, symbol);
+  revalidatePath(page);
+  if (symbol === null) redirect(`${page}?gespeichert=1`);
+  enqueue("wikifolio", { portfolioId: id }, page);
+}
+
+/** Gleicht ein Wikifolio sofort ab, z. B. nach einer ausgeführten Order. */
+export async function startWikifolioSync(id: number): Promise<void> {
+  enqueue("wikifolio", { portfolioId: id }, `/portfolio/${id}`);
 }
 
 // --- Hintergrundläufe (Seite „Abgleich“, Aktienseite, Datenvorrat) ---------------------------------------------

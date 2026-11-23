@@ -82,7 +82,7 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
   // nächste. Bis dahin passen Werte je Aktie und Kurs womöglich nicht zusammen (Sandisk 2026: Faktor 8). Der Rückblick
   // überspringt solche Monate selbst (src/backtest/candidates.ts).
   // Warnungen nur der Anwendung (Spezifikation 4.1), nicht für Rückblick und Vorwärtsprotokoll (`manual: false`), weil sie dort
-  // das Ergebnis verschlechterten (Strategie 11.19). Zeitweise andere Stückelung der Aktienzahl:
+  // das Ergebnis verschlechterten (Strategie 11.20). Zeitweise andere Stückelung der Aktienzahl:
   const appChecks = options.manual !== false;
   if (appChecks) proposals.details.shareJump = shareJump(fundamentals.slice(-10));
   // Split ab dem Beginn des letzten Geschäftsjahrs, ohne Beleg, dass die Zahlen bereinigt sind. Ab Jahresbeginn statt

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type DepotPosition, type Listing, previewBestand } from "./bestand.ts";
+import type { Listing } from "../data/listings.ts";
+import { type DepotPosition, previewBestand } from "./bestand.ts";
 
 const aktie = (isin: string | null, quantity: number, name = `Aktie ${isin}`): DepotPosition => ({
   isin,

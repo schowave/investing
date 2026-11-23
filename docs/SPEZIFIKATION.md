@@ -191,12 +191,21 @@ Regeln:
 - **Screening des Datenvorrats:** nur Stammaktien. Ausländische Unternehmen in Buenos Aires notieren als CEDEAR, ein Zertifikat
   mit eigenem Bezugsverhältnis; der Anbieter führt sie als Stammaktie, die Anwendung markiert sie als CEDEAR und lässt sie aus.
 - **Einzelne Titel** außerhalb der Indizes werden über ihre ISIN geladen (`pnpm run import:isin`) und kommen auf die Watchlist.
-  Die Positionen der Wikifolios stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht automatisch abrufen; die
-  Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
+  Die Positionen der Vorbild-Wikifolios (des Buchautors) stehen nur angemeldeten Nutzern offen und lassen sich deshalb nicht
+  automatisch abrufen; die Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
 - **CSV:** Jede Kennzahl kann per CSV eingetragen und korrigiert werden (`pnpm run import:fundamentals`; bereinigte Gewinne,
   Titel ohne Anbieterdaten).
-- **Ist-Positionen:** von Hand oder aus dem Depot bei der comdirect (Abschnitt 6.1). Jede Aktie trägt dazu ihre ISIN aus den
-  Stammdaten des Anbieters oder aus der Aufnahme über die ISIN.
+- **Ist-Positionen:** je Portfolio aus einer Bestandsquelle: von Hand, aus dem Depot bei der comdirect (Abschnitt 6.1) oder aus
+  wikifolio. Jede Aktie trägt dazu ihre ISIN aus den Stammdaten des Anbieters oder aus der Aufnahme über die ISIN.
+- **wikifolio:** Ein eigenes Wikifolio wird über die offizielle Trading-API angebunden (`src/data/wikifolio.ts`, ADR 0002); die
+  Schlüssel (`WIKIFOLIO_CLIENT_API_KEY`, `WIKIFOLIO_USER_API_KEY`) gibt wikifolio nach schriftlicher Zustimmung aus. Das Symbol
+  steht am Portfolio; solange es gesetzt ist, lässt sich der Bestand weder von Hand noch aus der comdirect ändern. Der Abgleich
+  (`src/jobs/wikifolio.ts`) übernimmt Bargeld und Stückzahlen und ordnet Positionen über die ISIN zu, bei mehreren Notizen nach
+  derselben Reihenfolge wie die comdirect (6.1). Positionen ohne passende Aktie stehen mit ihrem Einstandswert unter sonstige
+  Anlagen und werden auf der Portfolioseite genannt; aufgenommen werden sie von Hand über den Datenvorrat. Das Anlageuniversum
+  (Strategie 7.1) kommt seitenweise mit höchstens 1000 ISINs je Abruf und wird höchstens einmal je Woche geladen; gespeichert
+  wird nur die Schnittmenge mit den Aktien der Datenbank. Eine Aktie, die nach dem Laden dazukommt, gilt bis zum nächsten Laden
+  als nicht handelbar. Ohne Schlüssel bleibt der letzte Stand stehen. Orders gibt die Anwendung noch nicht auf.
 - **Lizenz:** Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für
   andere angezeigt werden (9).
 
@@ -211,7 +220,7 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
 - Titel der Watchlist und gehaltene Titel werden markiert: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen
   den Grund, und ihre Rendite zählt nicht in den Schnitt des Portfolios. Aus dem Zielportfolio nimmt die Prüfung sie nicht; das
   Urteil liegt beim Nutzer.
-- Nur in der Anwendung, nicht im Rückblick (dort verschlechterte die Prüfung das Ergebnis, Strategie 11.19), gelten zusätzlich
+- Nur in der Anwendung, nicht im Rückblick (dort verschlechterte die Prüfung das Ergebnis, Strategie 11.20), gelten zusätzlich
   als unplausibel: eine Aktienzahl, die zeitweise die Stückelung wechselt, also um mindestens das Dreifache springt und später
   ungefähr zurück (Datenfehler; XYF, NLB; echte Kapitalmaßnahmen und Gratisaktien kehren nicht zurück und zählen nicht), und
   ein Split nach dem letzten Abschluss, solange nicht
@@ -255,7 +264,8 @@ Die Anwendung ist so gebaut, dass sie mit dem kostenlosen Tarif (20 Abrufe am Ta
 
 | Auslöser                             | Was passiert                                                                                                            |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Täglich nach Börsenschluss           | Kurse, Wechselkurse und Bezugsgrößen laden, innere Renditen und Zielportfolios neu rechnen, Tagesstand speichern        |
+| Täglich nach Börsenschluss           | Bestand der Wikifolios abgleichen, Kurse, Wechselkurse und Bezugsgrößen laden, Zielportfolios rechnen, Stand speichern  |
+| Knopf „Jetzt abgleichen“             | Bestand eines Wikifolios sofort abgleichen, z. B. nach einer ausgeführten Order                                         |
 | Erster Abgleich eines Monats         | Eintrag im Vorwärtsprotokoll je Arm und Profil (Abschnitt 8.2)                                                          |
 | Neue Fundamentaldaten                | Vorschläge neu rechnen; Hinweis „prüfen“, wenn sie sich seit der Bewertung verschoben haben (Strategie 7.5)             |
 | Bewertung älter als 12 Monate        | Hinweis „prüfen“ auf Rangliste und Aktienseite; der Titel bleibt zulässig                                               |
@@ -275,7 +285,8 @@ zu prüfen.
 
 ## 6. Anwendung
 
-- Nutzer: feste Liste erlaubter E-Mail-Adressen, Anmeldung über einen Identitätsanbieter, keine eigene Passwortverwaltung.
+- Nutzer: feste Liste erlaubter E-Mail-Adressen, Anmeldung über einen Identitätsanbieter, keine eigene Passwortverwaltung. Die
+  Anmeldung übernimmt Cloudflare Access vor dem Tunnel (ADR 0001); die Anwendung selbst kennt keine Benutzer.
 - Bewertungen (Annahmen, Risikofaktoren) sind für alle Nutzer gemeinsam. Portfolios gehören einem Nutzer; jeder kann mehrere
   führen, jedes mit einem der beiden Profile (Strategie 7.3).
 - Technik: Next.js und TypeScript, SQLite, ein Container; Betrieb im LXC auf dem Proxmox (`deploy/`).
@@ -294,15 +305,15 @@ zu prüfen.
 
 Seiten:
 
-| Seite       | Inhalt                                                                                                                                                                                                                                                                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse, Limit und Status der Bewertung                                                                                                                                                                                                                                               |
-| Aktie       | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen, Jev-Vorschläge                                                                                                                                                                                                       |
-| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, innere Rendite von Bestand und Ziel im Schnitt (nach Wert gewichtet, ohne Bargeld), Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro, von Hand oder aus der comdirect (6.1); Auswahl der Kandidaten: Watchlist oder nur Bestand (Strategie 7.1) |
-| Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist; abgedeckte Märkte                                                                                                                                                                                                          |
-| Abgleich    | Läufe (Abgleich, Importe), nächtlicher Abgleich an oder aus                                                                                                                                                                                                                                                                            |
-| Aufgaben    | keine eigene Seite: unvollständige und zu prüfende Bewertungen stehen in der Rangliste und im Zähler der Navigation                                                                                                                                                                                                                    |
-| Strategie   | `docs/STRATEGIE.md` mit Inhaltsverzeichnis, Tageswerte, Druckansicht; Unterseite Änderungsprotokoll                                                                                                                                                                                                                                    |
+| Seite       | Inhalt                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse, Limit und Status der Bewertung                                                                                                                                                                                                                                                                                         |
+| Aktie       | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen, Jev-Vorschläge                                                                                                                                                                                                                                                 |
+| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, innere Rendite von Bestand und Ziel im Schnitt (nach Wert gewichtet, ohne Bargeld), Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro, von Hand, aus der comdirect (6.1) oder aus wikifolio (Knopf „Jetzt abgleichen“); Auswahl der Kandidaten: Watchlist oder nur Bestand (Strategie 7.1) |
+| Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist; abgedeckte Märkte                                                                                                                                                                                                                                                    |
+| Abgleich    | Läufe (Abgleich, Importe), nächtlicher Abgleich an oder aus                                                                                                                                                                                                                                                                                                                      |
+| Aufgaben    | keine eigene Seite: unvollständige und zu prüfende Bewertungen stehen in der Rangliste und im Zähler der Navigation                                                                                                                                                                                                                                                              |
+| Strategie   | `docs/STRATEGIE.md` mit Inhaltsverzeichnis, Tageswerte, Druckansicht; Unterseite Änderungsprotokoll                                                                                                                                                                                                                                                                              |
 
 Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i Group, Universal Health Services, BASF.
 
@@ -422,9 +433,11 @@ Verfahren:
    (`db.stocks({ includeDelisted: true })`); Abgleich, Bewertung, Suche und Titelsuche im Datenvorrat überspringen sie. Der Import
    liest die Monatskurse aus `survivorship/monthly-prices.jsonl` neben der Datenbank, wählt nach Umsatz und Ende der Reihe
    (`src/data/delisted.ts`), braucht 12 Abrufe je Titel und lässt dem Abgleich die Reserve (`SYNC_RESERVE`).
-   Bei eingestellten Titeln schließt der Rückblick Schuld- und Vorzugstitel, Kursfehler (Monatssprung über das Neunfache oder unter
-   ein Zwanzigstel) und Umbenennungen (Abschlüsse über die Einstellung hinaus) aus (`delistedArtefact`); der Bericht zählt sie unter
-   „ausgeschlossen“.
+   Bei eingestellten Titeln schließt der Rückblick Schuld- und Vorzugstitel, Kursfehler (bereinigter Kurs springt über das
+   Neunfache; Sprung oder Absturz nur im bereinigten, nicht im rohen Kurs; roher und bereinigter Kurs bewegen sich gemeinsam im
+   Verhältnis eines Splits; verglichen werden nur benachbarte Monate) und Umbenennungen
+   (Abschlüsse über die Einstellung hinaus) aus (`delistedArtefact`); echte Abstürze bleiben drin. Der Bericht zählt die
+   Ausgeschlossenen unter „ausgeschlossen“.
 7. Umschlag ist zweiseitig gemessen (Käufe plus Verkäufe, als Anteil des Depots; ein voller Austausch zählt 200 %). Die Kosten
    gelten je Handelsumsatz in diesem Sinn. Der Bericht nennt außerdem die Zahl der Ausreißer (Positionsmonate über +100 % oder
    unter −60 %), die Gründe für übersprungene Titel und die Hürde des Laufs.
@@ -495,5 +508,5 @@ Offene Fragen zur Methode stehen in Strategie 11.
 ## 10. Nicht in Version 1
 
 Steuern (Quellensteuer, Abgeltungsteuer), Transaktionskosten in der Anwendung, Screening über den Gesamtmarkt,
-Aufträge an die Bank (die comdirect liefert nur den Bestand, 6.1), Backtest als Funktion der Oberfläche (als Werkzeug gibt es ihn, Abschnitt 8.1; er setzt Kosten an, die
+Aufträge an die Bank und Orders bei wikifolio (comdirect und wikifolio liefern nur den Bestand, 6.1 und 4), Backtest als Funktion der Oberfläche (als Werkzeug gibt es ihn, Abschnitt 8.1; er setzt Kosten an, die
 Anwendung nicht), maximaler Kaufpreis nach Buchmethode, Währungsprognosen, Einstellungen für Strategie-Parameter (Abschnitt 1).

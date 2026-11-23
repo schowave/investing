@@ -148,8 +148,9 @@ LXC 108 auf dem Proxmox: investing-update.timer (alle 5 Min) ◀─────�
   spätestens fünf Minuten später im LXC. Startet eine neue Version nicht gesund, läuft die vorherige weiter.
 - **Daten** liegen im LXC unter `/opt/investing/data` (Datenbank, `backups/` mit den letzten drei Tagen).
   Die nächtliche Proxmox-Sicherung enthält den LXC.
-- **Zugangsdaten** (`EODHD_API_TOKEN`, optional `TYPESAFE_API_KEY`, `ANTHROPIC_API_KEY`) stehen in
-  `/opt/investing/.env`; `mise run deploy:env` kopiert sie aus `.env.local`.
+- **Zugangsdaten** (`EODHD_API_TOKEN`, optional `WIKIFOLIO_CLIENT_API_KEY` und `WIKIFOLIO_USER_API_KEY`, `TYPESAFE_API_KEY`,
+  `ANTHROPIC_API_KEY`) stehen in `/opt/investing/.env`; `mise run deploy:env` kopiert sie aus `.env.local` und startet App und
+  Worker neu.
 - **Von außen** über den Cloudflare Tunnel (LXC 102) mit Cloudflare Access, Anwendung `familie-dienste`.
   Die App selbst hat keine Anmeldung.
 

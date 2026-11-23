@@ -201,7 +201,7 @@ test -f .env.local
 ssh_() { ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "$@"; }
 scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes .env.local "$PVE_HOST:/tmp/investing.env"
 ssh_ "pct push $INVESTING_CTID /tmp/investing.env /opt/investing/.env --perms 600 && rm /tmp/investing.env \
-  && pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose up -d --force-recreate investing'"
+  && pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose up -d --force-recreate investing worker'"
 '''
 
 [tasks."deploy:db"]
