@@ -1,0 +1,2240 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "9a357420-379b-4488-941a-d27143093ef0",
+  "prevIds": [
+    "e76a067d-bdd2-4f9b-9bda-fe5a333294ad"
+  ],
+  "ddl": [
+    {
+      "name": "dividends",
+      "entityType": "tables"
+    },
+    {
+      "name": "forward_log",
+      "entityType": "tables"
+    },
+    {
+      "name": "forward_ranking",
+      "entityType": "tables"
+    },
+    {
+      "name": "fundamentals",
+      "entityType": "tables"
+    },
+    {
+      "name": "fx_rates",
+      "entityType": "tables"
+    },
+    {
+      "name": "history_loaded",
+      "entityType": "tables"
+    },
+    {
+      "name": "holdings",
+      "entityType": "tables"
+    },
+    {
+      "name": "jobs",
+      "entityType": "tables"
+    },
+    {
+      "name": "judgements",
+      "entityType": "tables"
+    },
+    {
+      "name": "manual_inputs",
+      "entityType": "tables"
+    },
+    {
+      "name": "monthly_prices",
+      "entityType": "tables"
+    },
+    {
+      "name": "portfolio_snapshots",
+      "entityType": "tables"
+    },
+    {
+      "name": "portfolios",
+      "entityType": "tables"
+    },
+    {
+      "name": "price_failures",
+      "entityType": "tables"
+    },
+    {
+      "name": "prices",
+      "entityType": "tables"
+    },
+    {
+      "name": "raw_documents",
+      "entityType": "tables"
+    },
+    {
+      "name": "reference_rates",
+      "entityType": "tables"
+    },
+    {
+      "name": "screening",
+      "entityType": "tables"
+    },
+    {
+      "name": "settings",
+      "entityType": "tables"
+    },
+    {
+      "name": "splits",
+      "entityType": "tables"
+    },
+    {
+      "name": "stocks",
+      "entityType": "tables"
+    },
+    {
+      "name": "sync_runs",
+      "entityType": "tables"
+    },
+    {
+      "name": "valuations",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "dividends"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "dividends"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "dividends"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "currency",
+      "entityType": "columns",
+      "table": "dividends"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "''",
+      "generated": null,
+      "name": "period",
+      "entityType": "columns",
+      "table": "dividends"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "arm",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "profile",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "weight",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "risk_score",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price_eur",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "calc_version",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'1.0'",
+      "generated": null,
+      "name": "strategy_version",
+      "entityType": "columns",
+      "table": "forward_log"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "arm",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "rank",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "risk_score",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sector",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "region",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price_eur",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "calc_version",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "strategy_version",
+      "entityType": "columns",
+      "table": "forward_ranking"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fiscal_year",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "eps_diluted",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "dividend_per_share",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "shares",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "repurchases",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "issuance",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_based_compensation",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "revenue",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ebit",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total_assets",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "equity",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "current_assets",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "current_liabilities",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "long_term_debt",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cash",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "operating_cash_flow",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "free_cash_flow",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "net_debt",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "interest_expense",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ebitda",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "source",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "fundamentals"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "fx_rates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "currency",
+      "entityType": "columns",
+      "table": "fx_rates"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "per_eur",
+      "entityType": "columns",
+      "table": "fx_rates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "history_loaded"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "history_loaded"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fetched_at",
+      "entityType": "columns",
+      "table": "history_loaded"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "portfolio_id",
+      "entityType": "columns",
+      "table": "holdings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "holdings"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "shares",
+      "entityType": "columns",
+      "table": "holdings"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "args",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "finished_at",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "cancel_requested",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "progress_done",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "progress_total",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "''",
+      "generated": null,
+      "name": "log",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "summary",
+      "entityType": "columns",
+      "table": "jobs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "jev_model",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "research_model",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "research",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "researched_at",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sources",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "proposals",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "1",
+      "generated": null,
+      "name": "levels_version",
+      "entityType": "columns",
+      "table": "judgements"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "manual_inputs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "manual_inputs"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "manual_inputs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "''",
+      "generated": null,
+      "name": "note",
+      "entityType": "columns",
+      "table": "manual_inputs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "manual_inputs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "monthly_prices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "month",
+      "entityType": "columns",
+      "table": "monthly_prices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "monthly_prices"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "close",
+      "entityType": "columns",
+      "table": "monthly_prices"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "adjusted_close",
+      "entityType": "columns",
+      "table": "monthly_prices"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "portfolio_id",
+      "entityType": "columns",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total_eur",
+      "entityType": "columns",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "details",
+      "entityType": "columns",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "profile",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "cash_eur",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "other_eur",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "comdirect_depot_id",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'watchlist'",
+      "generated": null,
+      "name": "selection",
+      "entityType": "columns",
+      "table": "portfolios"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "price_failures"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "failed_at",
+      "entityType": "columns",
+      "table": "price_failures"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "table": "price_failures"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "error",
+      "entityType": "columns",
+      "table": "price_failures"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "prices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "prices"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "close",
+      "entityType": "columns",
+      "table": "prices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "raw_documents"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "kind",
+      "entityType": "columns",
+      "table": "raw_documents"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fetched_at",
+      "entityType": "columns",
+      "table": "raw_documents"
+    },
+    {
+      "type": "blob",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "body",
+      "entityType": "columns",
+      "table": "raw_documents"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "reference_rates"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "reference_rates"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "reference_rates"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price_date",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "payout_level",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "growth",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "risk_score",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "implausible",
+      "entityType": "columns",
+      "table": "screening"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "settings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "value",
+      "entityType": "columns",
+      "table": "settings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "settings"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "splits"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "splits"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ratio",
+      "entityType": "columns",
+      "table": "splits"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "sector",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "region",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "country",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "reporting_currency",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price_currency",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "1",
+      "generated": null,
+      "name": "price_divisor",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "founded_year",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "is_financial",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "watched",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "security_type",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "gic_sector",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "isin",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "delisted_on",
+      "entityType": "columns",
+      "table": "stocks"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "sync_runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "finished_at",
+      "entityType": "columns",
+      "table": "sync_runs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ok",
+      "entityType": "columns",
+      "table": "sync_runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "report",
+      "entityType": "columns",
+      "table": "sync_runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "stock_id",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "complete",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "price",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "risk_score",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return_cautious",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "inner_return_optimistic",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "details",
+      "entityType": "columns",
+      "table": "valuations"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_dividends_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "dividends"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_forward_log_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "forward_log"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_forward_ranking_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "forward_ranking"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_fundamentals_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "fundamentals"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_history_loaded_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "history_loaded"
+    },
+    {
+      "columns": [
+        "portfolio_id"
+      ],
+      "tableTo": "portfolios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_holdings_portfolio_id_portfolios_id_fk",
+      "entityType": "fks",
+      "table": "holdings"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_holdings_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "holdings"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_judgements_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "judgements"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_manual_inputs_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "manual_inputs"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_monthly_prices_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "monthly_prices"
+    },
+    {
+      "columns": [
+        "portfolio_id"
+      ],
+      "tableTo": "portfolios",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_portfolio_snapshots_portfolio_id_portfolios_id_fk",
+      "entityType": "fks",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_price_failures_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "price_failures"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_prices_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "prices"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_raw_documents_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "raw_documents"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_screening_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "screening"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_splits_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "splits"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "tableTo": "stocks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_valuations_stock_id_stocks_id_fk",
+      "entityType": "fks",
+      "table": "valuations"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "date"
+      ],
+      "nameExplicit": false,
+      "name": "dividends_pk",
+      "entityType": "pks",
+      "table": "dividends"
+    },
+    {
+      "columns": [
+        "date",
+        "arm",
+        "profile",
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "forward_log_pk",
+      "entityType": "pks",
+      "table": "forward_log"
+    },
+    {
+      "columns": [
+        "date",
+        "arm",
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "forward_ranking_pk",
+      "entityType": "pks",
+      "table": "forward_ranking"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "fiscal_year"
+      ],
+      "nameExplicit": false,
+      "name": "fundamentals_pk",
+      "entityType": "pks",
+      "table": "fundamentals"
+    },
+    {
+      "columns": [
+        "date",
+        "currency"
+      ],
+      "nameExplicit": false,
+      "name": "fx_rates_pk",
+      "entityType": "pks",
+      "table": "fx_rates"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "kind"
+      ],
+      "nameExplicit": false,
+      "name": "history_loaded_pk",
+      "entityType": "pks",
+      "table": "history_loaded"
+    },
+    {
+      "columns": [
+        "portfolio_id",
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "holdings_pk",
+      "entityType": "pks",
+      "table": "holdings"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "manual_inputs_pk",
+      "entityType": "pks",
+      "table": "manual_inputs"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "month"
+      ],
+      "nameExplicit": false,
+      "name": "monthly_prices_pk",
+      "entityType": "pks",
+      "table": "monthly_prices"
+    },
+    {
+      "columns": [
+        "portfolio_id",
+        "date"
+      ],
+      "nameExplicit": false,
+      "name": "portfolio_snapshots_pk",
+      "entityType": "pks",
+      "table": "portfolio_snapshots"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "date"
+      ],
+      "nameExplicit": false,
+      "name": "prices_pk",
+      "entityType": "pks",
+      "table": "prices"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "kind"
+      ],
+      "nameExplicit": false,
+      "name": "raw_documents_pk",
+      "entityType": "pks",
+      "table": "raw_documents"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "date"
+      ],
+      "nameExplicit": false,
+      "name": "splits_pk",
+      "entityType": "pks",
+      "table": "splits"
+    },
+    {
+      "columns": [
+        "stock_id",
+        "date"
+      ],
+      "nameExplicit": false,
+      "name": "valuations_pk",
+      "entityType": "pks",
+      "table": "valuations"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "jobs_pk",
+      "table": "jobs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "judgements_pk",
+      "table": "judgements",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "portfolios_pk",
+      "table": "portfolios",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "price_failures_pk",
+      "table": "price_failures",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "reference_rates_pk",
+      "table": "reference_rates",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "stock_id"
+      ],
+      "nameExplicit": false,
+      "name": "screening_pk",
+      "table": "screening",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "settings_pk",
+      "table": "settings",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "stocks_pk",
+      "table": "stocks",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sync_runs_pk",
+      "table": "sync_runs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "currency",
+          "isExpression": false
+        },
+        {
+          "value": "date",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "fx_rates_currency_date",
+      "entityType": "indexes",
+      "table": "fx_rates"
+    },
+    {
+      "columns": [
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "history_loaded_kind",
+      "entityType": "indexes",
+      "table": "history_loaded"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "jobs_status",
+      "entityType": "indexes",
+      "table": "jobs"
+    },
+    {
+      "columns": [
+        {
+          "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "raw_documents_kind",
+      "entityType": "indexes",
+      "table": "raw_documents"
+    },
+    {
+      "columns": [
+        {
+          "value": "inner_return",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "screening_inner_return",
+      "entityType": "indexes",
+      "table": "screening"
+    },
+    {
+      "columns": [
+        {
+          "value": "isin",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "stocks_isin",
+      "entityType": "indexes",
+      "table": "stocks"
+    }
+  ],
+  "renames": []
+}

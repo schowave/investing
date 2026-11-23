@@ -76,7 +76,11 @@ export interface Portfolio {
   otherEur: number;
   /** Depot bei der comdirect, aus dem der Bestand übernommen wird. */
   comdirectDepotId: string | null;
+  /** Kandidaten des Zielportfolios: die Watchlist oder nur die gehaltenen Titel. */
+  selection: PortfolioSelection;
 }
+
+export type PortfolioSelection = "watchlist" | "bestand";
 
 export interface StockSearchHit {
   stock: Stock;
@@ -266,6 +270,7 @@ function toPortfolio(r: PortfolioRow): Portfolio {
     cashEur: r.cashEur,
     otherEur: r.otherEur,
     comdirectDepotId: r.comdirectDepotId,
+    selection: r.selection === "bestand" ? "bestand" : "watchlist",
   };
 }
 
@@ -1167,6 +1172,10 @@ export class Database {
       .orderBy(t.stocks.id)
       .all()
       .map((r) => r.id);
+  }
+
+  setSelection(portfolioId: number, selection: PortfolioSelection): void {
+    this.#db.update(t.portfolios).set({ selection }).where(eq(t.portfolios.id, portfolioId)).run();
   }
 
   setComdirectDepot(portfolioId: number, depotId: string | null): void {

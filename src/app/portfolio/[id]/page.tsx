@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadPortfolio } from "../../../valuation/portfolioRun.ts";
 import type { Share } from "../../../valuation/portfolioView.ts";
-import { deletePortfolio, saveHoldings } from "../../actions.ts";
+import { deletePortfolio, saveHoldings, setPortfolioSelection } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { stockPath } from "../../origin.ts";
 import { database, today } from "../../server.ts";
@@ -119,7 +119,8 @@ export default async function PortfolioPage(props: {
           <p className="finding">{finding}</p>
           <p className="meta">
             Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} · Hürde{" "}
-            {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte
+            {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte · Auswahl{" "}
+            {portfolio.selection === "bestand" ? "nur Bestand" : "Watchlist"}
           </p>
         </div>
         <div className="title-actions">
@@ -372,6 +373,26 @@ export default async function PortfolioPage(props: {
               </div>
             </section>
           )}
+          <section className="card">
+            <div className="card-head">
+              <h2>Auswahl</h2>
+            </div>
+            <form className="card-body stack" action={setPortfolioSelection.bind(null, portfolio.id)}>
+              <p className="hint">
+                Welche Titel ins Zielportfolio dürfen: alle vollständig bewerteten der Watchlist oder nur die, die das Portfolio schon hält
+                (etwa um ein Wikifolio nachzubilden; der Rest des Ziels ist dann Bargeld).
+              </p>
+              <div className="row">
+                <select name="auswahl" aria-label="Auswahl" defaultValue={portfolio.selection}>
+                  <option value="watchlist">Watchlist</option>
+                  <option value="bestand">nur Bestand</option>
+                </select>
+                <button className="quiet" type="submit">
+                  Übernehmen
+                </button>
+              </div>
+            </form>
+          </section>
           <section className="card">
             <div className="card-head">
               <h2>Portfolio löschen</h2>

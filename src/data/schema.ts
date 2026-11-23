@@ -123,6 +123,8 @@ export const portfolios = sqliteTable("portfolios", {
   otherEur: real("other_eur").notNull().default(0),
   /** Depot bei der comdirect (`depotId` der Bank), aus dem der Bestand übernommen wird; `null`, solange keines gewählt ist. */
   comdirectDepotId: text("comdirect_depot_id"),
+  /** Kandidaten des Zielportfolios: "watchlist" (Strategie 7.1) oder "bestand" (nur gehaltene Titel, z. B. ein Wikifolio). */
+  selection: text("selection").notNull().default("watchlist"),
 });
 
 const portfolioId = () =>

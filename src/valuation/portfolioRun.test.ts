@@ -53,6 +53,21 @@ describe("loadPortfolio", () => {
     expect(loadPortfolio(db, db.portfolio(id)!, "2026-11-20").doubtful.size).toBe(0);
   });
 
+  it("nimmt mit der Auswahl „bestand“ nur gehaltene Titel ins Ziel", () => {
+    const db = prepared();
+    db.addStockIfMissing({ ...stock, id: "HALT.US" });
+    db.setWatched("HALT.US", false);
+    const id = db.createPortfolio("Wikifolio", "fokussiert");
+    db.setHolding(id, "HALT.US", 1);
+    const all = loadPortfolio(db, db.portfolio(id)!, "2026-11-19");
+    expect(all.stocks.map((s) => s.id)).toEqual([stock.id, "HALT.US"]);
+    db.setSelection(id, "bestand");
+    expect(db.portfolio(id)!.selection).toBe("bestand");
+    const own = loadPortfolio(db, db.portfolio(id)!, "2026-11-19");
+    expect(own.stocks.map((s) => s.id)).toEqual(["HALT.US"]);
+    expect(own.view.rows.map((r) => r.id)).toEqual(["HALT.US"]);
+  });
+
   it("führt gehaltene Titel ohne Kurs als nicht bewertet", () => {
     const db = prepared();
     db.addStockIfMissing({ ...stock, id: "OHNE.US", watched: false });

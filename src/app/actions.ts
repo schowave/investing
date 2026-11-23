@@ -94,6 +94,20 @@ export async function createPortfolio(form: FormData): Promise<void> {
   redirect(`/portfolio/${id}`);
 }
 
+const SelectionForm = z.enum(["watchlist", "bestand"]);
+
+/** Kandidaten des Zielportfolios: die Watchlist oder nur der eigene Bestand (etwa ein Wikifolio). */
+export async function setPortfolioSelection(id: number, form: FormData): Promise<void> {
+  const page = `/portfolio/${id}`;
+  if (!database().portfolio(id)) redirect("/portfolio");
+  const parsed = SelectionForm.safeParse(form.get("auswahl"));
+  if (!parsed.success) redirect(`${page}?fehler=${encodeURIComponent("Unbekannte Auswahl.")}`);
+  database().setSelection(id, parsed.data);
+  revalidatePath(page);
+  revalidatePath("/portfolio");
+  redirect(page);
+}
+
 export async function deletePortfolio(id: number): Promise<void> {
   database().deletePortfolio(id);
   redirect("/portfolio");

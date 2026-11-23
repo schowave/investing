@@ -16,7 +16,7 @@ export interface LoadedPortfolio {
   profile: Profile;
   /** Stückzahlen je Aktie. */
   holdings: Map<string, number>;
-  /** Watchlist und zusätzlich gehaltene Titel, die nicht mehr darauf stehen. */
+  /** Watchlist und zusätzlich gehaltene Titel, die nicht mehr darauf stehen; mit der Auswahl „bestand“ nur die gehaltenen. */
   stocks: Stock[];
   view: PortfolioView;
   /** Titel, deren Zahlen nicht zum Kurs passen, mit Begründung (siehe `doubtfulNumbers`). */
@@ -35,7 +35,8 @@ export function loadPortfolio(
 ): LoadedPortfolio {
   const profile = withHurdle(portfolio.profile === "global" ? PROFILE_GLOBAL : PROFILE_FOCUSED, db.referenceRate(BOND_KEY));
   const holdings = db.holdings(portfolio.id);
-  const watchlist = db.stocks();
+  // Mit der Auswahl „bestand“ sind nur die gehaltenen Titel Kandidaten (Strategie 7.1), etwa um ein Wikifolio nachzubilden.
+  const watchlist = portfolio.selection === "bestand" ? [] : db.stocks();
   const extra = [...holdings.keys()].filter((id) => !watchlist.some((s) => s.id === id)).map((id) => db.stock(id)!);
   const stocks = [...watchlist, ...extra];
 

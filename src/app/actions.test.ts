@@ -27,6 +27,7 @@ const {
   saveInputs,
   saveManualPrice,
   setAutoSync,
+  setPortfolioSelection,
   setWatched,
   startHistory,
   startIndexImport,
@@ -55,6 +56,14 @@ describe("Server Actions", () => {
   it.each(["0", "-3", "abc", "", "1.2.3"])("weist den Kurs %j zurück", async (price) => {
     await expect(saveManualPrice("IMB.LSE", form({ price }))).rejects.toThrow(/fehler=Der\+Kurs/);
     expect(db.latestPrice("IMB.LSE")).toBeNull();
+  });
+
+  it("stellt die Auswahl eines Portfolios um und weist Unbekanntes ab", async () => {
+    const id = db.createPortfolio("Wikifolio", "fokussiert");
+    await expect(setPortfolioSelection(id, form({ auswahl: "bestand" }))).rejects.toThrow(`redirect:/portfolio/${id}`);
+    expect(db.portfolio(id)!.selection).toBe("bestand");
+    await expect(setPortfolioSelection(id, form({ auswahl: "alles" }))).rejects.toThrow(/fehler=Unbekannte/);
+    await expect(setPortfolioSelection(9999, form({ auswahl: "bestand" }))).rejects.toThrow("redirect:/portfolio");
   });
 
   it("legt Portfolios an und fällt bei unbekanntem Profil auf fokussiert zurück", async () => {

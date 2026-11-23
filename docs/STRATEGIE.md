@@ -836,6 +836,9 @@ Die Hürde ist die Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität 
 Zentralbank) plus `huerde.aufschlag`, mindestens `huerde.mindestwert`; liegt keine Anleiherendite vor, gilt
 `huerde.ersatzwert` (10.1). Überfällige Bewertungen (7.5) bleiben zulässig.
 
+Kandidaten kommen aus der Watchlist. Ein Portfolio kann seine Auswahl auf die Titel beschränken, die es schon hält (Auswahl „nur
+Bestand“, etwa um ein Wikifolio nachzubilden); für diese gelten dieselben Bedingungen, Verfahren und Grenzen.
+
 Es gibt kein Renditeziel. Ausgewählt wird nach Rang, bis das Portfolio voll ist; Bargeld bleibt nur, wenn die Kandidaten
 ausgehen.
 

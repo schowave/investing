@@ -1,0 +1,1 @@
+ALTER TABLE `portfolios` ADD `selection` text DEFAULT 'watchlist' NOT NULL;
