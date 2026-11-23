@@ -5,7 +5,7 @@ import type { FundamentalsYear, Stock } from "../data/db.ts";
 export const stock: Stock = {
   id: "TEST.US",
   name: "Test",
-  sector: "Chemie",
+  sector: "Basic Materials",
   region: "Europa",
   country: "DE",
   reportingCurrency: "EUR",

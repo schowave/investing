@@ -6,6 +6,7 @@ import { and, asc, count, desc, eq, gt, inArray, isNull, lte, max, or, type SQL,
 import { drizzle, type NodeSQLiteDatabase } from "drizzle-orm/node-sqlite";
 import { migrateDatabase } from "./migrate.ts";
 import * as t from "./schema.ts";
+import { normalizeSector } from "./sector.ts";
 
 export const FUNDAMENTAL_FIELDS = [
   "epsDiluted",
@@ -293,7 +294,8 @@ function toStock(r: StockRow): Stock {
   return {
     id: r.id,
     name: r.name,
-    sector: r.sector,
+    // Einheitlich, damit die Höchstgrenze je Branche nicht an Namensvarianten vorbeiläuft (sector.ts).
+    sector: normalizeSector(r.sector, r.gicSector),
     region: r.region,
     country: r.country,
     reportingCurrency: r.reportingCurrency,
