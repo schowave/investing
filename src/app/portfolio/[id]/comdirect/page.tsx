@@ -193,7 +193,7 @@ export default async function ComdirectPage(props: {
           <div className="card-body stack">
             <label className="row">
               <span className="factor">PIN</span>
-              <input type="password" name="pin" autoComplete="current-password" required maxLength={128} />
+              <input type="password" name="pin" autoComplete="off" required maxLength={128} />
             </label>
             {blocked && (
               <label className="meta confirm">

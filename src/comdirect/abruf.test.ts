@@ -208,6 +208,59 @@ describe("Absicherungen des Abrufs", () => {
     expect(vorgang.state.preview.warnings[0]).toMatch(/1 ISINs ließen sich bei EODHD nicht nachschlagen/);
   });
 
+  it("schlägt sparsam nach: ohne Token nicht, gesperrte und eingestellte ISINs nicht, nach dem Tageslimit nicht weiter", async () => {
+    const searched: string[] = [];
+    const eodhdFetch = (async (url: URL) => {
+      searched.push(decodeURIComponent(url.pathname.split("/").at(-1)!));
+      return new Response("", { status: 402 });
+    }) as unknown as typeof fetch;
+    db.setSetting("isins-ohne-notiz", JSON.stringify({ US0000000001: "2999-01-01" }));
+    db.enqueueJob("add-stocks", { isins: ["US0000000002"], symbols: [], watch: false });
+    const positions = ["US0000000001", "US0000000002", "US0000000003", "US0000000004"].map((isin) => positionRow(isin, "1"));
+    const run = async (d: AbrufDeps) => {
+      const vorgang = await startAbruf(portfolio, "123456", d);
+      await confirmTan(db, vorgang, null, d);
+      if (vorgang.state.step !== "vorschau") throw new Error("keine Vorschau");
+      return vorgang.state.preview;
+    };
+    const withoutToken = await run(deps(fakeComdirect({ positions })));
+    expect(withoutToken.warnings[0]).toBe("Kein EODHD-Token: 2 ISINs aus dem Depot wurden nicht nachgeschlagen.");
+    const limited = await run({ ...deps(fakeComdirect({ positions })), eodhdToken: "t", eodhdFetch });
+    expect(searched).toEqual(["US0000000003"]);
+    expect(limited.warnings.slice(0, 2)).toEqual([
+      "Das Tageslimit bei EODHD ist erreicht.",
+      "2 ISINs ließen sich bei EODHD nicht nachschlagen; sie zählen bis zum nächsten Abruf als sonstige Anlagen.",
+    ]);
+    // ALT.XETRA fällt weg, während Aktien im Depot unzugeordnet sind: Das sagt die Vorschau.
+    expect(limited.warnings.at(-1)).toMatch(/^4 Aktien im Depot ließen sich keiner Notiz zuordnen/);
+  });
+
+  it("überschreibt beim Nachschlagen keine vorhandene ISIN", async () => {
+    const eodhdFetch = (async () =>
+      Response.json([
+        { Code: "ALT", Exchange: "XETRA", Name: "Alt AG", Type: "Common Stock", ISIN: "DE000NEU0001" },
+      ])) as unknown as typeof fetch;
+    const bank = fakeComdirect({ positions: [positionRow("DE000NEU0001", "1"), positionRow("DE000ALT0001", "4")] });
+    const d = { ...deps(bank), eodhdToken: "t", eodhdFetch };
+    const vorgang = await startAbruf(portfolio, "123456", d);
+    await confirmTan(db, vorgang, null, d);
+    expect(db.stockIdsByIsin(["DE000ALT0001", "DE000NEU0001"])).toEqual(new Map([["DE000ALT0001", ["ALT.XETRA"]]]));
+  });
+
+  it("gibt nach einer Weile auf, wenn EODHD hängt", async () => {
+    const clock = { t: Date.now() };
+    const eodhdFetch = (async () => {
+      clock.t += 61_000;
+      return Response.json([]);
+    }) as unknown as typeof fetch;
+    const bank = fakeComdirect({ positions: [positionRow("US0000000003", "1"), positionRow("US0000000004", "1")] });
+    const d = { ...deps(bank, clock), eodhdToken: "t", eodhdFetch };
+    const vorgang = await startAbruf(portfolio, "123456", d);
+    await confirmTan(db, vorgang, null, d);
+    if (vorgang.state.step !== "vorschau") throw new Error("keine Vorschau");
+    expect(vorgang.state.preview.warnings[0]).toMatch(/^1 ISINs ließen sich bei EODHD nicht nachschlagen/);
+  });
+
   it("lässt eine gehaltene Aktie ohne ISIN wegfallen, wenn das Depot sie nicht führt: Die Bank ist führend", async () => {
     holdOnlyWithoutIsin();
     db.saveRawDocument("ROH.XETRA", FUNDAMENTALS_KIND, "kaputt");

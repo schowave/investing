@@ -12,6 +12,7 @@ import {
   cancelAbruf,
   chooseDepot,
   confirmTan,
+  queuedIsins,
   resetOpenChallenges,
   retryLoad,
   startAbruf,
@@ -126,13 +127,10 @@ export async function applyComdirect(portfolioId: number, vorgangId: string): Pr
     revalidatePath("/portfolio");
     const query: Record<string, string> = { gespeichert: "comdirect" };
     // ISINs, die schon in einem offenen Lauf stehen, nicht ein zweites Mal einstellen.
-    const AddArgs = JOB_KINDS["add-stocks"].args;
-    const queued = new Set(
-      db.activeJobs().flatMap((job) => (job.kind === "add-stocks" ? (AddArgs.safeParse(job.args).data?.isins ?? []) : [])),
-    );
+    const queued = queuedIsins(db);
     const fresh = missing.filter((isin) => !queued.has(isin));
     if (fresh.length > 0) {
-      const args = AddArgs.parse({ isins: fresh.slice(0, 200), symbols: [], watch: false });
+      const args = JOB_KINDS["add-stocks"].args.parse({ isins: fresh.slice(0, 200), symbols: [], watch: false });
       query.lauf = String(db.enqueueJob("add-stocks", args).id);
       revalidatePath("/abgleich");
     }

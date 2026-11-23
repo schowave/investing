@@ -1,9 +1,11 @@
 // Ablauf eines Abrufs bei der comdirect (Spezifikation 6.1): verbindet Bank, Vorgang im Speicher und Datenbank.
 // Die Server Actions rufen nur diese Funktionen; Abruf und Uhr sind austauschbar, damit sich der Ablauf testen lässt.
 
+import { z } from "zod";
 import type { Database } from "../data/db.ts";
 import { isinOf, searchEodhd } from "../data/eodhdFundamentals.ts";
 import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
+import { isDailyLimit } from "../jobs/context.ts";
 import { failedIsinsSince } from "../jobs/stockpile.ts";
 import {
   activate,
@@ -104,28 +106,66 @@ function backfillIsins(db: Database, ids: readonly string[]): void {
   }
 }
 
+/** Je Suche bei EODHD höchstens so lange warten, und für alle Suchen zusammen höchstens so lange. */
+const LOOKUP_TIMEOUT_MS = 10_000;
+const LOOKUP_BUDGET_MS = 60_000;
+
 /**
  * Schlägt Aktien-ISINs aus dem Depot, die in der Datenbank fehlen, in der Symbolsuche von EODHD nach. Liegt eine
- * gefundene Notiz schon in der Datenbank, bekommt sie die ISIN: Die Stammdaten des Anbieters nennen sie oft nicht
- * (z. B. bei US-Aktien und Hinterlegungsscheinen), und ohne sie würde ein gehaltener Titel nicht erkannt.
- * @returns Hinweise, wenn die Suche scheiterte.
+ * gefundene Notiz schon in der Datenbank und hat noch keine ISIN, bekommt sie diese: Die Stammdaten des Anbieters nennen
+ * sie oft nicht (z. B. bei US-Aktien und Hinterlegungsscheinen), und ohne sie würde ein gehaltener Titel nicht erkannt.
+ * @param skip ISINs, die nicht nachgeschlagen werden (Aufnahme kürzlich gescheitert oder schon eingestellt).
+ * @returns Hinweise für die Vorschau.
  */
-async function resolveIsins(db: Database, isins: readonly string[], deps: AbrufDeps): Promise<string[]> {
+async function resolveIsins(db: Database, isins: readonly string[], skip: ReadonlySet<string>, deps: AbrufDeps): Promise<string[]> {
   const known = db.stockIdsByIsin(isins);
-  const open = [...new Set(isins)].filter((isin) => !known.has(isin)).slice(0, MAX_ISIN_LOOKUPS);
-  if (open.length === 0 || !deps.eodhdToken) return [];
+  const unknown = [...new Set(isins)].filter((isin) => !known.has(isin) && !skip.has(isin));
+  if (unknown.length === 0) return [];
+  const token = deps.eodhdToken;
+  if (!token) return [`Kein EODHD-Token: ${unknown.length} ISINs aus dem Depot wurden nicht nachgeschlagen.`];
+  const warnings: string[] = [];
+  if (unknown.length > MAX_ISIN_LOOKUPS) {
+    warnings.push(
+      `${unknown.length - MAX_ISIN_LOOKUPS} ISINs aus dem Depot wurden nicht nachgeschlagen (höchstens ${MAX_ISIN_LOOKUPS} je Abruf).`,
+    );
+  }
+  const base = deps.eodhdFetch ?? fetch;
+  const timed = ((url: string | URL | Request, init?: RequestInit) =>
+    base(url, { ...init, signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS) })) as typeof fetch;
+  const started = clock(deps);
   let failed = 0;
-  for (const isin of open) {
+  let skipped = 0;
+  for (const [index, isin] of unknown.slice(0, MAX_ISIN_LOOKUPS).entries()) {
+    if (clock(deps) - started > LOOKUP_BUDGET_MS) {
+      skipped = Math.min(unknown.length, MAX_ISIN_LOOKUPS) - index;
+      break;
+    }
     try {
-      const hits = await searchEodhd(isin, deps.eodhdToken, deps.eodhdFetch);
-      for (const hit of hits) if (hit.isin === isin && db.stock(hit.symbol)) db.setIsin(hit.symbol, isin);
-    } catch {
+      const hits = (await searchEodhd(isin, token, timed)).filter((hit) => hit.isin === isin);
+      // Eine Notiz, die schon eine ISIN hat, behält sie: Sonst fände ein späterer Abruf sie unter der alten nicht mehr.
+      for (const id of db.stockIdsWithoutIsin(hits.map((hit) => hit.symbol))) db.setIsin(id, isin);
+    } catch (error) {
+      if (isDailyLimit(error)) {
+        skipped = Math.min(unknown.length, MAX_ISIN_LOOKUPS) - index;
+        warnings.push("Das Tageslimit bei EODHD ist erreicht.");
+        break;
+      }
       failed++;
     }
   }
-  return failed > 0
-    ? [`${failed} ISINs ließen sich bei EODHD nicht nachschlagen; sie zählen bis zum nächsten Abruf als sonstige Anlagen.`]
-    : [];
+  if (failed + skipped > 0) {
+    warnings.push(
+      `${failed + skipped} ISINs ließen sich bei EODHD nicht nachschlagen; sie zählen bis zum nächsten Abruf als sonstige Anlagen.`,
+    );
+  }
+  return warnings;
+}
+
+const QueuedArgs = z.looseObject({ isins: z.array(z.string()) });
+
+/** ISINs, die schon in einem offenen Lauf „Titel aufnehmen“ stehen. */
+export function queuedIsins(db: Database): Set<string> {
+  return new Set(db.activeJobs().flatMap((job) => (job.kind === "add-stocks" ? (QueuedArgs.safeParse(job.args).data?.isins ?? []) : [])));
 }
 
 function listingsFor(db: Database, isins: readonly string[]): Map<string, Listing[]> {
@@ -155,7 +195,8 @@ async function loadVorschau(db: Database, vorgang: Vorgang, depot: Depot, all: D
   const shares = db.holdings(portfolio.id);
   backfillIsins(db, [...shares.keys(), ...db.stocks().map((s) => s.id)]);
   const isins = stand.positions.flatMap((p) => (p.kind === "aktie" && p.isin ? [p.isin] : []));
-  const lookupWarnings = await resolveIsins(db, isins, deps);
+  const failed = failedIsinsSince(db, new Date(clock(deps) - RETRY_IMPORT_DAYS * 86_400_000).toISOString().slice(0, 10));
+  const lookupWarnings = await resolveIsins(db, isins, new Set([...failed, ...queuedIsins(db)]), deps);
   const preview = previewBestand(
     stand.positions,
     stand.cashEur,
@@ -166,9 +207,16 @@ async function loadVorschau(db: Database, vorgang: Vorgang, depot: Depot, all: D
       shares,
       names: new Map([...shares.keys()].map((id) => [id, db.stock(id)?.name ?? id])),
     },
-    failedIsinsSince(db, new Date(clock(deps) - RETRY_IMPORT_DAYS * 86_400_000).toISOString().slice(0, 10)),
+    failed,
   );
   preview.warnings.unshift(...stand.warnings, ...lookupWarnings);
+  // Das Depot ist führend; fällt ein Titel weg, während Aktien im Depot nicht zugeordnet sind, kann es derselbe sein.
+  const unmatched = preview.others.filter((o) => o.pendingImport || o.notFound).length;
+  if (unmatched > 0 && preview.rows.some((r) => r.status === "weg")) {
+    preview.warnings.push(
+      `${unmatched} Aktien im Depot ließen sich keiner Notiz zuordnen. Ist ein Titel, der „fällt weg“, darunter, fehlt er nach der Übernahme im Bestand; sein Wert zählt bis zum nächsten Abruf als sonstige Anlage.`,
+    );
+  }
   return { step: "vorschau", depot, depots: all, stand, preview };
 }
 

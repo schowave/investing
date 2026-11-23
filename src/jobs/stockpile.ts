@@ -158,7 +158,9 @@ export async function importStockpile(ctx: JobContext, request: StockpileRequest
   };
 }
 
-/** ISINs aus beliebigem Text (eine Depotliste, kopierte Tabelle). */
+/** Der Anbieter führt zu einer ISIN keine Notiz mit Jahresabschlüssen (kein vorübergehender Fehler). */
+class NoListingError extends Error {}
+
 /** Einstellung: ISINs, deren Aufnahme scheiterte, mit dem Tag des Versuchs. */
 const FAILED_ISINS = "isins-ohne-notiz";
 const FailedIsins = z.record(z.string(), z.string()).catch({});
@@ -185,6 +187,7 @@ function markIsin(db: JobContext["db"], isin: string, failedOn: string | null): 
   db.setSetting(FAILED_ISINS, JSON.stringify(failed));
 }
 
+/** ISINs aus beliebigem Text (eine Depotliste, kopierte Tabelle). */
 export const isinsIn = (text: string) => [...new Set(text.toUpperCase().match(ISIN) ?? [])];
 
 /**
@@ -200,7 +203,7 @@ export async function addByIsin(ctx: JobContext, isins: readonly string[], optio
     if (ctx.shouldStop()) return { summary: `abgebrochen nach ${index} von ${isins.length} ISINs`, ok: false };
     try {
       const hits = (await searchEodhd(isin, token, ctx.fetchFn)).filter((h) => h.isin === isin && h.type === "Common Stock");
-      if (hits.length === 0) throw new Error("beim Anbieter nicht gefunden");
+      if (hits.length === 0) throw new NoListingError("beim Anbieter nicht gefunden");
       // Zuerst eine Notiz, die schon gespeichert ist, dann die Hauptnotiz, dann die übrigen.
       hits.sort((a, b) => Number(known.has(b.symbol)) - Number(known.has(a.symbol)) || Number(b.isPrimary) - Number(a.isPrimary));
       let stored: string | null = null;
@@ -223,7 +226,7 @@ export async function addByIsin(ctx: JobContext, isins: readonly string[], optio
           if (!(error instanceof EodhdError && error.status === 404)) throw error;
         }
       }
-      if (!stored) throw new Error("keine Notiz mit Jahresabschlüssen");
+      if (!stored) throw new NoListingError("keine Notiz mit Jahresabschlüssen");
       ctx.db.setIsin(stored, isin);
       markIsin(ctx.db, isin, null);
       if (options.watch ?? true) ctx.db.setWatched(stored, true);
@@ -231,7 +234,8 @@ export async function addByIsin(ctx: JobContext, isins: readonly string[], optio
     } catch (error) {
       if (isDailyLimit(error)) return { summary: `Tageslimit erreicht nach ${index} von ${isins.length} ISINs`, ok: false };
       failed++;
-      markIsin(ctx.db, isin, ctx.today);
+      // Nur ein klares Nein des Anbieters sperrt die ISIN; ein Netzfehler oder 5xx nicht.
+      if (error instanceof NoListingError) markIsin(ctx.db, isin, ctx.today);
       ctx.log(`fehlt  ${isin}  ${reason(error)}`);
     }
     ctx.progress(index + 1, isins.length);

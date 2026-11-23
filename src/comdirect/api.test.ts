@@ -21,6 +21,8 @@ describe("comdirect-Client", () => {
     });
     expect(comdirectConfig({ COMDIRECT_CLIENT_ID: "a", COMDIRECT_CLIENT_SECRET: "b" })).toBeNull();
     expect(comdirectConfig({ COMDIRECT_CLIENT_ID: "$(creds read id)", COMDIRECT_CLIENT_SECRET: "b", COMDIRECT_USERNAME: "c" })).toBeNull();
+    // Ein Secret, das zufällig "$(" enthält, ist kein Shell-Befehl.
+    expect(comdirectConfig({ COMDIRECT_CLIENT_ID: "a", COMDIRECT_CLIENT_SECRET: "ab$(Xy", COMDIRECT_USERNAME: "c" })).not.toBeNull();
   });
 
   it("meldet sich an, fordert die pushTAN an und schickt Kennungen nach der Spezifikation", async () => {

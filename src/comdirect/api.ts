@@ -31,7 +31,7 @@ export function comdirectConfig(env: Record<string, string | undefined> = proces
   const clientSecret = env.COMDIRECT_CLIENT_SECRET?.trim();
   const username = env.COMDIRECT_USERNAME?.trim();
   // Ein Wert wie "$(creds read …)" ist ein Shell-Befehl, den Next.js und Docker nicht ausführen; die Bank wiese ihn ab.
-  const plain = [clientId, clientSecret, username].every((v) => v && !v.includes("$("));
+  const plain = [clientId, clientSecret, username].every((v) => v && !/^["']?\$\(.*\)["']?$/.test(v));
   return plain && clientId && clientSecret && username ? { clientId, clientSecret, username } : null;
 }
 

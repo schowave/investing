@@ -400,6 +400,9 @@ describe("Registry", () => {
     });
     await addByIsin(testContext(db, found).ctx, ["DE0000000005"], { watch: false });
     expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set());
+    // Ein vorübergehender Fehler des Anbieters sperrt die ISIN nicht.
+    await addByIsin(testContext(db, fakeEodhd({ "search/DE0000000006": status(503) })).ctx, ["DE0000000006"]);
+    expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set());
     db.setSetting("isins-ohne-notiz", "kein json");
     expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set());
   });
