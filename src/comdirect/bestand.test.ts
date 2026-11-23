@@ -9,12 +9,11 @@ const aktie = (isin: string | null, quantity: number, name = `Aktie ${isin}`): D
   quantity,
   valueEur: quantity * 10,
 });
-const current = (shares: Record<string, number> = {}, cashEur = 100, otherEur = 50, withoutIsin: string[] = []) => ({
+const current = (shares: Record<string, number> = {}, cashEur = 100, otherEur = 50) => ({
   cashEur,
   otherEur,
   shares: new Map(Object.entries(shares)),
   names: new Map(Object.keys(shares).map((id) => [id, `Name ${id}`])),
-  withoutIsin: new Set(withoutIsin),
 });
 const listing = (id: string, watched: boolean, extra: Partial<Listing> = {}): Listing => ({
   id,
@@ -137,26 +136,23 @@ describe("Vorschau des Bestands aus dem Depot", () => {
     expect(preview.shares).toEqual(new Map([["A.XETRA", 0.3]]));
   });
 
-  it("behält gehaltene Aktien ohne ISIN und stößt vergeblich versuchte ISINs nicht erneut an", () => {
+  it("lässt gehaltene Aktien, die nicht im Depot liegen, auch ohne ISIN wegfallen und stößt vergebliche ISINs nicht erneut an", () => {
     const preview = previewBestand(
       [aktie("DE0000000007", 2, "Vorzug AG"), aktie("DE0000000007", 1, "Vorzug AG")],
       0,
       new Map(),
-      current({ "HAND.XETRA": 5 }, 0, 0, ["HAND.XETRA"]),
+      current({ "HAND.XETRA": 5 }, 0, 0),
       new Set(["DE0000000007"]),
     );
-    expect(preview.rows).toEqual([
-      { stockId: "HAND.XETRA", name: "Name HAND.XETRA", isin: null, before: 5, after: 5, status: "ohne ISIN" },
-    ]);
-    expect(preview.shares).toEqual(new Map([["HAND.XETRA", 5]]));
+    expect(preview.rows).toEqual([{ stockId: "HAND.XETRA", name: "Name HAND.XETRA", isin: null, before: 5, after: 0, status: "weg" }]);
+    expect(preview.shares).toEqual(new Map());
     expect(preview.missingIsins).toEqual([]);
     expect(preview.others.map((o) => [o.pendingImport, o.notFound])).toEqual([
       [false, true],
       [false, true],
     ]);
     expect(preview.warnings).toEqual([
-      "Vorzug AG (DE0000000007): Die Aufnahme über die ISIN wurde in den letzten 30 Tagen schon versucht und brachte keine Notiz; zählt als sonstige Anlage.",
-      "Name HAND.XETRA: keine ISIN bekannt, die Stückzahl bleibt; bitte von Hand prüfen.",
+      "Vorzug AG (DE0000000007): Die Aufnahme über die ISIN ist in den letzten 30 Tagen gescheitert (der Anbieter führt keine Notiz mit Abschlüssen); zählt als sonstige Anlage.",
     ]);
   });
 });

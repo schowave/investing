@@ -20,6 +20,7 @@ describe("comdirect-Client", () => {
       username: "c",
     });
     expect(comdirectConfig({ COMDIRECT_CLIENT_ID: "a", COMDIRECT_CLIENT_SECRET: "b" })).toBeNull();
+    expect(comdirectConfig({ COMDIRECT_CLIENT_ID: "$(creds read id)", COMDIRECT_CLIENT_SECRET: "b", COMDIRECT_USERNAME: "c" })).toBeNull();
   });
 
   it("meldet sich an, fordert die pushTAN an und schickt Kennungen nach der Spezifikation", async () => {
@@ -77,6 +78,9 @@ describe("comdirect-Client", () => {
     await expect(login(config, "123456", noop, down, NOW)).rejects.toThrow("comdirect: Anmeldung nicht erreichbar.");
     const busy = fakeComdirect({ failures: { "/api/session/clients/user/v1/sessions": 429 } });
     await expect(login(config, "123456", noop, busy.fetchFn, NOW)).rejects.toThrow(/HTTP 429\): FEHLER: Testfehler\. Zu viele/);
+    const oauth = (async () =>
+      Response.json({ error: "invalid_grant", error_description: "Bad credentials" }, { status: 403 })) as unknown as typeof fetch;
+    await expect(login(config, "123456", noop, oauth, NOW)).rejects.toThrow(/HTTP 403\): invalid_grant: Bad credentials\. Zugangsnummer/);
     const garbage = (async () => new Response("<html>", { status: 200 })) as unknown as typeof fetch;
     await expect(login(config, "123456", noop, garbage, NOW)).rejects.toThrow(/kein JSON/);
     const wrongShape = (async () => Response.json({ access_token: "" })) as unknown as typeof fetch;

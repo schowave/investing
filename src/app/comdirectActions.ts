@@ -21,7 +21,8 @@ import { findVorgang, type Vorgang } from "../comdirect/vorgang.ts";
 import { JOB_KINDS } from "../jobs/registry.ts";
 import { database } from "./server.ts";
 
-const Pin = z.string().regex(/^\d{4,8}$/);
+/** PIN oder Passwort fürs Online-Banking: beliebige Zeichen, nicht getrimmt (Leerzeichen können dazugehören). */
+const Pin = z.string().min(1).max(128);
 const Tan = z.string().regex(/^\d{6}$/);
 const DepotId = z.string().min(1).max(64);
 
@@ -32,7 +33,7 @@ const text = (value: FormDataEntryValue | null) => (typeof value === "string" ? 
 function deps(portfolioId: number): AbrufDeps {
   const config = comdirectConfig();
   if (!config) redirect(withQuery(page(portfolioId), { fehler: "Zugangsdaten für die comdirect fehlen in der Umgebung." }));
-  return { config };
+  return { config, eodhdToken: process.env.EODHD_API_TOKEN ?? null };
 }
 
 /** Grund für den Nutzer: eigene Meldungen wörtlich, alles andere ohne Einzelheiten (könnte Interna enthalten). */
@@ -68,8 +69,9 @@ export async function startComdirect(portfolioId: number, form: FormData): Promi
   if (!database().portfolio(portfolioId)) redirect("/portfolio");
   const d = deps(portfolioId);
   if (form.get("zaehler") === "on") resetOpenChallenges();
-  const pin = Pin.safeParse(text(form.get("pin")));
-  if (!pin.success) redirect(withQuery(page(portfolioId), { fehler: "Bitte die PIN zum Online-Banking eingeben (nur Ziffern)." }));
+  const raw = form.get("pin");
+  const pin = Pin.safeParse(typeof raw === "string" ? raw : "");
+  if (!pin.success) redirect(withQuery(page(portfolioId), { fehler: "Bitte die PIN bzw. das Passwort zum Online-Banking eingeben." }));
   await step(portfolioId, null, async () => {
     const vorgang = await startAbruf(portfolioId, pin.data, d);
     return withQuery(page(portfolioId), { vorgang: vorgang.id });
@@ -115,16 +117,22 @@ export async function retryComdirect(portfolioId: number, vorgangId: string): Pr
 
 /** Übernimmt die Vorschau in den Bestand und stößt die Aufnahme unbekannter Aktien an (Datenvorrat, nicht Watchlist). */
 export async function applyComdirect(portfolioId: number, vorgangId: string): Promise<void> {
-  const d = deps(portfolioId);
+  deps(portfolioId); // prüft nur, dass der Abruf eingerichtet ist
   const vorgang = vorgangOf(portfolioId, vorgangId);
   await step(portfolioId, vorgangId, async () => {
     const db = database();
-    const missing = await applyVorschau(db, vorgang, d);
+    const missing = await applyVorschau(db, vorgang);
     revalidatePath(`/portfolio/${portfolioId}`);
     revalidatePath("/portfolio");
     const query: Record<string, string> = { gespeichert: "comdirect" };
-    if (missing.length > 0) {
-      const args = JOB_KINDS["add-stocks"].args.parse({ isins: missing.slice(0, 200), symbols: [], watch: false });
+    // ISINs, die schon in einem offenen Lauf stehen, nicht ein zweites Mal einstellen.
+    const AddArgs = JOB_KINDS["add-stocks"].args;
+    const queued = new Set(
+      db.activeJobs().flatMap((job) => (job.kind === "add-stocks" ? (AddArgs.safeParse(job.args).data?.isins ?? []) : [])),
+    );
+    const fresh = missing.filter((isin) => !queued.has(isin));
+    if (fresh.length > 0) {
+      const args = AddArgs.parse({ isins: fresh.slice(0, 200), symbols: [], watch: false });
       query.lauf = String(db.enqueueJob("add-stocks", args).id);
       revalidatePath("/abgleich");
     }

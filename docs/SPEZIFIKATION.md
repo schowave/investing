@@ -292,7 +292,7 @@ Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i
 Der Bestand eines Portfolios lässt sich aus einem Depot bei der comdirect übernehmen (REST-API der Bank, im Online-Banking
 einmal freizuschalten). Es gibt keinen Abruf im Hintergrund: Jede Sitzung bei der Bank braucht eine TAN.
 
-- **Ablauf:** Knopf „Aus comdirect übernehmen“ auf der Portfolioseite, PIN eingeben, Sitzungs-TAN bestätigen (pushTAN in der
+- **Ablauf:** Knopf „Aus comdirect übernehmen“ auf der Portfolioseite, PIN bzw. Passwort des Online-Bankings eingeben (beliebige Zeichen), Sitzungs-TAN bestätigen (pushTAN in der
   App oder photoTAN: Grafik scannen, TAN eintippen; andere Verfahren lehnt die Anwendung mit Hinweis ab), Vorschau, „Übernehmen“.
   Erst dieser Schritt schreibt. Ein Vorgang verfällt nach 15 Minuten, die TAN muss binnen 9 Minuten nach der Anmeldung
   freigegeben sein (so lange gilt das Token der Bank). Ein Schritt läuft je Vorgang nur einmal zur Zeit; eine falsche TAN beendet
@@ -308,8 +308,9 @@ einmal freizuschalten). Es gibt keinen Abruf im Hintergrund: Jede Sitzung bei de
 - **Zuordnung über die ISIN:** Aktien, deren ISIN bekannt ist, gehen mit ihrer Stückzahl in den Bestand; stehen mehrere Notizen
   mit derselben ISIN in der Datenbank, gewinnt die auf der Watchlist, dann die schon gehaltene, dann eine Stammaktie (kein
   CEDEAR, keine Vorzugsaktie), dann eine mit Kurs. Gehaltenen und beobachteten Aktien ohne gespeicherte ISIN trägt der Abruf sie
-  aus der gespeicherten Antwort des Anbieters nach; bleibt eine gehaltene Aktie ohne ISIN, behält die Übernahme ihre Stückzahl
-  und weist darauf hin. Aktien, die noch nicht in der Datenbank stehen, werden über die ISIN aufgenommen (Lauf „Titel
+  aus der gespeicherten Antwort des Anbieters nach; Aktien-ISINs aus dem Depot, die dann noch fehlen, schlägt er in der
+  Symbolsuche des Anbieters nach (ein Abruf je ISIN) und ordnet sie einer Notiz zu, die schon in der Datenbank steht. Das Depot
+  ist führend: Gehaltene Aktien, die es nicht führt, fallen weg, auch ohne bekannte ISIN. Aktien, die noch nicht in der Datenbank stehen, werden über die ISIN aufgenommen (Lauf „Titel
   aufnehmen“, nicht auf die Watchlist) und zählen bis dahin mit ihrem Kurswert laut Bank zu den sonstigen Anlagen; der nächste
   Abruf ordnet sie richtig zu. Eine ISIN, deren Aufnahme angestoßen war und keine Notiz brachte, stößt er 30 Tage lang nicht
   erneut an. Fonds, ETF, Anleihen, Zertifikate

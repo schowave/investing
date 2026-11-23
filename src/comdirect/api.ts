@@ -30,7 +30,9 @@ export function comdirectConfig(env: Record<string, string | undefined> = proces
   const clientId = env.COMDIRECT_CLIENT_ID?.trim();
   const clientSecret = env.COMDIRECT_CLIENT_SECRET?.trim();
   const username = env.COMDIRECT_USERNAME?.trim();
-  return clientId && clientSecret && username ? { clientId, clientSecret, username } : null;
+  // Ein Wert wie "$(creds read …)" ist ein Shell-Befehl, den Next.js und Docker nicht ausführen; die Bank wiese ihn ab.
+  const plain = [clientId, clientSecret, username].every((v) => v && !v.includes("$("));
+  return plain && clientId && clientSecret && username ? { clientId, clientSecret, username } : null;
 }
 
 export class ComdirectError extends Error {
@@ -126,7 +128,13 @@ const BalanceRow = z.looseObject({
   balanceEUR: Amount.nullish(),
 });
 const BalancesAnswer = z.looseObject({ values: z.array(BalanceRow) });
-const ErrorAnswer = z.looseObject({ code: z.string().nullish(), messages: z.array(z.looseObject({ message: z.string() })).nullish() });
+/** Fehler der API (`code`, `messages`) oder des OAuth-Servers (`error`, `error_description`). */
+const ErrorAnswer = z.looseObject({
+  code: z.string().nullish(),
+  messages: z.array(z.looseObject({ message: z.string() })).nullish(),
+  error: z.string().nullish(),
+  error_description: z.string().nullish(),
+});
 
 /** Betrag der Bank als Zahl: Dezimalpunkt, ohne Tausendertrennung (Doku 3.4.1). */
 function decimal(value: string, label: string): number {
@@ -145,15 +153,23 @@ function nextRequestId(session: Pick<ComdirectSession, "lastRequestId">, now: nu
 /** Kurzer Grund aus einer Fehlerantwort der Bank; nie der Inhalt der Anfrage. */
 async function failure(response: Response, what: string): Promise<ComdirectError> {
   let detail = "";
+  const body = await response.text().catch(() => "");
+  // Für die Fehlersuche im Serverprotokoll: nur die Antwort der Bank, nie die Anfrage (PIN, Secret, Tokens).
+  console.warn(
+    `comdirect: ${what} HTTP ${response.status}, ${response.headers.get("content-type") ?? "ohne Inhaltstyp"}, ${response.headers.get("x-http-response-info") ?? ""} ${body.slice(0, 500).replaceAll(/\s+/g, " ")}`,
+  );
   try {
-    const parsed = ErrorAnswer.safeParse(await response.json());
-    if (parsed.success) detail = [parsed.data.code, parsed.data.messages?.map((m) => m.message).join(" ")].filter(Boolean).join(": ");
+    const parsed = ErrorAnswer.safeParse(JSON.parse(body));
+    if (parsed.success) {
+      const { code, messages, error, error_description } = parsed.data;
+      detail = [code ?? error, messages?.map((m) => m.message).join(" ") || error_description].filter(Boolean).join(": ");
+    }
   } catch {
     // Kein JSON; der Status genügt.
   }
   const hint =
-    response.status === 401 && what === "Anmeldung"
-      ? " Zugangsnummer oder PIN stimmt nicht, oder der API-Zugang ist nicht freigeschaltet."
+    (response.status === 401 || response.status === 403) && what === "Anmeldung"
+      ? " Zugangsnummer oder PIN stimmt nicht, oder der API-Zugang ist für diese Zugangsnummer nicht freigeschaltet. Nicht mehrmals mit derselben PIN versuchen: Falsche PINs sperren den Zugang."
       : response.status === 429
         ? " Zu viele Anfragen, bitte kurz warten."
         : "";

@@ -1,10 +1,10 @@
 // Ablauf eines Abrufs bei der comdirect (Spezifikation 6.1): verbindet Bank, Vorgang im Speicher und Datenbank.
 // Die Server Actions rufen nur diese Funktionen; Abruf und Uhr sind austauschbar, damit sich der Ablauf testen lässt.
 
-import { z } from "zod";
 import type { Database } from "../data/db.ts";
-import { isinOf } from "../data/eodhdFundamentals.ts";
+import { isinOf, searchEodhd } from "../data/eodhdFundamentals.ts";
 import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
+import { failedIsinsSince } from "../jobs/stockpile.ts";
 import {
   activate,
   type ComdirectConfig,
@@ -25,7 +25,13 @@ export interface AbrufDeps {
   fetchFn?: typeof fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
+  /** Token für die Symbolsuche bei EODHD; ohne ihn werden unbekannte ISINs nicht nachgeschlagen. */
+  eodhdToken?: string | null;
+  eodhdFetch?: typeof fetch;
 }
+
+/** Höchstens so viele ISINs schlägt ein Abruf bei EODHD nach (je ISIN ein Abruf). */
+const MAX_ISIN_LOOKUPS = 60;
 
 /**
  * Fünf TAN-Anforderungen ohne Freigabe dazwischen sperren den Zugang zum Online-Banking (Doku 2.3). Die Anwendung hört
@@ -39,7 +45,6 @@ const PUSH_POLL_MS = 2_000;
 const TAN_VALID_MS = 9 * 60_000;
 /** Eine ISIN, deren Aufnahme scheiterte, wird so lange nicht erneut angestoßen. */
 const RETRY_IMPORT_DAYS = 30;
-const TRIED_KEY = "comdirect:aufgenommene-isins";
 
 const holder = globalThis as { comdirectOpenChallenges?: number };
 export const openChallenges = () => holder.comdirectOpenChallenges ?? 0;
@@ -64,7 +69,8 @@ async function exclusive<T>(vorgang: Vorgang, work: () => Promise<T>): Promise<T
 
 /** Meldet sich an und fordert die Sitzungs-TAN an. */
 export async function startAbruf(portfolioId: number, pin: string, deps: AbrufDeps): Promise<Vorgang> {
-  if (!/^\d{4,8}$/.test(pin)) throw new ComdirectError("Bitte die PIN zum Online-Banking eingeben (nur Ziffern).");
+  // Die Bank erlaubt auch lange Passwörter mit Buchstaben und Sonderzeichen; geprüft wird nur, dass etwas da ist.
+  if (pin.length === 0 || pin.length > 128) throw new ComdirectError("Bitte die PIN bzw. das Passwort zum Online-Banking eingeben.");
   if (openChallenges() >= MAX_OPEN_CHALLENGES) {
     throw new ComdirectError(
       `Schon ${openChallenges()} TAN-Anforderungen ohne Freigabe; bei fünf sperrt die comdirect den Zugang. Bitte einmal im Online-Banking mit TAN anmelden und dann den Zähler zurücksetzen.`,
@@ -80,23 +86,6 @@ export async function startAbruf(portfolioId: number, pin: string, deps: AbrufDe
   return openVorgang(portfolioId, session, { step: "tan", challenge }, dispose, now);
 }
 
-const TriedIsins = z.record(z.string(), z.string()).catch({});
-
-/** ISINs, deren Aufnahme seit `RETRY_IMPORT_DAYS` angestoßen wurde und noch keine Notiz brachte. */
-function triedIsins(db: Database, now: number): Set<string> {
-  const tried = TriedIsins.parse(JSON.parse(db.setting(TRIED_KEY) ?? "{}"));
-  const cutoff = new Date(now - RETRY_IMPORT_DAYS * 86_400_000).toISOString().slice(0, 10);
-  return new Set(Object.entries(tried).flatMap(([isin, date]) => (date >= cutoff ? [isin] : [])));
-}
-
-/** Merkt, für welche ISINs eine Aufnahme angestoßen ist, damit nicht jeder Abruf dieselben vergeblich wiederholt. */
-export function rememberImports(db: Database, isins: readonly string[], now: number): void {
-  const tried = TriedIsins.parse(JSON.parse(db.setting(TRIED_KEY) ?? "{}"));
-  const today = new Date(now).toISOString().slice(0, 10);
-  for (const isin of isins) tried[isin] = today;
-  db.setSetting(TRIED_KEY, JSON.stringify(tried));
-}
-
 /**
  * Trägt die ISIN gehaltener und beobachteter Aktien aus der gespeicherten Antwort des Anbieters nach. Ältere Einträge
  * haben noch keine; ohne sie fände der Abruf die eigenen Positionen nicht und würde sie als weggefallen werten.
@@ -110,9 +99,33 @@ function backfillIsins(db: Database, ids: readonly string[]): void {
       const isin = isinOf(typeof general?.ISIN === "string" ? general.ISIN : null);
       if (isin) db.setIsin(id, isin);
     } catch {
-      // Kaputte Rohantwort: Die Aktie bleibt ohne ISIN und wird in der Vorschau so gezeigt.
+      // Kaputte Rohantwort: Die Aktie bleibt ohne ISIN; die Suche bei EODHD kann sie noch zuordnen.
     }
   }
+}
+
+/**
+ * Schlägt Aktien-ISINs aus dem Depot, die in der Datenbank fehlen, in der Symbolsuche von EODHD nach. Liegt eine
+ * gefundene Notiz schon in der Datenbank, bekommt sie die ISIN: Die Stammdaten des Anbieters nennen sie oft nicht
+ * (z. B. bei US-Aktien und Hinterlegungsscheinen), und ohne sie würde ein gehaltener Titel nicht erkannt.
+ * @returns Hinweise, wenn die Suche scheiterte.
+ */
+async function resolveIsins(db: Database, isins: readonly string[], deps: AbrufDeps): Promise<string[]> {
+  const known = db.stockIdsByIsin(isins);
+  const open = [...new Set(isins)].filter((isin) => !known.has(isin)).slice(0, MAX_ISIN_LOOKUPS);
+  if (open.length === 0 || !deps.eodhdToken) return [];
+  let failed = 0;
+  for (const isin of open) {
+    try {
+      const hits = await searchEodhd(isin, deps.eodhdToken, deps.eodhdFetch);
+      for (const hit of hits) if (hit.isin === isin && db.stock(hit.symbol)) db.setIsin(hit.symbol, isin);
+    } catch {
+      failed++;
+    }
+  }
+  return failed > 0
+    ? [`${failed} ISINs ließen sich bei EODHD nicht nachschlagen; sie zählen bis zum nächsten Abruf als sonstige Anlagen.`]
+    : [];
 }
 
 function listingsFor(db: Database, isins: readonly string[]): Map<string, Listing[]> {
@@ -142,7 +155,7 @@ async function loadVorschau(db: Database, vorgang: Vorgang, depot: Depot, all: D
   const shares = db.holdings(portfolio.id);
   backfillIsins(db, [...shares.keys(), ...db.stocks().map((s) => s.id)]);
   const isins = stand.positions.flatMap((p) => (p.kind === "aktie" && p.isin ? [p.isin] : []));
-  const withoutIsin = new Set(db.stockIdsWithoutIsin([...shares.keys()]));
+  const lookupWarnings = await resolveIsins(db, isins, deps);
   const preview = previewBestand(
     stand.positions,
     stand.cashEur,
@@ -152,11 +165,10 @@ async function loadVorschau(db: Database, vorgang: Vorgang, depot: Depot, all: D
       otherEur: portfolio.otherEur,
       shares,
       names: new Map([...shares.keys()].map((id) => [id, db.stock(id)?.name ?? id])),
-      withoutIsin,
     },
-    triedIsins(db, clock(deps)),
+    failedIsinsSince(db, new Date(clock(deps) - RETRY_IMPORT_DAYS * 86_400_000).toISOString().slice(0, 10)),
   );
-  preview.warnings.unshift(...stand.warnings);
+  preview.warnings.unshift(...stand.warnings, ...lookupWarnings);
   return { step: "vorschau", depot, depots: all, stand, preview };
 }
 
@@ -232,14 +244,13 @@ export async function chooseDepot(db: Database, vorgang: Vorgang, depotId: strin
  * Übernimmt die Vorschau in den Bestand, merkt das Depot und beendet die Sitzung bei der Bank.
  * @returns ISINs der Aktien, die noch nicht in der Datenbank stehen und über die ISIN aufgenommen werden sollen.
  */
-export async function applyVorschau(db: Database, vorgang: Vorgang, deps: Pick<AbrufDeps, "now">): Promise<string[]> {
+export async function applyVorschau(db: Database, vorgang: Vorgang): Promise<string[]> {
   return exclusive(vorgang, async () => {
     if (vorgang.state.step !== "vorschau") throw new ComdirectError("Es gibt noch keine Vorschau zum Übernehmen.");
     const { preview, depot, stand } = vorgang.state;
     if (!stand.complete) throw new ComdirectError("Die Bank hat nicht alle Positionen geliefert; übernommen wird nichts.");
     db.replaceHoldings(vorgang.portfolioId, { cashEur: preview.cash.after, otherEur: preview.other.after, shares: preview.shares });
     db.setComdirectDepot(vorgang.portfolioId, depot.id);
-    rememberImports(db, preview.missingIsins, clock(deps));
     closeVorgang(vorgang);
     return preview.missingIsins;
   });

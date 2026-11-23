@@ -24,8 +24,8 @@ export interface Listing {
   priced: boolean;
 }
 
-/** `ohne ISIN`: gehalten, aber ohne bekannte ISIN; bleibt, weil sich nicht prüfen lässt, ob sie noch im Depot liegt. */
-export type RowStatus = "neu" | "geändert" | "gleich" | "weg" | "ohne ISIN";
+/** Das Depot ist führend: Was dort nicht liegt, fällt weg. */
+export type RowStatus = "neu" | "geändert" | "gleich" | "weg";
 
 interface PreviewRow {
   stockId: string;
@@ -67,8 +67,6 @@ export interface CurrentBestand {
   shares: ReadonlyMap<string, number>;
   /** Anzeigenamen gehaltener Aktien, für weggefallene Positionen. */
   names: ReadonlyMap<string, string>;
-  /** Gehaltene Aktien ohne bekannte ISIN. */
-  withoutIsin: ReadonlySet<string>;
 }
 
 /**
@@ -125,7 +123,7 @@ export function previewBestand(
     if (pendingImport) missing.add(position.isin!);
     if (notFound && !warnings.some((w) => w.includes(position.isin!)))
       warnings.push(
-        `${position.name} (${position.isin}): Die Aufnahme über die ISIN wurde in den letzten 30 Tagen schon versucht und brachte keine Notiz; zählt als sonstige Anlage.`,
+        `${position.name} (${position.isin}): Die Aufnahme über die ISIN ist in den letzten 30 Tagen gescheitert (der Anbieter führt keine Notiz mit Abschlüssen); zählt als sonstige Anlage.`,
       );
     if (position.kind === "aktie" && position.isin === null)
       warnings.push(`${position.name} (WKN ${position.wkn}): Aktie ohne ISIN, zählt als sonstige Anlage.`);
@@ -133,29 +131,14 @@ export function previewBestand(
     others.push({ name: position.name, isin: position.isin, wkn: position.wkn, valueEur: position.valueEur, pendingImport, notFound });
   }
 
-  // Gehaltene Aktien ohne ISIN bleiben stehen: Ob sie noch im Depot liegen, lässt sich nicht prüfen.
-  for (const id of current.withoutIsin) {
-    if (shares.has(id) || !current.shares.has(id)) continue;
-    shares.set(id, current.shares.get(id)!);
-    warnings.push(`${current.names.get(id) ?? id}: keine ISIN bekannt, die Stückzahl bleibt; bitte von Hand prüfen.`);
-  }
   const ids = new Set([...current.shares.keys(), ...shares.keys()]);
   const rows: PreviewRow[] = [...ids].map((stockId) => {
     const before = current.shares.get(stockId) ?? 0;
     const after = shares.get(stockId) ?? 0;
-    const status: RowStatus =
-      current.withoutIsin.has(stockId) && before === after && !isins.has(stockId)
-        ? "ohne ISIN"
-        : before === 0
-          ? "neu"
-          : after === 0
-            ? "weg"
-            : roundShares(before) === after
-              ? "gleich"
-              : "geändert";
+    const status: RowStatus = before === 0 ? "neu" : after === 0 ? "weg" : roundShares(before) === after ? "gleich" : "geändert";
     return { stockId, name: names.get(stockId) ?? stockId, isin: isins.get(stockId) ?? null, before, after, status };
   });
-  const order: Record<RowStatus, number> = { neu: 0, geändert: 1, weg: 2, "ohne ISIN": 3, gleich: 4 };
+  const order: Record<RowStatus, number> = { neu: 0, geändert: 1, weg: 2, gleich: 3 };
   rows.sort((a, b) => order[a.status] - order[b.status] || a.name.localeCompare(b.name, "de"));
 
   if (cashEur === null) warnings.push("Kein Verrechnungskonto zum Depot gefunden; der Barbestand bleibt, wie er ist.");

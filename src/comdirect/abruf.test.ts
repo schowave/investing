@@ -11,7 +11,6 @@ import {
   confirmTan,
   MAX_OPEN_CHALLENGES,
   openChallenges,
-  rememberImports,
   resetOpenChallenges,
   retryLoad,
   startAbruf,
@@ -75,7 +74,7 @@ describe("Abruf bei der comdirect", () => {
     // Bis zur Übernahme ändert sich nichts.
     expect(db.holdings(portfolio)).toEqual(new Map([["ALT.XETRA", 4]]));
 
-    expect(await applyVorschau(db, vorgang, d)).toEqual(["US0000000009"]);
+    expect(await applyVorschau(db, vorgang)).toEqual(["US0000000009"]);
     expect(db.holdings(portfolio)).toEqual(new Map([["BAS.XETRA", 12]]));
     expect(db.portfolio(portfolio)).toMatchObject({ cashEur: 1500.25, otherEur: 380, comdirectDepotId: "D1" });
     expect(bank.calls.at(-1)).toMatchObject({ method: "DELETE", path: "/oauth/revoke" });
@@ -103,7 +102,7 @@ describe("Abruf bei der comdirect", () => {
   });
 
   it("hört vor der Sperre durch die Bank auf und prüft die PIN vorher", async () => {
-    await expect(startAbruf(portfolio, "12a", deps(fakeComdirect()))).rejects.toThrow(/nur Ziffern/);
+    await expect(startAbruf(portfolio, "", deps(fakeComdirect()))).rejects.toThrow(/PIN bzw. das Passwort/);
     const bank = fakeComdirect();
     for (let i = 0; i < MAX_OPEN_CHALLENGES; i++) await startAbruf(portfolio, "123456", deps(bank));
     await expect(startAbruf(portfolio, "123456", deps(bank))).rejects.toThrow(/Schon 3 TAN-Anforderungen/);
@@ -128,7 +127,7 @@ describe("Abruf bei der comdirect", () => {
     await chooseDepot(db, vorgang, "D1", d);
     expect(vorgang.state).toMatchObject({ step: "vorschau", depot: { id: "D1" } });
     await chooseDepot(db, vorgang, "D2", d);
-    await applyVorschau(db, vorgang, d);
+    await applyVorschau(db, vorgang);
 
     const again = await startAbruf(portfolio, "123456", d);
     await confirmTan(db, again, null, d);
@@ -154,7 +153,7 @@ describe("Abruf bei der comdirect", () => {
     const gone = await startAbruf(portfolio, "123456", deps(bank));
     db.deletePortfolio(portfolio);
     await expect(confirmTan(db, gone, null, deps(bank))).rejects.toThrow(/gibt es nicht mehr/);
-    await expect(applyVorschau(db, gone, deps(bank))).rejects.toThrow(/noch keine Vorschau/);
+    await expect(applyVorschau(db, gone)).rejects.toThrow(/noch keine Vorschau/);
   });
 });
 
@@ -177,23 +176,55 @@ describe("Absicherungen des Abrufs", () => {
     expect(db.stockIdsByIsin(["DE000ROH0001"])).toEqual(new Map([["DE000ROH0001", ["ROH.XETRA"]]]));
   });
 
-  it("behält eine gehaltene Aktie, deren ISIN sich nicht ermitteln lässt", async () => {
+  it("schlägt unbekannte ISINs bei EODHD nach und ordnet so gehaltene Titel ohne ISIN in den Stammdaten zu", async () => {
+    holdOnlyWithoutIsin();
+    const searched: string[] = [];
+    const eodhdFetch = (async (url: URL) => {
+      const isin = decodeURIComponent(url.pathname.split("/").at(-1)!);
+      searched.push(isin);
+      if (isin === "US0000000666") return new Response("", { status: 500 });
+      const hits = isin === "DE000ROH0001" ? [{ Code: "ROH", Exchange: "XETRA", Name: "Roh AG", Type: "Common Stock", ISIN: isin }] : [];
+      return Response.json(hits);
+    }) as unknown as typeof fetch;
+    const bank = fakeComdirect({
+      positions: [
+        positionRow("DE000ROH0001", "6"),
+        positionRow("US0000000009", "1"),
+        positionRow("US0000000666", "1"),
+        positionRow("DE000BASF111", "1"),
+      ],
+    });
+    const d = { ...deps(bank), eodhdToken: "t", eodhdFetch };
+    const vorgang = await startAbruf(portfolio, "123456", d);
+    await confirmTan(db, vorgang, null, d);
+    if (vorgang.state.step !== "vorschau") throw new Error("keine Vorschau");
+    // BASF ist schon bekannt und wird nicht nachgeschlagen.
+    expect(searched).toEqual(["DE000ROH0001", "US0000000009", "US0000000666"]);
+    expect(vorgang.state.preview.rows.map((r) => [r.stockId, r.status, r.after])).toEqual([
+      ["BAS.XETRA", "neu", 1],
+      ["ROH.XETRA", "geändert", 6],
+    ]);
+    expect(vorgang.state.preview.missingIsins).toEqual(["US0000000009", "US0000000666"]);
+    expect(vorgang.state.preview.warnings[0]).toMatch(/1 ISINs ließen sich bei EODHD nicht nachschlagen/);
+  });
+
+  it("lässt eine gehaltene Aktie ohne ISIN wegfallen, wenn das Depot sie nicht führt: Die Bank ist führend", async () => {
     holdOnlyWithoutIsin();
     db.saveRawDocument("ROH.XETRA", FUNDAMENTALS_KIND, "kaputt");
     const bank = fakeComdirect();
     const vorgang = await startAbruf(portfolio, "123456", deps(bank));
     await confirmTan(db, vorgang, null, deps(bank));
     if (vorgang.state.step !== "vorschau") throw new Error("keine Vorschau");
-    expect(vorgang.state.preview.rows.map((r) => r.status)).toEqual(["ohne ISIN"]);
-    await applyVorschau(db, vorgang, deps(bank));
-    expect(db.holdings(portfolio)).toEqual(new Map([["ROH.XETRA", 4]]));
+    expect(vorgang.state.preview.rows.map((r) => r.status)).toEqual(["weg"]);
+    await applyVorschau(db, vorgang);
+    expect(db.holdings(portfolio)).toEqual(new Map());
   });
 
   it("übernimmt nichts, wenn die Bank nicht alle Positionen liefert", async () => {
     const bank = fakeComdirect({ positions: [positionRow("DE000BASF111", "1")], paging: { matches: 2 } });
     const vorgang = await startAbruf(portfolio, "123456", deps(bank));
     await confirmTan(db, vorgang, null, deps(bank));
-    await expect(applyVorschau(db, vorgang, deps(bank))).rejects.toThrow(/nicht alle Positionen/);
+    await expect(applyVorschau(db, vorgang)).rejects.toThrow(/nicht alle Positionen/);
     expect(db.holdings(portfolio)).toEqual(new Map([["ALT.XETRA", 4]]));
   });
 
@@ -224,17 +255,17 @@ describe("Absicherungen des Abrufs", () => {
     expect(photo.calls.some((c) => c.method === "PATCH")).toBe(false);
   });
 
-  it("stößt eine vergeblich versuchte ISIN 30 Tage lang nicht erneut an", async () => {
+  it("stößt eine ISIN, deren Aufnahme scheiterte, 30 Tage lang nicht erneut an; Übernehmen allein merkt nichts", async () => {
     const day = Date.UTC(2026, 10, 23);
-    rememberImports(db, ["US0000000009"], day - 31 * 86_400_000);
-    rememberImports(db, ["US0000000008"], day);
+    db.setSetting("isins-ohne-notiz", JSON.stringify({ US0000000009: "2026-10-23", US0000000008: "2026-11-20" }));
     const bank = fakeComdirect({ positions: [positionRow("US0000000009", "1"), positionRow("US0000000008", "1")] });
     const clock = { t: day };
     const vorgang = await startAbruf(portfolio, "123456", deps(bank, clock));
     await confirmTan(db, vorgang, null, deps(bank, clock));
     if (vorgang.state.step !== "vorschau") throw new Error("keine Vorschau");
     expect(vorgang.state.preview.missingIsins).toEqual(["US0000000009"]);
-    db.setSetting("comdirect:aufgenommene-isins", "kein json?");
+    await applyVorschau(db, vorgang);
+    expect(JSON.parse(db.setting("isins-ohne-notiz")!)).toEqual({ US0000000009: "2026-10-23", US0000000008: "2026-11-20" });
   });
 });
 

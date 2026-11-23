@@ -25,7 +25,6 @@ const STATUS: Record<RowStatus, { text: string; tag: string }> = {
   geändert: { text: "geändert", tag: "warn" },
   weg: { text: "fällt weg", tag: "bad" },
   gleich: { text: "gleich", tag: "" },
-  "ohne ISIN": { text: "bleibt, ohne ISIN", tag: "warn" },
 };
 
 function Vorschau({ preview }: { preview: Preview }) {
@@ -178,7 +177,8 @@ export default async function ComdirectPage(props: {
             <p>
               Den API-Zugang schaltest du einmal im Online-Banking der comdirect frei. Client-ID und Client-Secret sowie deine Zugangsnummer
               gehören dann als <code>COMDIRECT_CLIENT_ID</code>, <code>COMDIRECT_CLIENT_SECRET</code> und <code>COMDIRECT_USERNAME</code> in{" "}
-              <code>.env.local</code> (lokal) bzw. <code>/opt/investing/.env</code> (LXC). Die PIN gibst du bei jedem Abruf hier ein.
+              <code>.env.local</code> (lokal) bzw. <code>/opt/investing/.env</code> (LXC). Es müssen die Werte selbst sein: Einen
+              Shell-Befehl wie <code>$(…)</code> führen weder Next.js noch Docker aus. Die PIN gibst du bei jedem Abruf hier ein.
             </p>
           </div>
         </section>
@@ -193,7 +193,7 @@ export default async function ComdirectPage(props: {
           <div className="card-body stack">
             <label className="row">
               <span className="factor">PIN</span>
-              <input type="password" name="pin" inputMode="numeric" autoComplete="off" required pattern="\d{4,8}" />
+              <input type="password" name="pin" autoComplete="current-password" required maxLength={128} />
             </label>
             {blocked && (
               <label className="meta confirm">

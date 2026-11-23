@@ -159,6 +159,32 @@ export async function importStockpile(ctx: JobContext, request: StockpileRequest
 }
 
 /** ISINs aus beliebigem Text (eine Depotliste, kopierte Tabelle). */
+/** Einstellung: ISINs, deren Aufnahme scheiterte, mit dem Tag des Versuchs. */
+const FAILED_ISINS = "isins-ohne-notiz";
+const FailedIsins = z.record(z.string(), z.string()).catch({});
+
+function readFailedIsins(db: JobContext["db"]): Record<string, string> {
+  try {
+    return FailedIsins.parse(JSON.parse(db.setting(FAILED_ISINS) ?? "{}"));
+  } catch {
+    return {};
+  }
+}
+
+/** ISINs, deren Aufnahme seit `since` (ISO-Datum) gescheitert ist und seither nicht gelang. */
+export function failedIsinsSince(db: JobContext["db"], since: string): Set<string> {
+  return new Set(Object.entries(readFailedIsins(db)).flatMap(([isin, date]) => (date >= since ? [isin] : [])));
+}
+
+function markIsin(db: JobContext["db"], isin: string, failedOn: string | null): void {
+  const failed = readFailedIsins(db);
+  if (failedOn === null) {
+    if (!(isin in failed)) return;
+    delete failed[isin];
+  } else failed[isin] = failedOn;
+  db.setSetting(FAILED_ISINS, JSON.stringify(failed));
+}
+
 export const isinsIn = (text: string) => [...new Set(text.toUpperCase().match(ISIN) ?? [])];
 
 /**
@@ -199,11 +225,13 @@ export async function addByIsin(ctx: JobContext, isins: readonly string[], optio
       }
       if (!stored) throw new Error("keine Notiz mit Jahresabschlüssen");
       ctx.db.setIsin(stored, isin);
+      markIsin(ctx.db, isin, null);
       if (options.watch ?? true) ctx.db.setWatched(stored, true);
       ctx.log(`ok     ${isin}  ${stored.padEnd(12)} ${ctx.db.stock(stored)!.name} (${ctx.db.fundamentals(stored).length} Jahre)`);
     } catch (error) {
       if (isDailyLimit(error)) return { summary: `Tageslimit erreicht nach ${index} von ${isins.length} ISINs`, ok: false };
       failed++;
+      markIsin(ctx.db, isin, ctx.today);
       ctx.log(`fehlt  ${isin}  ${reason(error)}`);
     }
     ctx.progress(index + 1, isins.length);

@@ -10,7 +10,7 @@ import { consoleContext, eachParallel, reason, requireToken } from "./context.ts
 import { ingestFundamentals, refreshFundamentals, refreshStock } from "./fundamentals.ts";
 import { historyTodo, loadHistory } from "./history.ts";
 import { estimateHistory, estimateRefresh, isJobKind, runJob } from "./registry.ts";
-import { addByIsin, importStockpile, isinsIn, reparseArchive } from "./stockpile.ts";
+import { addByIsin, failedIsinsSince, importStockpile, isinsIn, reparseArchive } from "./stockpile.ts";
 
 const fresh = () => {
   const db = new Database(":memory:");
@@ -387,6 +387,21 @@ describe("Registry", () => {
     expect(result.ok).toBe(true);
     expect(db.stocks().map((s) => s.id)).toEqual(["ISN.US", "NEU.US", "TEST.US"]);
     expect(db.stockIdsByIsin(["US0000000001"])).toEqual(new Map([["US0000000001", ["ISN.US"]]]));
+  });
+
+  it("merkt ISINs, deren Aufnahme scheitert, und vergisst sie, sobald sie gelingt", async () => {
+    const db = fresh();
+    await addByIsin(testContext(db, fakeEodhd({ "search/DE0000000005": [] })).ctx, ["DE0000000005"]);
+    expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set(["DE0000000005"]));
+    expect(failedIsinsSince(db, "2999-01-01")).toEqual(new Set());
+    const found = fakeEodhd({
+      "search/DE0000000005": [{ Code: "ISN", Exchange: "US", Name: "Isin Corp", Type: "Common Stock", ISIN: "DE0000000005" }],
+      "fundamentals/ISN.US": fundamentalsAnswer("Isin Corp"),
+    });
+    await addByIsin(testContext(db, found).ctx, ["DE0000000005"], { watch: false });
+    expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set());
+    db.setSetting("isins-ohne-notiz", "kein json");
+    expect(failedIsinsSince(db, "2000-01-01")).toEqual(new Set());
   });
 
   it("nimmt Positionen aus dem Depot in den Datenvorrat auf, nicht auf die Watchlist, und merkt die ISIN", async () => {

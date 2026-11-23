@@ -75,11 +75,18 @@ describe("Server Actions für die comdirect", () => {
     const job = db.job(Number(applied.searchParams.get("lauf")))!;
     expect(job).toMatchObject({ kind: "add-stocks", args: { isins: ["US0000000009"], symbols: [], watch: false } });
     expect(db.holdings(portfolio)).toEqual(new Map([["BAS.XETRA", 3]]));
+
+    // Ein zweiter Abruf stellt dieselbe ISIN nicht noch einmal ein, solange der Lauf offen ist.
+    const again = (await target(startComdirect(portfolio, form({ pin: "123456" })))).searchParams.get("vorgang")!;
+    await target(confirmComdirectTan(portfolio, again, form({ tan: "654321" })));
+    const second = await target(applyComdirect(portfolio, again));
+    expect(second.searchParams.get("lauf")).toBeNull();
+    expect(db.activeJobs()).toHaveLength(1);
   });
 
   it("meldet fehlende Zugangsdaten, falsche Eingaben und abgelaufene Vorgänge auf der Seite des Abrufs", async () => {
     vi.stubGlobal("fetch", fakeComdirect().fetchFn);
-    expect((await target(startComdirect(portfolio, form({ pin: "12ab" })))).searchParams.get("fehler")).toMatch(/nur Ziffern/);
+    expect((await target(startComdirect(portfolio, form({ pin: "" })))).searchParams.get("fehler")).toMatch(/PIN bzw. das Passwort/);
     expect((await target(startComdirect(portfolio, form({ pin: "000000" })))).searchParams.get("fehler")).toMatch(/PIN stimmt nicht/);
     expect((await target(startComdirect(9999, form({ pin: "123456" })))).pathname).toBe("/portfolio");
     expect((await target(confirmComdirectTan(portfolio, "weg", form({})))).searchParams.get("fehler")).toMatch(/abgelaufen/);
@@ -101,6 +108,15 @@ describe("Server Actions für die comdirect", () => {
     expect((await target(startComdirect(portfolio, form({ pin: "123456" })))).searchParams.get("fehler")).toMatch(/Schon 3/);
     const again = await target(startComdirect(portfolio, form({ pin: "123456", zaehler: "on" })));
     expect(again.searchParams.get("vorgang")).toBeTruthy();
+  });
+
+  it("nimmt ein langes Passwort mit Buchstaben und Sonderzeichen unverändert an", async () => {
+    const password = " Lang&Sicher=Pässwort+42 ";
+    const bank = fakeComdirect({ pin: password });
+    vi.stubGlobal("fetch", bank.fetchFn);
+    const started = await target(startComdirect(portfolio, form({ pin: password })));
+    expect(started.searchParams.get("vorgang")).toBeTruthy();
+    expect(new URLSearchParams(bank.calls[0]!.body).get("password")).toBe(password);
   });
 
   it("wählt ein Depot und bricht ab", async () => {
