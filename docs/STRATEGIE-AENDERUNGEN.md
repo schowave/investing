@@ -12,6 +12,25 @@ und Tests im selben Schritt, und die Version steigt.
 Die Einträge vor Version 1.0 sind rückwirkend aus der Entwicklungsgeschichte zusammengestellt. Sie nennen nur Kennzahlen, die
 damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
 
+## 23.11.2026 · verworfen · Mengenprobe bei Rückkäufen, Sprung der Aktienzahl im Rückblick
+
+- **Anlass:** Die Opus-Bewertung der oberen 50 des Datenvorrats fand bei vielen Titeln Rückkäufe, die keine sind (Tilgungen bei
+  Stabilus, Rücknahmen von Vorzugsaktien bei Hua Xia, PGAS) und Sprünge der Aktienzahl ohne Split (XYF, NLB, Yancoal).
+- **Regel:** Strategie 3.5 und Plausibilitätsprüfung im Rückblick (Strategie 11.19).
+- **Vorher:** Netto-Rückkäufe zählen unabhängig von der Aktienzahl; ein Sprung der Aktienzahl ist kein Ausschluss.
+  **Geprüft:** (a) Rückkäufe zählen nur, wenn die Aktienzahl vom Jahr vor dem Fünfjahresfenster bis zu seinem Ende um
+  mindestens 0,5 % sinkt; (b) zusätzlich gilt ein Sprung der Aktienzahl um das 1,8-Fache ohne passenden Split als unplausibel.
+- **Kennzahlen:** Rückblick vom 23.11.2026, Profil fokussiert, 2016-10 bis 2026-11, nach Kosten, gegen den geltenden Stand
+  (Fenstermedian +67 %, Güte 0,77, im schwachen Viertel 0,35, Umschlag 68 %, größter Rückgang −34 %).
+  - (a) allein: Fenstermedian +67 %, besser in 14 % der Fenster (Median der Differenz −10,6 Punkte), Güte 0,65, im schwachen
+    Viertel 0,18, Umschlag 67 %, größter Rückgang −41 %.
+  - (a) und (b): Fenstermedian +52 %, besser in 14 % der Fenster (Median der Differenz −16,9 Punkte), Güte 0,60, im schwachen
+    Viertel 0,12, Umschlag 65 %, größter Rückgang −41 %.
+- **Entscheidung:** beide verworfen; schlechter in der großen Mehrheit der Fenster und im schwachen Viertel (Grenzen aus
+  Strategie 8.3). Vermutlich führt der Anbieter die Aktienzahl oft über Jahre unverändert, sodass die Probe echte Rückkäufe
+  streicht. Der Sprung der Aktienzahl, ein Split nach dem letzten Abschluss und ein Kurs älter als 30 Tage bleiben Warnungen
+  der Anwendung (Spezifikation 4.1), ohne Wirkung auf Rückblick und Zielportfolio.
+
 ## 22.11.2026 · Version 1.0 · Ausgangsfassung
 
 - **Regel:** alle. Erste Fassung von `STRATEGIE.md`, zusammengeführt aus der bisherigen Spezifikation, der Seite „Strategie“

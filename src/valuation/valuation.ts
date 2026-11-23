@@ -97,6 +97,11 @@ export interface Proposals {
     dividendsFromHistory: boolean;
     /** Aktiensplit, um den die Reihen offenbar nicht bereinigt sind. */
     unadjustedSplit: { date: string; ratio: number } | null;
+    /**
+     * Aktienzahl springt von einem Jahr aufs nächste ohne passenden Split (andere Stückelung, Datenfehler, Fusion). Nur in der
+     * Anwendung gesetzt (computeValuation), nicht im Rückblick: Dort verschlechterte die Prüfung das Ergebnis (Strategie 11.19).
+     */
+    shareJump: { fiscalYear: number; factor: number } | null;
   };
   /** Hinweise für die Oberfläche, z. B. gegriffene Deckelung oder fehlende Daten. */
   notes: string[];
@@ -154,6 +159,51 @@ export function unadjustedSplit(
     }
   }
   return null;
+}
+
+/**
+ * Ob die Abschlüsse um einen Split bereinigt sind: Springt die Aktienzahl im Jahr des Splits oder im Jahr danach um sein
+ * Verhältnis, nicht; bleibt sie gleich, ja. Ohne Jahr nach dem Split (Split nach dem letzten Abschluss) ist es offen.
+ */
+export function splitBasis(
+  years: readonly { fiscalYear: number; shares: number | null }[],
+  split: { date: string; ratio: number },
+): "adjusted" | "unadjusted" | "unknown" {
+  const year = Number(split.date.slice(0, 4));
+  for (const candidate of [year, year + 1]) {
+    const now = years.find((y) => y.fiscalYear === candidate)?.shares;
+    const before = years.find((y) => y.fiscalYear === candidate - 1)?.shares;
+    if (!now || !before || now <= 0 || before <= 0) continue;
+    if (Math.abs(now / before / split.ratio - 1) < 0.25) return "unadjusted";
+    if (Math.abs(now / before - 1) < 0.25) return "adjusted";
+  }
+  return "unknown";
+}
+
+/** Ab diesem Faktor von einem Jahr aufs nächste gilt ein Sprung der Aktienzahl als unplausibel (Spezifikation 4.1). */
+const MAX_SHARE_JUMP = 1.8;
+
+/**
+ * Größter Sprung der Aktienzahl von einem Jahr aufs nächste, der zu keinem Split passt. Meist eine andere Stückelung
+ * (Hinterlegungsscheine, ADS), ein Datenfehler oder eine Fusion; dann passen Werte je Aktie über die Jahre nicht zusammen.
+ */
+export function shareJump(
+  years: readonly { fiscalYear: number; shares: number | null }[],
+  splits: readonly { date: string; ratio: number }[],
+): { fiscalYear: number; factor: number } | null {
+  let worst: { fiscalYear: number; factor: number } | null = null;
+  for (let i = 1; i < years.length; i++) {
+    const before = years[i - 1]!.shares;
+    const now = years[i]!.shares;
+    if (!before || !now || before <= 0 || now <= 0) continue;
+    const ratio = now / before;
+    const factor = Math.max(ratio, 1 / ratio);
+    if (factor < MAX_SHARE_JUMP) continue;
+    const year = years[i]!.fiscalYear;
+    const explained = splits.some((s) => [year, year - 1].includes(Number(s.date.slice(0, 4))) && Math.abs(ratio / s.ratio - 1) < 0.25);
+    if (!explained && (!worst || factor > worst.factor)) worst = { fiscalYear: year, factor };
+  }
+  return worst;
 }
 
 /** Prozentzahl mit einer Nachkommastelle, deutsches Komma und echtem Minus: `0.085` wird `8,5 %`. */
@@ -214,6 +264,7 @@ export function proposeInputs(
     retentionCap: null,
     dividendsFromHistory: false,
     unadjustedSplit: null,
+    shareJump: null,
   };
 
   values["risk.currency"] = proposeCurrency(stock.reportingCurrency);
@@ -783,6 +834,10 @@ export function doubtfulNumbers(valuation: Valuation, proposals: Proposals): str
   const split = proposals.details.unadjustedSplit;
   if (split) return `Aktiensplit vom ${split.date} ist in den Zahlen nicht bereinigt.`;
   if (valuation.manual.includes("payoutLevel")) return null;
+  const jump = proposals.details.shareJump;
+  if (jump) {
+    return `Aktienzahl springt ${jump.fiscalYear} um den Faktor ${jump.factor.toFixed(1).replace(".", ",")} ohne passenden Split.`;
+  }
   return implausibleReason(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel);
 }
 

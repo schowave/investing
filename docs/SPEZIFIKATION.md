@@ -211,7 +211,13 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
 - Titel der Watchlist und gehaltene Titel werden markiert: Die Rangliste stellt sie ans Ende, Aktien- und Portfolioseite nennen
   den Grund, und ihre Rendite zählt nicht in den Schnitt des Portfolios. Aus dem Zielportfolio nimmt die Prüfung sie nicht; das
   Urteil liegt beim Nutzer.
-- Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss und Kurs-Gewinn-Verhältnis: Wer es setzt, hat
+- Nur in der Anwendung, nicht im Rückblick (dort verschlechterte die Prüfung das Ergebnis, Strategie 11.19), gelten zusätzlich
+  als unplausibel: eine Aktienzahl, die von einem Jahr aufs nächste um das 1,8-Fache oder mehr springt, ohne dass ein Split
+  dazu passt (andere Stückelung, Datenfehler, Fusion; XYF, NLB), und ein Split nach dem letzten Abschluss, solange nicht
+  erkennbar ist, ob dessen Zahlen bereinigt sind (Sandisk 2026; nur in der Anwendung, der Rückblick überspringt solche Monate
+  selbst). Im Datenvorrat gilt zusätzlich ein Kurs als unbrauchbar, der älter als 30 Tage ist (`MAX_PRICE_AGE_DAYS`); meist
+  gehört er zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR).
+- Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss, Kurs-Gewinn-Verhältnis und Aktienzahl: Wer es setzt, hat
   Kurs und Zahlen angesehen, und ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet (FinVolution
   nach dem Zinsdeckel 2025). Ein unbereinigter Split wird weiter gemeldet. Rückblick und Vorwärtsprotokoll rechnen ohne Werte von
   Hand und sind nicht betroffen.

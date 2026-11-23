@@ -197,6 +197,7 @@
         "retentionCap": 0.0200000161111,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -269,6 +270,7 @@
         "retentionCap": 0.0200000161111,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -341,6 +343,7 @@
         "retentionCap": 0.0200000275627,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -417,6 +420,7 @@
         "retentionCap": 0.0200000010277,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -491,6 +495,7 @@
         "retentionCap": 0.020000005,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -564,6 +569,7 @@
         "retentionCap": 0.0200000161111,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -636,6 +642,7 @@
         "retentionCap": 0.0261200081278,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -713,6 +720,7 @@
         "retentionCap": 0.0240800161111,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "earnings"
       },
       "notes": [],
@@ -778,6 +786,7 @@
         "retentionCap": 0.0169400161111,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -854,6 +863,7 @@
         "retentionCap": 0.020000026276,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,
@@ -926,6 +936,7 @@
         "retentionCap": 0.0200000327778,
         "dividendsFromHistory": false,
         "unadjustedSplit": null,
+        "shareJump": null,
         "sustainableFrom": "freeCashFlow",
         "cashFlowWindow": {
           "years": 5,

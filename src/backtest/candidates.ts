@@ -6,7 +6,7 @@
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
 import { delistedArtefact, fingerprint, isCommonShare } from "../valuation/universe.ts";
-import { dividendsByYear, doubtfulNumbers, evaluate, priceInReportingCurrency, proposeInputs } from "../valuation/valuation.ts";
+import { dividendsByYear, doubtfulNumbers, evaluate, priceInReportingCurrency, proposeInputs, splitBasis } from "../valuation/valuation.ts";
 import { lastKnownFiscalYear, monthEnd } from "./calendar.ts";
 import type { FxHistory } from "./fx.ts";
 import { fxPerEur } from "./fx.ts";
@@ -50,25 +50,6 @@ export interface CandidateContext {
   minCapEur: number;
   /** Letzter Monat der Reihe und der Tag seines Kurses. */
   last: { month: string; date: string };
-}
-
-/**
- * Split-Basis der Abschlüsse: "adjusted" (Aktienzahl springt nicht), "unadjusted" (sie springt ungefähr um das Verhältnis)
- * oder "unknown" (Aktienzahlen fehlen rund um den Split).
- */
-export function splitBasis(
-  years: readonly FundamentalsYear[],
-  split: { date: string; ratio: number },
-): "adjusted" | "unadjusted" | "unknown" {
-  const year = Number(split.date.slice(0, 4));
-  for (const candidate of [year, year + 1]) {
-    const now = years.find((y) => y.fiscalYear === candidate)?.shares;
-    const before = years.find((y) => y.fiscalYear === candidate - 1)?.shares;
-    if (!now || !before || now <= 0 || before <= 0) continue;
-    if (Math.abs(now / before / split.ratio - 1) < 0.25) return "unadjusted";
-    if (Math.abs(now / before - 1) < 0.25) return "adjusted";
-  }
-  return "unknown";
 }
 
 export function candidateAt(data: StockData, month: string, ctx: CandidateContext): { candidate: Candidate } | { skipped: SkipReason } {

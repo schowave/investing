@@ -37,6 +37,15 @@ function olderCalcToday(db: Database, stockId: string, date: string): boolean {
 }
 
 /** @param date ISO-Datum der Tagesstände, z. B. 2026-11-19. */
+/** Älter als so viele Tage gilt ein Kurs im Datenvorrat als veraltet (`plausibilitaet.kursalter`, Spezifikation 4.1). */
+const MAX_PRICE_AGE_DAYS = 30;
+
+/** Kurs fehlt nicht, ist aber älter als `MAX_PRICE_AGE_DAYS` vor dem Stichtag. */
+export function stalePrice(priceDate: string | null, date: string): boolean {
+  if (priceDate === null) return false;
+  return (Date.parse(date) - Date.parse(priceDate)) / 86_400_000 > MAX_PRICE_AGE_DAYS;
+}
+
 export function recomputeAll(db: Database, date: string): RecomputeReport {
   const held = new Set<string>();
   for (const portfolio of db.portfolios()) for (const id of db.holdings(portfolio.id).keys()) held.add(id);
@@ -67,7 +76,8 @@ export function recomputeAll(db: Database, date: string): RecomputeReport {
       growth: valuation.inputs.growth ?? null,
       riskScore: valuation.riskScore,
       innerReturn: valuation.returns?.base ?? null,
-      implausible: doubtfulNumbers(valuation, proposals) !== null,
+      // Ein Kurs, der seit Wochen nicht kommt, gehört oft zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR 2026).
+      implausible: doubtfulNumbers(valuation, proposals) !== null || stalePrice(priceDate, date),
     });
   }
   db.saveScreening(screening);

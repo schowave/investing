@@ -193,7 +193,9 @@ glättet einzelne große Programme.
 **Herkunft.** Die Folien zählen Rückkäufe zum Rückfluss, nennen aber keine Methode. Netto-Rechnung und Durchschnitt sind eigene
 Setzung.
 
-**Schwächen.** Ob zurückgekaufte Aktien die Aktienzahl tatsächlich senken, prüft die Regel nicht.
+**Schwächen.** Ob zurückgekaufte Aktien die Aktienzahl tatsächlich senken, prüft die Regel nicht. Unter „Rückkäufe“ führt der
+Anbieter auch Tilgungen und Rücknahmen von Vorzugsaktien oder Anleihen (Stabilus, Hua Xia); eine Mengenprobe über die
+Aktienzahl wurde geprüft und verworfen (11.19).
 
 ### 3.6 Rückflussdeckel
 
@@ -1345,3 +1347,20 @@ mit dem Vorwärtsprotokoll prüfbar (8.4), frühestens nach etwa zwei bis drei J
 **Vermutung.** Auch im globalen Profil ist eine höhere Tauschschwelle besser. **Stand.** Nicht geprüft. Ein früher
 Rückblick-Lauf mit dem globalen Profil ist zwar gerechnet worden, seine Ergebnisse sind aber nicht festgehalten; die
 Tauschschwelle wurde dabei nicht verglichen.
+
+### 11.19 Rückkäufe ohne sinkende Aktienzahl
+
+**Vermutung.** Unter „Rückkäufe“ stehen beim Anbieter oft Tilgungen oder Rücknahmen von Vorzugsaktien und Anleihen; bei
+Stabilus ergab das einen Vorschlag rund 14-mal so hoch wie der tatsächliche Rückfluss. Zählen Rückkäufe nur, wenn die
+Aktienzahl im Fenster um mindestens 0,5 % sinkt, werden solche Titel nicht mehr nach oben gereiht, ohne dass echte Rückkäufer
+verloren gehen. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom 23.11.2026): Der Rückblick wurde in 86 % der Fenster
+schlechter. Vermutlich führt der Anbieter die Aktienzahl oft über Jahre unverändert, sodass die Probe auch echte Rückkäufe
+streicht. Ebenso verworfen: ein Sprung der Aktienzahl ohne Split als Ausschluss im Rückblick; er bleibt eine Warnung der
+Anwendung (Spezifikation 4.1).
+
+### 11.20 Dividenden nach Zahlungsjahr
+
+**Vermutung.** Der Anbieter ordnet Dividenden dem Jahr der Zahlung zu, nicht dem Geschäftsjahr, für das sie beschlossen
+wurden. Bei fallenden Gewinnen liegt das Dividendenniveau damit ein Jahr hinter der Lage (Kohleförderer, Kumba, G5, Text). Eine
+Zuordnung über den Monat des Geschäftsjahresendes würde das beheben. **Stand.** Offen: Die Datenbank speichert das Ende des
+Geschäftsjahrs nicht.

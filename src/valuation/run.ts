@@ -9,7 +9,7 @@ import { currentProposals } from "../judgement/factors.ts";
 import type { Basis, Review } from "./review.ts";
 import { basisOf, reviewOf } from "./review.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
-import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs } from "./valuation.ts";
+import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, shareJump, splitBasis } from "./valuation.ts";
 
 /**
  * Version der Rechnung. Erhöhen, wenn sich Vorschläge oder Bewertung für gespeicherte Daten ändern: Der Worker
@@ -76,7 +76,25 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
   };
   // Fremdwährung: Inflationsunterschied zum Euro verschiebt die Wachstumsgrenzen und wird von der Rendite abgezogen.
   const { gap: inflationGap, missing: noForecast } = inflationGapOf(db, stock);
-  const proposals = proposeInputs(stock, db.fundamentals(stock.id), reportingPerEur, Number(date.slice(0, 4)), history, inflationGap);
+  const fundamentals = db.fundamentals(stock.id);
+  const proposals = proposeInputs(stock, fundamentals, reportingPerEur, Number(date.slice(0, 4)), history, inflationGap);
+  // Split nach dem letzten Abschluss: Der Kurs gilt schon nach dem Split, ob die Abschlüsse bereinigt sind, zeigt erst der
+  // nächste. Bis dahin passen Werte je Aktie und Kurs womöglich nicht zusammen (Sandisk 2026: Faktor 8). Der Rückblick
+  // überspringt solche Monate selbst (src/backtest/candidates.ts).
+  // Sprung der Aktienzahl ohne Split: nur eine Warnung der Anwendung (Spezifikation 4.1), der Rückblick prüft ihn nicht.
+  proposals.details.shareJump = shareJump(fundamentals.slice(-10), history.splits);
+  const lastYear = fundamentals.at(-1)?.fiscalYear;
+  if (!proposals.details.unadjustedSplit && lastYear !== undefined) {
+    const later = history.splits.find(
+      (s) => Math.abs(s.ratio - 1) >= 0.2 && s.date > `${lastYear}-12-31` && s.date <= date && splitBasis(fundamentals, s) !== "adjusted",
+    );
+    if (later) {
+      proposals.details.unadjustedSplit = later;
+      proposals.notes.push(
+        `Aktiensplit vom ${later.date} liegt nach dem letzten Abschluss (${lastYear}); ob dessen Zahlen je Aktie schon bereinigt sind, zeigt erst der nächste.`,
+      );
+    }
+  }
   if (noForecast)
     proposals.notes.push(`Keine Inflationsprognose für ${stock.reportingCurrency}; die Rendite ist nicht mit Euro-Titeln vergleichbar.`);
 

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { monthBars, scaledYears, stockData } from "../test/backtest.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
+import { splitBasis } from "../valuation/valuation.ts";
 import type { CandidateContext } from "./candidates.ts";
-import { buildCandidates, candidateAt, splitBasis } from "./candidates.ts";
+import { buildCandidates, candidateAt } from "./candidates.ts";
 import { parseEcbHistory } from "./fx.ts";
 
 const MONTH = "2026-10";

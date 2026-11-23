@@ -3,8 +3,24 @@ import { Database } from "../data/db.ts";
 import { runJob } from "../jobs/registry.ts";
 import { fakeEodhd, testContext } from "../test/eodhd.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
-import { enqueueRecomputeIfOutdated, RECOMPUTE_JOB, recomputeAll } from "./recompute.ts";
+import { enqueueRecomputeIfOutdated, RECOMPUTE_JOB, recomputeAll, stalePrice } from "./recompute.ts";
 import { assess, CALC_VERSION, computeValuation, storedBaseline } from "./run.ts";
+
+describe("Split nach dem letzten Abschluss", () => {
+  it("meldet ihn, solange nicht erkennbar ist, ob die Zahlen bereinigt sind", () => {
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    db.saveRawCloses(stock.id, [{ date: "2026-11-18", close: 5 }]);
+    expect(computeValuation(db, stock, "2026-11-19").proposals.details.unadjustedSplit).toBeNull();
+    db.saveSplits(stock.id, [{ date: "2026-11-01", ratio: 8 }]);
+    const { proposals } = computeValuation(db, stock, "2026-11-19");
+    expect(proposals.details.unadjustedSplit).toEqual({ date: "2026-11-01", ratio: 8 });
+    expect(proposals.notes.at(-1)).toMatch(/nach dem letzten Abschluss \(2025\)/);
+    // Ein Split, der erst nach dem Stichtag liegt, zählt nicht.
+    expect(computeValuation(db, stock, "2026-10-31").proposals.details.unadjustedSplit).toBeNull();
+  });
+});
 
 function prepared() {
   const db = new Database(":memory:");
@@ -18,6 +34,20 @@ function prepared() {
   db.setHolding(db.createPortfolio("Depot", "fokussiert"), "GEHALTEN.US", 5);
   return db;
 }
+
+describe("veralteter Kurs im Datenvorrat", () => {
+  it("gilt nach mehr als 30 Tagen ohne Kurs als unbrauchbar", () => {
+    expect(stalePrice("2026-10-20", "2026-11-19")).toBe(false);
+    expect(stalePrice("2026-10-19", "2026-11-19")).toBe(true);
+    expect(stalePrice(null, "2026-11-19")).toBe(false);
+    const db = prepared();
+    db.addStockIfMissing({ ...stock, id: "ALT.US", watched: false });
+    db.saveFundamentals("ALT.US", steadyYears(), "eodhd");
+    db.saveRawCloses("ALT.US", [{ date: "2026-06-18", close: 40 }]);
+    recomputeAll(db, "2026-11-19");
+    expect(db.screening({}, 10, 0).map((r) => r.stock.id)).not.toContain("ALT.US");
+  });
+});
 
 describe("recomputeAll", () => {
   it("speichert Tagesstände für beobachtete und gehaltene Titel, Screening für alle und die Portfolios", () => {
