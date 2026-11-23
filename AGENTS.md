@@ -2,7 +2,7 @@
 
 Bewertung und Watchlist für Dividendenaktien: Next.js-Oberfläche, Skripte für Abgleich und Import, SQLite in `data/`.
 Fachliche Grundlage: `docs/STRATEGIE.md` (was die Strategie tut und warum; maßgeblich für Regeln und Werte) und
-`docs/SPEZIFIKATION.md` (wie die Anwendung sie umsetzt).
+`docs/SPEZIFIKATION.md` (wie die Anwendung sie umsetzt). Ermessensregeln fürs Review: `CODING_STANDARDS.md`.
 
 ## Befehle
 
@@ -13,7 +13,7 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
 | `mise run setup`                | Frischer Klon -> lauffähig: Werkzeuge, Pakete, Git-Hooks, Datenbank migrieren                         |
 | `mise run check`                | Vor jedem Commit (Hook) und im CI: Biome, Typen, Tests mit Abdeckungsschwellen, knip, Schema-Drift    |
 | `mise run fmt`                  | Formatieren und sichere Lint-Korrekturen (Biome)                                                      |
-| `mise run dev`                  | Oberfläche auf http://localhost:3000                                                                  |
+| `mise run dev`                  | Oberfläche auf http://localhost:3000 und Worker für Läufe; lädt `.env.local` vorher in der Shell      |
 | `mise run sync`                 | Täglicher Abgleich, vorher Sicherung nach `data/backups` (braucht `.env.local` mit `EODHD_API_TOKEN`) |
 | `pnpm run backtest`             | Rückblick auf die Strategie, auch zum Vergleich zweier Stände (`--vergleich`); Spezifikation 8.1      |
 | `pnpm run forward`              | Vorwärtsprotokoll: was die Anwendung vorgeschlagen hätte und was daraus wurde; Spezifikation 8.2      |
@@ -74,6 +74,8 @@ Werkzeuge (Node, pnpm, lefthook, actionlint) und Tasks kommen aus `mise.toml`; `
   sonst rollt der LXC zurück. Pfade im Container: Datenbank `/data/investing.sqlite`, Arbeitsverzeichnis `/app`
   (schreibgeschützt für den App-Benutzer). Skripte schreiben nur neben `INVESTING_DB`, nie relativ zu `data/`.
 - Der nächtliche Abgleich läuft im LXC (`investing-sync.timer`), nicht auf dem Mac.
+- `.env.local` darf Werte als `"$(creds read …)"` enthalten; nur die Shell führt sie aus (`mise run dev` lädt die Datei so),
+  Next.js, `node --env-file` und Docker nicht. In `/opt/investing/.env` im LXC stehen deshalb die Werte selbst.
 - Maßgeblich ist die Datenbank im LXC; `data/investing.sqlite` ist eine Kopie. Skripte gegen die deployte Datenbank:
   erst `mise run lxc:snapshot <name>`, dann `mise run lxc:exec node scripts/<skript>.ts …` (Stapel per `sh -s` und Heredoc).
   Zum Durchrechnen ohne Schreibzugriff: `INVESTING_DB=<testdatei> mise run db:pull`, dann lokal gegen die Testdatei.

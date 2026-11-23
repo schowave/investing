@@ -68,7 +68,9 @@ run = "pnpm run build"
 [tasks.dev]
 description = "Oberfläche (http://localhost:3000) und Worker für die Läufe lokal starten, Datenbank vorher auf Stand bringen"
 depends = ["db:migrate"]
-run = "pnpm run worker & trap 'kill $!' EXIT; pnpm run dev"
+# .env.local in der Shell laden: Werte wie "$(creds read …)" führen weder Next.js noch node --env-file aus. Was die Shell
+# setzt, geht dem vor, was beide selbst aus der Datei lesen.
+run = "set -a; [ -f .env.local ] && . ./.env.local; set +a; pnpm run worker & trap 'kill $!' EXIT; pnpm run dev"
 
 [tasks.start]
 description = "Gebaute Oberfläche starten (nach mise run build)"

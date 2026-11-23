@@ -296,7 +296,7 @@ Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i
 ### 6.1 Bestand aus der comdirect
 
 Der Bestand eines Portfolios lässt sich aus einem Depot bei der comdirect übernehmen (REST-API der Bank, im Online-Banking
-einmal freizuschalten). Es gibt keinen Abruf im Hintergrund: Jede Sitzung bei der Bank braucht eine TAN.
+einmal freizuschalten; Aufrufe, Felder und Grenzen der Bank in `docs/comdirect-api.md`). Es gibt keinen Abruf im Hintergrund: Jede Sitzung bei der Bank braucht eine TAN.
 
 - **Ablauf:** Knopf „Aus comdirect übernehmen“ auf der Portfolioseite, PIN bzw. Passwort des Online-Bankings eingeben (beliebige Zeichen), Sitzungs-TAN bestätigen (pushTAN in der
   App oder photoTAN: Grafik scannen, TAN eintippen; andere Verfahren lehnt die Anwendung mit Hinweis ab), Vorschau, „Übernehmen“.
