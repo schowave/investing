@@ -5,7 +5,7 @@
 // ohne Urteile. Heute geführte Titel sind überrepräsentiert (Survivorship).
 
 import type { FundamentalsYear, Stock } from "../data/db.ts";
-import { fingerprint, isCommonShare } from "../valuation/universe.ts";
+import { delistedArtefact, fingerprint, isCommonShare } from "../valuation/universe.ts";
 import { dividendsByYear, doubtfulNumbers, evaluate, priceInReportingCurrency, proposeInputs } from "../valuation/valuation.ts";
 import { lastKnownFiscalYear, monthEnd } from "./calendar.ts";
 import type { FxHistory } from "./fx.ts";
@@ -41,7 +41,7 @@ export interface Candidate {
   fingerprint: string;
 }
 
-export type SkipReason = "kurs" | "wechselkurs" | "split" | "marktwert" | "unplausibel" | "fehler";
+export type SkipReason = "kurs" | "wechselkurs" | "split" | "marktwert" | "unplausibel" | "fehler" | "ausgeschlossen";
 
 export interface CandidateContext {
   fx: FxHistory;
@@ -153,11 +153,31 @@ export function buildCandidates(
 ): CandidateSet {
   const byMonth = new Map<string, Candidate[]>(months.map((m) => [m, []]));
   const bars = new Map<string, ReadonlyMap<string, Bar>>();
-  const skipped: Record<SkipReason, number> = { kurs: 0, wechselkurs: 0, split: 0, marktwert: 0, unplausibel: 0, fehler: 0 };
+  const skipped: Record<SkipReason, number> = {
+    kurs: 0,
+    wechselkurs: 0,
+    split: 0,
+    marktwert: 0,
+    unplausibel: 0,
+    fehler: 0,
+    ausgeschlossen: 0,
+  };
   for (const stock of stocks) {
     if (!isCommonShare(stock)) continue;
     const data = load(stock);
     if (!data) continue;
+    // Eingestellte Titel mit Schuldtitel-, Datenfehler- oder Umbenennungsmuster zählen nicht (siehe `delistedArtefact`).
+    const series = [...data.bars.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, bar]) => bar);
+    if (
+      delistedArtefact(
+        stock,
+        data.fundamentals.map((y) => y.fiscalYear),
+        series,
+      )
+    ) {
+      skipped.ausgeschlossen += months.length;
+      continue;
+    }
     let used = false;
     for (const month of months) {
       const result = candidateAt(data, month, ctx);

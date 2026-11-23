@@ -177,6 +177,15 @@ describe("buildCandidates", () => {
     expect(both.byMonth.get(MONTH)!.length).toBeLessThanOrEqual(2);
   });
 
+  it("schließt eingestellte Hybridtitel aus, lebende mit demselben Namen nicht, und zählt sie als ausgeschlossen", () => {
+    const hybrid = stockData("HYB.US", months);
+    const dead = { ...hybrid.stock, name: "Southern Company JR SUB NT 2015A", delistedOn: "2026-06-30" };
+    const alive = { ...hybrid.stock, id: "LIVE.US", name: "Southern Company JR SUB NT 2015A" };
+    const set = buildCandidates([dead, alive], (s) => ({ ...hybrid, stock: s }), months, ctx);
+    expect(set.skipped.ausgeschlossen).toBe(months.length);
+    expect(set.byMonth.get(MONTH)!.map((c) => c.id)).not.toContain("HYB.US");
+  });
+
   it("lässt Anleihen und Nicht-Stammaktien aus und zählt die Gründe", () => {
     const bond = stockData("ANL.US", months);
     const preferred = { ...bond.stock, name: "DTE Energy Company 2020 Series G" };

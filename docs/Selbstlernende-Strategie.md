@@ -155,9 +155,20 @@ nächste beginnt.
     (Insolvenz), PDL BioPharma, Waddell & Reed, GreenSky, Shell Midstream (Übernahme). Die Zahl +335 % ist also **nicht sauber**:
     sie zeigt, dass der Effekt groß sein kann, nicht wie groß. Einstellungsabschläge gab es keine (die Strategie verkaufte vor dem
     Ende der Reihe), `--einstellung 0` und `1` liefern daher dasselbe.
-  - **Vor einer belastbaren Zahl:** Titel bereinigen, die keine Stammaktien sind oder dieselbe Firma unter altem Kürzel führen
-    (Hybridtitel, Umbenennungen, ADR-Umtausch), und Ausreißer wie Cosan prüfen; dann den Lauf wiederholen. Die Stufe ab 5 Mio. USD
-    und die Entscheidung, ob die Strategie den Effekt abfedern soll (z. B. Obergrenze je Titel, Mindestqualität), kommen danach.
+  - **Bereinigt (23.11.2026):** Der Rückblick schließt bei eingestellten Titeln drei Muster aus (`delistedArtefact` in
+    `src/valuation/universe.ts`, im Bericht als „ausgeschlossen“): Schuld- und Vorzugstitel (24 von 2.440; Namen wie „JR SUB NT“,
+    Kürzel „-PB“, ein Kurs über Jahre in einem Band von 20 % um 20 bis 30 USD), Umbenennungen mit weiterlaufenden Abschlüssen (36)
+    und Titel mit einem Monatssprung über das Neunfache oder unter ein Zwanzigstel (247, Datenfehler oder Umtausch). Danach: Gesamtrendite
+    +562 % → **+391 %** (p. a. 20,7 % → 17,1 %), Güte 0,77 → 0,60, schwaches Viertel 0,35 → 0,22, größter Rückgang −34 % → −42 %,
+    Median der Fensterrendite +67 % → +66 %, Fenster besser in 34 %. Gekauft wurden fünf eingestellte Titel: Bed Bath & Beyond (14,6 %,
+    −46 % und −52 %), Tupperware (−34 %), PDL BioPharma (−7 %), GreenSky (+36 %), Shell Midstream (+48 %).
+  - **Lesart:** Der Survivorship-Effekt ist groß: −170 bis −230 Prozentpunkte Gesamtrendite je nach Bereinigung (+335 % roh, +391 %
+    bereinigt), Güte −0,17 bis −0,20. Die Regel „Sprung über das Neunfache“ wirft zehn Prozent der Titel hinaus, auch echte (etwa
+    Waddell & Reed); die Spanne bildet diese Unsicherheit ab. Die Zahl der Titel, die den Abstand erzeugen, ist klein (wenige
+    Einstellungen mit großem Gewicht), also ist auch die Aussagekraft begrenzt. Einstellungsabschläge gab es keine, `--einstellung`
+    wirkt daher nicht. Offen: die Stufe unter 20 Mio. USD, eine Prüfung der Sprungregel von Hand an einer Stichprobe, und die Frage,
+    ob die Strategie den Effekt abfedern soll (Obergrenze je Titel, Mindestqualität). Entscheidungen zur Strategie bleiben im
+    Kreislauf von STRATEGIE.md (Offene Fragen, Änderungsprotokoll).
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
     sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis
