@@ -112,28 +112,38 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
   }
 
   // Dividendenhistorie endet lange vor dem letzten Abschluss, der Abschluss weist aber gezahlte Dividenden aus (Acsion).
-  if (last && payments !== null && (last.dividendPerShare ?? 0) > 0) {
+  const previous = years.at(-2);
+  if (last && payments !== null && (last.dividendPerShare ?? 0) > 0 && (previous?.dividendPerShare ?? 0) > 0) {
     const lastPayment = payments.reduce<string | null>((latest, p) => (latest === null || p.date > latest ? p.date : latest), null);
     const lastPaidYear = lastPayment === null ? null : Number(lastPayment.slice(0, 4));
     if (lastPaidYear === null || lastPaidYear < last.fiscalYear - 1) {
       say(
-        `Die Dividendenhistorie endet ${lastPaidYear === null ? "ohne Zahlung" : `${lastPaidYear}`}, der Abschluss ${last.fiscalYear} weist aber gezahlte Dividenden aus; das Dividendenniveau ist womöglich zu niedrig.`,
+        `Dividendenhistorie und Abschluss widersprechen sich: Die Historie endet ${lastPaidYear === null ? "ohne Zahlung" : `${lastPaidYear}`}, der Abschluss ${last.fiscalYear} weist ${last.dividendPerShare!.toFixed(2)} je Aktie aus. Entweder fehlen Zahlungen in der Historie (dann ist das Dividendenniveau zu niedrig) oder der Abschluss zählt anderes mit, etwa Zinsen oder Dividenden an Minderheiten.`,
       );
     }
   }
 
   // Vermutete Sonderdividenden: eine Zahlung über dem 2,5-Fachen des Medians, ohne Kennzeichnung als Sonderzahlung (GDEV,
   // SIGA, BDCs). Als Regel verworfen (Strategie 11.22), als Hinweis nützlich.
+  // Verglichen wird mit den Zahlungen der umliegenden zwei Jahre, damit eine wachsende Dividende nicht auffällt; geprüft werden
+  // nur die letzten drei Jahre, die das Dividendenniveau tragen.
   const regular = (payments ?? []).filter((p) => !/special|extra/i.test(p.period ?? ""));
-  if (regular.length >= 4) {
-    const sorted = regular.map((p) => p.value).sort((x, y) => x - y);
-    const median = sorted[Math.floor(sorted.length / 2)]!;
-    const outliers = regular.filter((p) => p.value > median * 2.5).map((p) => p.date);
-    if (outliers.length > 0) {
-      say(
-        `Zahlung ${outliers.slice(-3).join(", ")} über dem 2,5-Fachen der üblichen Dividende; vermutlich eine Sonderdividende, die das Dividendenniveau hebt.`,
-      );
-    }
+  const latest = regular.reduce((max, p) => (p.date > max ? p.date : max), "");
+  const days = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
+  const outliers = regular
+    .filter((p) => latest !== "" && days(p.date, latest) <= 3 * 365)
+    .filter((p) => {
+      const around = regular
+        .filter((q) => q !== p && days(q.date, p.date) <= 365)
+        .map((q) => q.value)
+        .sort((x, y) => x - y);
+      return around.length >= 3 && p.value > around[Math.floor(around.length / 2)]! * 2.5;
+    })
+    .map((p) => p.date);
+  if (outliers.length > 0) {
+    say(
+      `Zahlung ${outliers.slice(-3).join(", ")} über dem 2,5-Fachen der üblichen Dividende; vermutlich eine Sonderdividende, die das Dividendenniveau hebt.`,
+    );
   }
   // Zwei Schlussdividenden in einem Kalenderjahr: Der Anbieter ordnet nach Zahlungsjahr, das erzeugt scheinbare Kürzungen
   // (Strategie 11.21).

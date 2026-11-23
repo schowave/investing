@@ -23,7 +23,9 @@ describe("Prüfung der Anbieterdaten", () => {
   });
 
   it("meldet eine Dividendenhistorie, die lange vor dem letzten Abschluss endet", () => {
-    expect(dataWarnings({ ...base, payments: [{ date: "2023-05-01", value: 2 }] })[0]).toMatch(/endet 2023, der Abschluss 2025/);
+    expect(dataWarnings({ ...base, payments: [{ date: "2023-05-01", value: 2 }] })[0]).toMatch(
+      /Historie endet 2023, der Abschluss 2025 weist 2\.00 je Aktie aus/,
+    );
     expect(dataWarnings({ ...base, payments: [] })[0]).toMatch(/endet ohne Zahlung/);
     expect(dataWarnings({ ...base, payments: null })).toEqual([]);
   });
