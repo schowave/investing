@@ -107,6 +107,31 @@ nächste beginnt.
   100.000), dazu knapp 700 KB je Antwort. Nicht geprüft: andere Börsen (Europa, Asien), Titel, die in der Liste fehlen, historische
   Indexzugehörigkeit, Abschlüsse in damaliger Fassung. Ein Einlesen würde die Titelzahl in der Datenbank (13.207) etwa verdoppeln
   und gehört vorher auf einen Plan (Auswahl nach Einstellungsjahr ab 2016, Marktwert, Aufrufbudget neben dem Tagesabgleich).
+- **Plan für den Pilot (Stand 23.11.2026, noch nicht umgesetzt):**
+  - **Die Liste hat kein Einstellungsdatum.** Das Datum steht erst in den Abschlüssen (`General.DelistedDate`), die zehn Aufrufe
+    kosten. Auswahl nach Einstellungsjahr braucht daher einen billigen ersten Schritt über die Monatskurse.
+  - **Schritt A, Kurse (rund 16.600 Aufrufe, eine Nacht):** Für alle Stammaktien der Liste an NYSE, NASDAQ und NYSE MKT (16.618, ohne
+    die Anleihen-Namen aus `isCommonShare`) die Monatskurse ab 2005 holen, ein Aufruf je Titel. Daraus folgen das Ende der Reihe und
+    der mittlere Monatsumsatz in USD (Schlusskurs mal Volumen) der letzten zwölf Monate.
+  - **Auswahl:** Ende der Reihe ab Januar 2016 und mittlerer Monatsumsatz ab 20 Mio. USD. Der Umsatz ersetzt den Marktwert, den es
+    vor Schritt B nicht gibt; die Schwelle ist grob und wird am bestehenden Datenvorrat geeicht (Umsatz gegen Marktwert bei den heute
+    geführten Titeln um 300 Mio. €). Die endgültige Marktwertprüfung bleibt beim Rückblick.
+  - **Stichprobe (200 zufällige Titel, 153 mit Antwort):** 75 % enden ab 2016, 43 % davon mit mindestens 5 Mio. USD Umsatz, 33 % mit
+    mindestens 20 Mio. Hochgerechnet bleiben bei 20 Mio. etwa 5.400 Titel (bei 5 Mio. etwa 7.100). Die Enden verteilen sich über alle
+    Jahre ab 2016, mit Häufung 2018 und 2021 bis 2023.
+  - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
+    die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
+    sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis
+    75.000 Aufrufe, also ein bis zwei Tage Budget.
+  - **Technik:** Abrufe mit höchstens vier parallelen Anfragen und Wiederholung (bei acht parallelen scheiterten 47 von 200 vorübergehend).
+    Ein Skript `scripts/import-delisted.ts`; die Titel erhalten ein Merkmal „eingestellt“ (Schema, Migration), damit der Tagesabgleich
+    und die Oberfläche sie überspringen und der Rückblick sie mitlädt.
+  - **Offen vor dem Einlesen:** Die Annahme „Verlust von 50 % nach Ende der Reihe“ passt nicht zu echten Kursreihen: bei einer Übernahme
+    endet die Reihe auf dem Übernahmepreis, bei einer Pleite nahe null. Zu klären ist, ob der Abschlag für Titel mit eigener Reihe
+    entfällt (dann zählt der letzte Kurs) und wie Titel behandelt werden, deren Reihe vor dem Ende ausdünnt. Außerdem fehlt der Grund
+    der Einstellung; die Kurse und Abschlüsse zeigen ihn nur indirekt.
+  - **Messgröße:** Wie weit sinken Gesamtrendite, Güte und Median der Fenster, wenn die ausgeschiedenen Titel dabei sind? Der Abstand
+    zeigt, wie viel vom Vorsprung Survivorship ist.
 - **Wann:** Wenn die Ergebnisse der Stufen 1 bis 5 eine Entscheidung tragen sollen, für die der Bias zählt.
 
 ### Stufe 7: Maschinelles Lernen des Rankings (später)
