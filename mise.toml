@@ -194,12 +194,21 @@ ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "pct exec $INVESTING_CTI
 '''
 
 [tasks."deploy:env"]
-description = "Zugangsdaten aus .env.local als /opt/investing/.env in den LXC kopieren und neu starten"
+description = "Zugangsdaten aus .env.local aufgelöst als /opt/investing/.env in den LXC kopieren und neu starten; gibt keine Werte aus"
 run = '''
 set -e
 test -f .env.local
 ssh_() { ssh -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$PVE_HOST" "$@"; }
-scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes .env.local "$PVE_HOST:/tmp/investing.env"
+# Werte wie "$(creds read …)" führt Docker nicht aus: in der Shell auflösen, je Schlüssel KEY=Wert in eine Datei mit Rechten 600.
+umask 077
+env_file="$(mktemp)"
+trap 'rm -f "$env_file"' EXIT
+(
+  set -a; . ./.env.local; set +a
+  for key in $(sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' .env.local); do printf '%s=%s\n' "$key" "$(printenv "$key")"; done
+) > "$env_file"
+echo "Schlüssel: $(cut -d= -f1 "$env_file" | tr '\n' ' ')"
+scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$env_file" "$PVE_HOST:/tmp/investing.env"
 ssh_ "pct push $INVESTING_CTID /tmp/investing.env /opt/investing/.env --perms 600 && rm /tmp/investing.env \
   && pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose up -d --force-recreate investing worker'"
 '''
