@@ -10,7 +10,8 @@
 //           --zufall 200         Läufe der Zufallsgegenprobe (0 schaltet sie ab)
 //           --fenster 36         Länge der rollenden Fenster in Monaten
 //           --ohne-index         ohne Vergleichsindex (kein Abruf bei Yahoo)
-//           --neu-laden          Wechselkurse und Index neu abrufen (sonst gilt der Stand von heute)
+//           --feste-zinsen       Hürde und Bargeldzins fest (Anleiherendite von heute, 3,4 %) statt Zinsverlauf der EZB je Stichtag
+//           --neu-laden          Wechselkurse, Zinsen und Index neu abrufen (sonst gilt der Stand von heute)
 //           --vergleich <datei>  danach den neuen Lauf mit einem gespeicherten vergleichen (Stand = Datei)
 //         pnpm run backtest vergleich <stand.json> <aenderung.json>
 //
@@ -26,6 +27,8 @@ import type { PriceSeries } from "../src/backtest/benchmark.ts";
 import { closeAtOrBefore, DEFAULT_BENCHMARK, fetchChart, parseChart } from "../src/backtest/benchmark.ts";
 import { monthEnd } from "../src/backtest/calendar.ts";
 import { fetchEcbHistory, parseEcbHistory } from "../src/backtest/fx.ts";
+import type { RateSeries } from "../src/backtest/rates.ts";
+import { fetchEcbRates, parseEcbRates } from "../src/backtest/rates.ts";
 import { compareResults, describeResult } from "../src/backtest/report.ts";
 import { DEFAULT_OPTIONS, runBacktest } from "../src/backtest/run.ts";
 import { parseSaved } from "../src/backtest/saved.ts";
@@ -43,7 +46,7 @@ function fail(message: string): never {
 
 // Unbekannte Optionen und fehlende Werte laut ablehnen: ein Tippfehler darf keinen Lauf mit Standardwerten ergeben.
 const VALUE_FLAGS = ["name", "start", "profil", "tausch", "zufall", "fenster", "vergleich"];
-const SWITCHES = ["jaehrlich", "ohne-index", "neu-laden"];
+const SWITCHES = ["jaehrlich", "ohne-index", "neu-laden", "feste-zinsen"];
 if (args[0] !== "vergleich") {
   for (let i = 0; i < args.length; i++) {
     const name = args[i]!.replace(/^--/, "");
@@ -158,6 +161,27 @@ if (!flag("ohne-index")) {
   }
 }
 
+// Zinsverlauf der EZB; ohne ihn (oder mit --feste-zinsen) gelten Hürde und Bargeldzins als feste Werte wie bisher.
+let rates: { bond: RateSeries; cash: RateSeries } | undefined;
+if (!flag("feste-zinsen")) {
+  try {
+    const from = `${Number(cli.start.slice(0, 4)) - 1}-01-01`;
+    const [bond, cash] = await Promise.all(
+      (["SR_10Y", "SR_3M"] as const).map((maturity) =>
+        cached(
+          join(outDir, "cache", `ecb-${maturity}-${from}.csv`),
+          () => fetchEcbRates(maturity, from),
+          parseEcbRates,
+          (series) => series[0]!.date <= monthEnd(cli.start),
+        ),
+      ),
+    );
+    rates = { bond: bond!, cash: cash! };
+  } catch (error) {
+    console.warn(`Mit festen Zinsen: ${error instanceof Error ? error.message : String(error)} (Option --neu-laden versucht es erneut)`);
+  }
+}
+
 const bondYield = db.referenceRate(BOND_KEY);
 if (bondYield === null) console.warn("Keine Anleiherendite in der Datenbank: die Hürde steht auf 3 %.");
 const file = join(outDir, `${cli.name}.json`);
@@ -178,7 +202,7 @@ const result = runBacktest(
     windowMonths: cli.fenster,
     hurdle: bondYield ?? 0.03,
   },
-  { name: cli.name, fx, benchmark },
+  { name: cli.name, fx, benchmark, rates },
 );
 db.close();
 if (benchmark && result.benchmark === null) console.warn("Der Vergleichsindex deckt nicht den ganzen Zeitraum ab und fehlt im Ergebnis.");

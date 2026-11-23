@@ -38,7 +38,7 @@ nächste beginnt.
   erklären (Regeländerung, anderer Datenstand), nicht zu tolerieren.
 - **Zusätzlicher Schutz:** Der Vergleich zweier Läufe bricht ab, wenn Zeitraum, Enddatum oder Fensterlänge abweichen, und warnt, wenn
   Kosten, Hürde oder Datenbasis abweichen. Beide Läufe gehören in denselben Checkout, mit derselben Datenbank, am selben Tag.
-- **Grenzen:** Survivorship-Bias, nur Zahlenfaktoren ohne Urteile, heutige Werte für Hürde und Inflationsabstand, Abschlüsse in
+- **Grenzen:** Survivorship-Bias, nur Zahlenfaktoren ohne Urteile, heutiger Inflationsabstand (Hürde und Bargeldzins folgen seit 23.11.2026 dem EZB-Zinsverlauf), Abschlüsse in
   heutiger Fassung, eine Annahme für eingestellte Titel (Verlust von 50 %, auch bei Übernahmen).
 
 ### Stufe 2: Vorwärtsprotokoll

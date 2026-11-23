@@ -132,7 +132,9 @@ export function quality(r: BacktestSummary): Quality {
   const cash = optionNumber(r, "cashRate", 0);
   const windowMonths = optionNumber(r, "windowMonths", 36);
   const f = r.full.strategy;
-  const sharpes = r.windows.map((w) => sharpeOf(windowCagr(w.strategy.total, windowMonths), w.strategy.vol, cash)).filter(Number.isFinite);
+  const sharpes = r.windows
+    .map((w) => sharpeOf(windowCagr(w.strategy.total, windowMonths), w.strategy.vol, w.cashRate ?? cash))
+    .filter(Number.isFinite);
   // Der Calmar-Wert braucht keine Schwankung und zählt daher alle Fenster; der Sharpe-Wert nur die mit Schwankung.
   const calmars = r.windows.map((w) => calmarOf(windowCagr(w.strategy.total, windowMonths), w.strategy.maxDrawdown));
   return {
@@ -148,6 +150,8 @@ export interface WindowResult {
   start: string;
   strategy: { total: number; vol: number; maxDrawdown: number; turnover: number };
   benchmark: number | null;
+  /** Mittlerer Bargeldzins im Fenster, wenn der Lauf den Zinsverlauf nutzt; sonst gilt `cashRate` der Optionen. */
+  cashRate?: number;
 }
 
 export interface Diagnostics {
@@ -159,6 +163,8 @@ export interface Diagnostics {
   outliers: { month: string; id: string; name: string; monthlyReturn: number }[];
   /** Titel, die mindestens einmal Kandidat waren. */
   stocksWithBars: number;
+  /** Monate, in denen eine Zinsreihe keinen Wert hatte und der feste Wert galt (nur mit Zinsverlauf). */
+  ratesFallback?: number;
 }
 
 export interface BacktestSummary {
@@ -190,7 +196,7 @@ const plain = (value: number, digits = 0) => `${(value * 100).toFixed(digits).re
 
 const LIMITS = [
   "Grenzen: Survivorship-Bias (fast nur heute geführte Titel), Risiko nur aus Zahlenfaktoren ohne Urteile, Abschlüsse in heutiger",
-  "Fassung, Hürde und Inflationsabstand mit heutigen Werten. Ein Rückblick ist keine Renditeerwartung.",
+  "Fassung, Inflationsabstand mit heutigen Werten (Hürde und Bargeldzins je Stichtag nur mit Zinsverlauf). Ein Rückblick ist keine Renditeerwartung.",
 ];
 
 export function describeResult(r: BacktestSummary): string[] {
@@ -199,7 +205,8 @@ export function describeResult(r: BacktestSummary): string[] {
   const setting = [
     o.profile ? `Profil ${o.profile}` : null,
     typeof o.swap === "number" ? `Tauschschwelle ${plain(o.swap)}` : null,
-    typeof o.hurdle === "number" ? `Hürde ${plain(o.hurdle, 1)}` : null,
+    typeof o.hurdle === "number" ? `Hürde ${o.ratesHistory ? "im Mittel " : ""}${plain(o.hurdle, 1)}` : null,
+    o.ratesHistory ? "Zinsen je Stichtag" : null,
     o.every && o.every !== 1 ? `Umschichtung jeden ${o.every}. Stichtag` : null,
   ].filter(Boolean);
   const lines = [
@@ -264,6 +271,7 @@ export function describeResult(r: BacktestSummary): string[] {
       "",
       `Daten: ${d.stocksWithBars} Titel waren mindestens einmal Kandidat; übersprungen (Titel-Monate): ${skipped || "nichts"}.`,
     );
+    if (d.ratesFallback) lines.push(`ACHTUNG: In ${d.ratesFallback} Monaten fehlte ein Zinswert; dort gelten die festen Zinsen.`);
     lines.push(
       `Annahme Einstellung: ${d.delistings.length} Abschläge (${d.delistings.slice(0, 5).join(", ")}${d.delistings.length > 5 ? ", …" : ""}).`,
     );
@@ -292,7 +300,7 @@ function comparability(a: BacktestSummary, b: BacktestSummary): { abort: string 
       notes: [],
     };
   const notes: string[] = [];
-  const environment = ["cost", "cashRate", "hurdle", "minCapEur", "delistLoss", "randomRuns"].filter(differs);
+  const environment = ["cost", "cashRate", "hurdle", "ratesHistory", "minCapEur", "delistLoss", "randomRuns"].filter(differs);
   if (environment.length > 0)
     notes.push(
       `ACHTUNG: Einstellungen unterscheiden sich (${environment.join(", ")}); ein Teil des Unterschieds kommt nicht von der Änderung.`,
@@ -349,7 +357,11 @@ export function compareResults(a: BacktestSummary, b: BacktestSummary): string[]
     );
   if (pairs.length > 0) {
     const sharpeIn = (r: BacktestSummary, w: WindowResult) =>
-      sharpeOf(windowCagr(w.strategy.total, optionNumber(r, "windowMonths", 36)), w.strategy.vol, optionNumber(r, "cashRate", 0));
+      sharpeOf(
+        windowCagr(w.strategy.total, optionNumber(r, "windowMonths", 36)),
+        w.strategy.vol,
+        w.cashRate ?? optionNumber(r, "cashRate", 0),
+      );
     const rated = pairs.filter((p) => Number.isFinite(sharpeIn(a, p.a)) && Number.isFinite(sharpeIn(b, p.b)));
     if (rated.length > 0) {
       const betterQuality = rated.filter((p) => sharpeIn(b, p.b) > sharpeIn(a, p.a)).length;

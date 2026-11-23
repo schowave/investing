@@ -23,6 +23,7 @@ const Saved = z.object({
       start: z.string(),
       strategy: z.object({ total: z.number(), vol: z.number(), maxDrawdown: z.number(), turnover: z.number() }),
       benchmark: z.number().nullable(),
+      cashRate: z.number().optional(),
     }),
   ),
   random: z
@@ -42,6 +43,7 @@ const Saved = z.object({
       delistings: z.array(z.string()),
       outliers: z.array(z.object({ month: z.string(), id: z.string(), name: z.string(), monthlyReturn: z.number() })),
       stocksWithBars: z.number(),
+      ratesFallback: z.number().optional(),
     })
     .optional(),
 });

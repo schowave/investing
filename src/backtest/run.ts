@@ -11,6 +11,8 @@ import { monthEnd, monthRange, shiftMonth } from "./calendar.ts";
 import type { StockData } from "./candidates.ts";
 import { buildCandidates } from "./candidates.ts";
 import type { FxHistory } from "./fx.ts";
+import type { RateSeries } from "./rates.ts";
+import { rateAt } from "./rates.ts";
 import type { BacktestSummary, Diagnostics, WindowResult } from "./report.ts";
 import { median, metrics, quantile, randomScores, thirds, windowStarts, yearsBetween } from "./report.ts";
 import type { Trade } from "./simulate.ts";
@@ -38,6 +40,8 @@ export interface BacktestOptions {
   minCapEur: number;
   /** Annahme: Verlust, wenn die Kursreihe endet, bevor der Zeitraum zu Ende ist. */
   delistLoss: number;
+  /** Bargeldzins und Hürde folgen den Zinsreihen der EZB je Stichtag; `cashRate` und `hurdle` sind dann deren Mittel. */
+  ratesHistory?: boolean;
 }
 
 export const DEFAULT_OPTIONS: Omit<BacktestOptions, "start" | "end" | "endDate" | "hurdle"> = {
@@ -62,7 +66,7 @@ const REBALANCE_STEP_MONTHS = 3;
 export function runBacktest(
   db: Database,
   options: BacktestOptions,
-  deps: { name: string; fx: FxHistory; benchmark: PriceSeries | null; now?: Date },
+  deps: { name: string; fx: FxHistory; benchmark: PriceSeries | null; rates?: { bond: RateSeries; cash: RateSeries }; now?: Date },
 ): BacktestResult {
   const months = monthRange(options.start, options.end);
   const last = { month: options.end, date: options.endDate };
@@ -107,6 +111,17 @@ export function runBacktest(
     onDelist: (id, month) => delistings.push(`${id} ${month}`),
   });
 
+  // Fehlt ein Wert (Reihe beginnt später, Lücke), gilt der feste Wert aus den Optionen.
+  const cashAt = (month: string) => Math.max(0, (deps.rates && rateAt(deps.rates.cash, dateOf(month))) ?? options.cashRate);
+  const hurdleAt = (month: string) => Math.max(0, (deps.rates && rateAt(deps.rates.bond, dateOf(month))) ?? options.hurdle);
+  const mean = (f: (m: string) => number, list: readonly string[] = months) => list.reduce((t, m) => t + f(m), 0) / list.length;
+  const ratesFallback = deps.rates
+    ? months.filter((m) => rateAt(deps.rates!.cash, dateOf(m)) === null || rateAt(deps.rates!.bond, dateOf(m)) === null).length
+    : 0;
+  const used: BacktestOptions = deps.rates
+    ? { ...options, ratesHistory: true, cashRate: mean(cashAt, months.slice(0, -1)), hurdle: mean(hurdleAt) }
+    : options;
+
   const base = options.profile === "global" ? PROFILE_GLOBAL : PROFILE_FOCUSED;
   const profile = { ...base, minReturn: options.hurdle, swapThreshold: options.swap ?? base.swapThreshold };
   const common = {
@@ -116,6 +131,7 @@ export function runBacktest(
     profile,
     cost: options.cost,
     cashRate: options.cashRate,
+    ...(deps.rates ? { cashRateAt: cashAt, minReturnAt: hurdleAt } : {}),
     every: options.every,
   };
   const years = yearsBetween(dateOf(months[0]!), options.endDate);
@@ -132,6 +148,8 @@ export function runBacktest(
       start: months[s]!,
       strategy: { total: m.total, vol: m.vol, maxDrawdown: m.maxDrawdown, turnover: run.turnover },
       benchmark: benchmark ? benchmark[to]! / benchmark[s]! - 1 : null,
+      // Verzinst wird ab dem zweiten Monat des Fensters mit dem Zins des Vormonats.
+      ...(deps.rates ? { cashRate: mean(cashAt, months.slice(s, to)) } : {}),
     };
   });
 
@@ -165,7 +183,7 @@ export function runBacktest(
     meta: {
       erstelltAm: (deps.now ?? new Date()).toISOString(),
       rechenversion: CALC_VERSION,
-      optionen: options,
+      optionen: used,
       vergleichsindex: deps.benchmark?.symbol ?? null,
     },
     months,
@@ -180,7 +198,13 @@ export function runBacktest(
     random,
     trades: main.trades,
     candidatesPerDate: Object.fromEntries(rebalanceMonths.map((m) => [m, set.byMonth.get(m)!.length])),
-    diagnostics: { skipped: set.skipped, delistings, outliers: main.outliers, stocksWithBars: set.bars.size },
+    diagnostics: {
+      skipped: set.skipped,
+      delistings,
+      outliers: main.outliers,
+      stocksWithBars: set.bars.size,
+      ...(deps.rates ? { ratesFallback } : {}),
+    },
   };
 }
 

@@ -111,6 +111,32 @@ describe("runBacktest", () => {
     expect(bare.periods.every((p) => p.benchmark === null && p.randomMedian === null)).toBe(true);
   });
 
+  it("setzt Bargeldzins und Hürde je Stichtag aus den Zinsreihen und hält die Mittel in den Optionen fest", () => {
+    // Eine Reihe zählt nur, solange ihr letzter Wert höchstens zehn Tage alt ist: tägliche Punkte statt weniger Eckwerte.
+    const days = monthRange("2025-09", "2026-11").flatMap((m) => [`${m}-01`, `${m}-10`, `${m}-20`, monthEnd(m)]);
+    const bond = days.map((date, i) => ({ date, rate: 0.01 + (0.04 * i) / days.length }));
+    const cash = days.map((date) => ({ date, rate: -0.01 }));
+    const run = runBacktest(db, { ...options, randomRuns: 0 }, { name: "z", fx, benchmark: null, rates: { bond, cash } });
+    const o = run.meta.optionen as BacktestOptions;
+    expect(o.ratesHistory).toBe(true);
+    // Negativer Bargeldzins wird auf 0 gesetzt, die Hürde steigt im Lauf von 1 % auf 5 %.
+    expect(o.cashRate).toBe(0);
+    expect(run.windows.every((w) => w.cashRate === 0)).toBe(true);
+    expect(run.diagnostics.ratesFallback).toBe(0);
+    expect(o.hurdle).toBeGreaterThan(0.01);
+    expect(o.hurdle).toBeLessThan(0.05);
+    expect(runBacktest(db, { ...options, randomRuns: 0 }, { name: "f", fx, benchmark: null }).meta.optionen).not.toHaveProperty(
+      "ratesHistory",
+    );
+  });
+
+  it("zählt Monate ohne Zinswert und setzt dort die festen Werte", () => {
+    const sparse = [{ date: "2025-01-01", rate: 0.02 }];
+    const run = runBacktest(db, { ...options, randomRuns: 0 }, { name: "l", fx, benchmark: null, rates: { bond: sparse, cash: sparse } });
+    expect(run.diagnostics.ratesFallback).toBe(monthRange(START, END).length);
+    expect(run.windows.every((w) => w.cashRate === options.cashRate)).toBe(true);
+  });
+
   it("nimmt das Profil und die Tauschschwelle aus den Optionen", () => {
     const global = runBacktest(db, { ...options, profile: "global", swap: 0.05, randomRuns: 0 }, { name: "g", fx, benchmark: null });
     expect(global.meta.optionen).toMatchObject({ profile: "global", swap: 0.05 });

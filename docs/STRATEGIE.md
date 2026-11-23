@@ -938,7 +938,7 @@ eingestellte Titel nur ohne weitere Tageskurse). Sie sind deshalb nicht mit dem 
 ergibt für 1 und 3 Punkte 84 % und 68 % je Umschichtung (Änderungsprotokoll).
 
 **Schwächen.** Die Evidenz ist schwach: fehlende gescheiterte Unternehmen, nur Zahlenfaktoren ohne Urteile, heutige Werte für
-Hürde und Inflationsabstand, und die Schwelle wurde nach einem ersten Dreijahrestest ausgewählt. Gestützt ist allenfalls
+den Inflationsabstand, und die Schwelle wurde nach einem ersten Dreijahrestest ausgewählt. Gestützt ist allenfalls
 „höher als 0 bis 1 Punkt“; die genaue Zahl ist nicht belegt. Steuern beim Tausch bleiben unberücksichtigt (11.3).
 
 ### 7.5 Prüfung der Bewertungen
@@ -997,7 +997,10 @@ Der Rückblick rechnet, was das Zielportfolio des fokussierten Profils seit Okto
 ### 8.2 Ergebnisse für Version 1.0
 
 Lauf vom 22.11.2026, Strategieversion 1.0, Profil fokussiert, Oktober 2016 bis November 2026, Euro, nach Kosten. Hürde
-3,4 % (Anleiherendite vom 19.11.2026, für alle Stichtage).
+3,4 % (Anleiherendite vom 19.11.2026, für alle Stichtage). Spätere Läufe nehmen Hürde und Bargeldzins je Stichtag aus der
+Zinsstrukturkurve der EZB (Hürde im Mittel 1,3 %); Gesamtrendite (+562 %), Rendite p. a., Schwankung, größter Rückgang und Umschlag blieben bei diesem Lauf gleich
+(Nachrechnung vom 23.11.2026), die Hürde bindet also nicht; die Güte stieg von 0,68 auf 0,77, weil weniger Bargeldzins
+abgezogen wird. Güte-Werte gelten nur innerhalb gleicher Zinsannahmen.
 
 | Kennzahl                                      | Strategie | MSCI World | Zufallsauswahl (Median aus 200) |
 | --------------------------------------------- | --------- | ---------- | ------------------------------- |
@@ -1039,7 +1042,7 @@ Die Zahlen sind ein Maßstab zum Vergleichen zweier Fassungen der Strategie, kei
 - **Nur Zahlenfaktoren:** Die sechs Urteilsfaktoren und alle Werte von Hand fehlen (8.1). Ob Urteile die Auswahl verbessern oder
   verschlechtern, misst der Rückblick nicht.
 - **Heutige Abschlüsse:** Die Abschlüsse liegen in heutiger Fassung vor, nicht in der damals veröffentlichten.
-- **Heutige Hürde und Inflationsprognose:** Für alle Stichtage gelten die Anleiherendite und die Inflationsprognosen von heute.
+- **Heutige Inflationsprognose:** Für alle Stichtage gelten die Inflationsprognosen von heute. Hürde und Bargeldzins folgen dem Zinsverlauf der EZB; fehlt ein Wert, gelten die festen Zinsen (der Bericht zählt diese Monate).
 - **Handel und Steuern:** Gehandelt wird zum Schlusskurs des Entscheidungstags; Steuern fehlen.
 - **Eingestellte Titel:** Der angesetzte Verlust ist eine Annahme und trifft auch Übernahmen gegen bar.
 - **Wenig unabhängige Zeiträume:** Die Fenster überlappen stark; unabhängig sind nur etwa drei Dreijahreszeiträume. Ein Vorsprung
@@ -1207,7 +1210,7 @@ Diese Werte gehören nicht zu den Regeln der Strategie, beeinflussen aber, welch
 | `handwert.wachstum_max`      | 30 %       | Größtes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                          |
 | `rueckblick.marktwert`       | 300 Mio. € | Mindestmarktwert eines Titels im Rückblick und im Arm „zahlen“                                                                                              |
 | `rueckblick.kosten`          | 0,25 %     | Kosten je Handelsumsatz im Rückblick                                                                                                                        |
-| `rueckblick.bargeldzins`     | 3,4 %      | Verzinsung des Bargelds im Rückblick                                                                                                                        |
+| `rueckblick.bargeldzins`     | 3,4 %      | Verzinsung des Bargelds im Rückblick, wenn kein Zinsverlauf der EZB gilt (`--feste-zinsen` oder fehlender Wert)                                             |
 | `rueckblick.einstellung`     | 50 %       | Verlust, der für eine eingestellte Kursreihe angesetzt wird                                                                                                 |
 | `rueckblick.zufallslaeufe`   | 200 Läufe  | Läufe der Zufallsauswahl                                                                                                                                    |
 | `rueckblick.fenster`         | 36 Monate  | Länge der rollenden Fenster                                                                                                                                 |

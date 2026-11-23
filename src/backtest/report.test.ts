@@ -238,6 +238,24 @@ describe("Gütemaß", () => {
     expect(q.windowCalmar).toBeNull();
   });
 
+  it("zieht je Fenster dessen Bargeldzins ab, wenn der Lauf ihn mitgibt", () => {
+    const run = summary("a", 2, [["2017-01", 0.331, null]]);
+    run.windows[0]!.cashRate = 0;
+    // 10 % p. a. bei Schwankung 20 %, ohne Bargeldzins im Fenster (der Lauf-Zins 3,4 % gilt nur für den ganzen Zeitraum)
+    expect(quality(run).windowSharpe).toBeCloseTo(0.1 / 0.2, 6);
+    expect(quality(run).sharpe).toBeCloseTo((0.1 - 0.034) / 0.2, 10);
+  });
+
+  it("kennzeichnet Läufe mit Zinsverlauf und warnt vor Monaten ohne Zinswert", () => {
+    const run = summary("a", 2, []);
+    run.meta.optionen = { ...(run.meta.optionen as object), ratesHistory: true, hurdle: 0.013 };
+    run.diagnostics = { skipped: {}, delistings: [], outliers: [], stocksWithBars: 1, ratesFallback: 4 };
+    const text = describeResult(run).join("\n");
+    expect(text).toContain("Hürde im Mittel 1,3 %");
+    expect(text).toContain("Zinsen je Stichtag");
+    expect(text).toContain("In 4 Monaten fehlte ein Zinswert");
+  });
+
   it("nimmt über die Fenster den Median und das schwache Viertel, mit der Jahresrendite aus der Fensterrendite", () => {
     // 36-Monats-Fenster: (1+p.a.)^3 − 1 für 0 %, 5 %, 10 %, 15 %, 20 % p. a.; Bargeld 3,4 %, Schwankung 20 %
     const totals = [0, 0.157625, 0.331, 0.520875, 0.728];

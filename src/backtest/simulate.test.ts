@@ -156,6 +156,26 @@ describe("simulate", () => {
     expect(run.values.at(-1)!).toBeGreaterThan(100 + 85 * (1.01 ** 6 - 1) - 0.01);
   });
 
+  it("verzinst Bargeld je Monat mit dem Zins des Monats", () => {
+    const candidates = new Map([["2026-01", [candidate("A", 0.2)]]]);
+    // Der Zins vom 2026-01 gilt für den Monat bis Februar; ein späterer Zins darf nicht zurückwirken.
+    const rate = (m: string) => (m === "2026-01" ? 0.12 : 0);
+    const run = simulate({ ...base, candidates, returnOf: monthly(0), cashRate: 0.5, cashRateAt: rate });
+    // Nur der Februar bringt 1 % auf das Bargeld (85 %); der feste Zins von 50 % gilt nicht.
+    expect(run.values.at(-1)!).toBeCloseTo(100 + 85 * 0.01, 5);
+  });
+
+  it("wendet die Hürde des Stichtags an", () => {
+    const candidates = new Map([
+      ["2026-01", eight(0.2)],
+      ["2026-04", eight(0.2)],
+    ]);
+    // Im Januar liegt die Hürde unter allen Kandidaten (Aufbau), im April darüber (alles wird verkauft).
+    const run = simulate({ ...base, candidates, returnOf: monthly(0), trades: true, minReturnAt: (m) => (m === "2026-04" ? 0.5 : 0) });
+    expect(run.trades["2026-01"]!.every((t) => t.action === "kaufen")).toBe(true);
+    expect(run.trades["2026-04"]!.every((t) => t.action === "verkaufen")).toBe(true);
+  });
+
   it("protokolliert Käufe, Verkäufe und Halten und rechnet die Rendite seit dem Kauf mit dem Kursverlauf", () => {
     const first = eight(0.2);
     const second = [...eight(0.2).slice(1), candidate("X", 0.5, { sector: "Öl" })]; // A fällt heraus, X kommt, B bis H bleiben

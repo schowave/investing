@@ -84,6 +84,9 @@ export interface SimulationInput {
   profile: Profile;
   cost: number;
   cashRate: number;
+  /** Bargeldzins (des Monatsanfangs, für den Monat) und Hürde (des Stichtags) statt der festen Werte `cashRate` und `profile.minReturn`. */
+  cashRateAt?: (month: string) => number;
+  minReturnAt?: (month: string) => number;
   /** Erster und letzter Monat als Index in `months`; Standard: die ganze Reihe. */
   from?: number;
   to?: number;
@@ -131,7 +134,7 @@ export function simulate(input: SimulationInput): SimulationResult {
   for (let i = from; i <= to; i++) {
     const month = months[i]!;
     if (i > from) {
-      cash *= 1 + input.cashRate / 12;
+      cash *= 1 + (input.cashRateAt?.(months[i - 1]!) ?? input.cashRate) / 12;
       for (const [id, value] of [...position]) {
         const r = returnOf(id, months[i - 1]!, month) ?? 0;
         if (r > 1 || r < -0.6) outliers.push({ month, id, name: info.get(id)?.name ?? id, monthlyReturn: r });
@@ -144,12 +147,13 @@ export function simulate(input: SimulationInput): SimulationResult {
     const list = candidates.get(month);
     if (list && i < to) {
       if (rebalances % every === 0) {
+        const rule = input.minReturnAt ? { ...profile, minReturn: input.minReturnAt(month) } : profile;
         const ranked = list.map((c) => ({
           ...c,
           heldWeight: (position.get(c.id) ?? 0) / total,
-          innerReturn: input.random && c.innerReturn >= profile.minReturn ? 0.1 + input.random(c.id, month) * 0.2 : c.innerReturn,
+          innerReturn: input.random && c.innerReturn >= rule.minReturn ? 0.1 + input.random(c.id, month) * 0.2 : c.innerReturn,
         }));
-        const target = targetPortfolio(ranked, profile);
+        const target = targetPortfolio(ranked, rule);
         const weights = new Map<string, number>(target.positions.map((p) => [p.id, p.weight]));
         for (const c of list) info.set(c.id, { name: c.name, country: c.country });
         const ids = new Set([...position.keys(), ...weights.keys()]);

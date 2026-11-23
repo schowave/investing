@@ -336,8 +336,13 @@ Verfahren:
    Plausibilitätsprüfung (4.1) verwirft. Die Auswahl (Stammaktie, Anleihen, Marktwert, Doppelnotierung) steht in
    `src/valuation/universe.ts` und gilt ebenso für das Vorwärtsprotokoll.
 5. Das Zielportfolio entsteht mit `targetPortfolio` des Profils; gehaltene Titel erhalten den Aufschlag der Tauschschwelle.
-   Gehandelt wird zum Monatsschlusskurs des Stichtags. Kosten 0,25 % je Handelsumsatz, Bargeld mit 3,4 % verzinst. Die Hürde
-   ist die heutige Anleiherendite (ohne sie 3 %).
+   Gehandelt wird zum Monatsschlusskurs des Stichtags. Kosten 0,25 % je Handelsumsatz, Bargeld und Hürde folgen
+   der Zinsstrukturkurve der EZB (AAA-Staatsanleihen, Dreimonatszins für das Bargeld, Zehnjahreszins für die Hürde) am jeweiligen
+   Stichtag, negative Zinsen gelten als 0; fehlt ein Wert, gelten die festen Werte (Bargeld 3,4 %, Hürde die heutige
+   Anleiherendite, ohne sie 3 %). Der Bargeldzins gilt für den Monat ab dem Stichtag davor (kein Vorgriff), die Güte je Fenster zieht den mittleren Bargeldzins des
+   Fensters ab. Mit `--feste-zinsen` gelten die festen Werte für alle Stichtage; Monate ohne Zinswert zählt der Bericht. In den Optionen des Laufs steht
+   dann `ratesHistory` und das Mittel von `cashRate` und `hurdle`; Läufe mit und ohne Zinsverlauf gelten im Vergleich als
+   verschiedene Einstellungen, und die Güte (die den Bargeldzins abzieht) ist zwischen ihnen nicht vergleichbar.
 6. Die Rendite je Monat ist die Gesamtrendite aus den um Splits und Dividenden bereinigten Kursen, umgerechnet in Euro. Fehlt
    ein Monatsbalken, gilt der letzte davor. Endet eine Monatsreihe, bevor der Zeitraum zu Ende ist, und laufen auch die
    Tageskurse nicht weiter, wird im dritten Monat ohne Kurs ein Verlust von 50 % angesetzt (Annahme: Einstellung). Eine
