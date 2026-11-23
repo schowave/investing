@@ -386,6 +386,22 @@ describe("Registry", () => {
     const result = await runJob(testContext(db, fetchFn).ctx, "add-stocks", { isins: ["US0000000001"], symbols: ["neu.us"] });
     expect(result.ok).toBe(true);
     expect(db.stocks().map((s) => s.id)).toEqual(["ISN.US", "NEU.US", "TEST.US"]);
+    expect(db.stockIdsByIsin(["US0000000001"])).toEqual(new Map([["US0000000001", ["ISN.US"]]]));
+  });
+
+  it("nimmt Positionen aus dem Depot in den Datenvorrat auf, nicht auf die Watchlist, und merkt die ISIN", async () => {
+    const db = fresh();
+    const fetchFn = fakeEodhd({
+      "search/US0000000001": [{ Code: "ISN", Exchange: "US", Name: "Isin Corp", Type: "Common Stock", ISIN: "US0000000001" }],
+      "fundamentals/ISN.US": { ...fundamentalsAnswer("Isin Corp"), General: { ...fundamentalsAnswer().General, ISIN: " us0000000002 " } },
+    });
+    const result = await runJob(testContext(db, fetchFn).ctx, "add-stocks", { isins: ["US0000000001"], symbols: [], watch: false });
+    expect(result.ok).toBe(true);
+    expect(db.stock("ISN.US")!.watched).toBe(false);
+    // Die gesuchte ISIN gewinnt vor der aus den Stammdaten; die aus den Stammdaten wird beim Einlesen gesäubert.
+    expect(db.stockIdsByIsin(["US0000000001", "US0000000002"])).toEqual(new Map([["US0000000001", ["ISN.US"]]]));
+    db.setIsin("ISN.US", "US0000000002");
+    expect(db.stockIdsByIsin([])).toEqual(new Map());
   });
 });
 

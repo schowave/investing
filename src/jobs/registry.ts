@@ -48,14 +48,21 @@ export const JOB_KINDS = {
   "add-stocks": {
     label: "Titel aufnehmen",
     args: z
-      .object({ isins: z.array(Isin).max(200), symbols: z.array(TickerSymbol).max(200) })
+      .object({
+        isins: z.array(Isin).max(200),
+        symbols: z.array(TickerSymbol).max(200),
+        // Positionen aus dem Depot kommen in den Datenvorrat, nicht auf die Watchlist. Ältere Läufe kennen das Feld nicht.
+        watch: z.boolean().default(true),
+      })
       .refine((a) => a.isins.length + a.symbols.length > 0, "Bitte mindestens eine ISIN oder ein Symbol angeben."),
     cancellable: true,
-    run: async (ctx: JobContext, args: { isins: string[]; symbols: string[] }) => {
+    run: async (ctx: JobContext, args: { isins: string[]; symbols: string[]; watch: boolean }) => {
       const results: JobResult[] = [];
-      if (args.isins.length) results.push(await addByIsin(ctx, args.isins));
+      if (args.isins.length) results.push(await addByIsin(ctx, args.isins, { watch: args.watch }));
       if (args.symbols.length && !ctx.shouldStop()) {
-        results.push(await importStockpile(ctx, { indices: [], symbols: args.symbols, exchanges: [], refreshAll: false, watch: true }));
+        results.push(
+          await importStockpile(ctx, { indices: [], symbols: args.symbols, exchanges: [], refreshAll: false, watch: args.watch }),
+        );
       }
       return { summary: results.map((r) => r.summary).join("; "), ok: results.every((r) => r.ok) };
     },

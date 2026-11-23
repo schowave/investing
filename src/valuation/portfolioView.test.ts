@@ -118,7 +118,7 @@ describe("Datenbank: Portfolios, Suche, Handkurs", () => {
     db.setHolding(id, "BATS.LSE", 50);
     db.setHolding(id, "BATS.LSE", 0);
     db.setOtherAssets(id, 800);
-    expect(db.portfolio(id)).toEqual({ id, name: "Depot", profile: "global", cashEur: 2500, otherEur: 800 });
+    expect(db.portfolio(id)).toEqual({ id, name: "Depot", profile: "global", cashEur: 2500, otherEur: 800, comdirectDepotId: null });
     expect([...db.holdings(id)]).toEqual([["IMB.LSE", 100]]);
     db.deletePortfolio(id);
     expect(db.portfolios()).toEqual([]);

@@ -551,6 +551,7 @@ label {
 input[type="text"],
 input[type="number"],
 input[type="search"],
+input[type="password"],
 select {
   height: 36px;
   padding: 0 10px;
@@ -1183,4 +1184,14 @@ details.guide dd {
   .legal {
     margin-top: 16px;
   }
+}
+
+/* photoTAN-Grafik: scharf und groß genug für die Kamera des Telefons. */
+.phototan {
+  width: 220px;
+  height: 220px;
+  image-rendering: pixelated;
+  background: #fff;
+  border: 1px solid var(--control);
+  border-radius: var(--radius-control);
 }

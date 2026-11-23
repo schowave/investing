@@ -22,6 +22,8 @@ export interface EodhdFundamentals {
   foundedYear: number | null;
   /** Währung der Kursnotiz, wie der Anbieter sie nennt (z. B. GBX für Pence). */
   quoteCurrency: string | null;
+  /** ISIN in Großbuchstaben; `null`, wenn der Anbieter keine gültige nennt. */
+  isin: string | null;
 }
 
 type Row = Record<string, unknown>;
@@ -60,6 +62,13 @@ const SearchRow = z.object({
   previousClose: z.number().nullish(),
   previousCloseDate: z.string().nullish(),
 });
+
+const ISIN_FORMAT = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+/** Nur eine ISIN in der gültigen Form; der Anbieter liefert manchmal Leerzeichen oder Kleinschreibung. */
+export function isinOf(value: string | null | undefined): string | null {
+  const isin = value?.trim().toUpperCase() ?? "";
+  return ISIN_FORMAT.test(isin) ? isin : null;
+}
 
 function num(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -171,6 +180,7 @@ export function parseEodhdFundamentals(data: unknown): EodhdFundamentals {
     gicSector: text(root.General?.GicSector),
     foundedYear: foundedYearFrom(text(root.General?.Description)),
     quoteCurrency: text(root.General?.CurrencyCode),
+    isin: isinOf(text(root.General?.ISIN)),
   };
 }
 

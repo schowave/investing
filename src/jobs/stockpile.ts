@@ -159,8 +159,11 @@ export async function importStockpile(ctx: JobContext, request: StockpileRequest
 /** ISINs aus beliebigem Text (eine Depotliste, kopierte Tabelle). */
 export const isinsIn = (text: string) => [...new Set(text.toUpperCase().match(ISIN) ?? [])];
 
-/** Lädt Titel über ihre ISIN (Suche plus 10 Abrufe) und nimmt sie auf die Watchlist. */
-export async function addByIsin(ctx: JobContext, isins: readonly string[]): Promise<JobResult> {
+/**
+ * Lädt Titel über ihre ISIN (Suche plus 10 Abrufe), merkt die ISIN an der Notiz und nimmt sie auf die Watchlist; mit
+ * `watch: false` bleiben sie im Datenvorrat (Positionen aus dem Depot).
+ */
+export async function addByIsin(ctx: JobContext, isins: readonly string[], options: { watch?: boolean } = {}): Promise<JobResult> {
   const token = requireToken(ctx);
   const known = ctx.db.stockIdsWithRawDocument(FUNDAMENTALS_KIND);
   let failed = 0;
@@ -193,7 +196,8 @@ export async function addByIsin(ctx: JobContext, isins: readonly string[]): Prom
         }
       }
       if (!stored) throw new Error("keine Notiz mit Jahresabschlüssen");
-      ctx.db.setWatched(stored, true);
+      ctx.db.setIsin(stored, isin);
+      if (options.watch ?? true) ctx.db.setWatched(stored, true);
       ctx.log(`ok     ${isin}  ${stored.padEnd(12)} ${ctx.db.stock(stored)!.name} (${ctx.db.fundamentals(stored).length} Jahre)`);
     } catch (error) {
       if (isDailyLimit(error)) return { summary: `Tageslimit erreicht nach ${index} von ${isins.length} ISINs`, ok: false };

@@ -3,24 +3,30 @@
 
 import { blob, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-export const stocks = sqliteTable("stocks", {
-  /** EODHD-Symbol, z. B. IMB.LSE. */
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  sector: text("sector").notNull(),
-  region: text("region").notNull(),
-  country: text("country").notNull(),
-  reportingCurrency: text("reporting_currency").notNull(),
-  priceCurrency: text("price_currency").notNull(),
-  priceDivisor: real("price_divisor").notNull().default(1),
-  foundedYear: integer("founded_year"),
-  isFinancial: integer("is_financial", { mode: "boolean" }).notNull().default(false),
-  watched: integer("watched", { mode: "boolean" }).notNull().default(true),
-  /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
-  securityType: text("security_type"),
-  /** Sektor nach GICS laut Anbieter, z. B. "Real Estate". Strenger als `sector`, der Anleihen von Versorgern als REIT führt. */
-  gicSector: text("gic_sector"),
-});
+export const stocks = sqliteTable(
+  "stocks",
+  {
+    /** EODHD-Symbol, z. B. IMB.LSE. */
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    sector: text("sector").notNull(),
+    region: text("region").notNull(),
+    country: text("country").notNull(),
+    reportingCurrency: text("reporting_currency").notNull(),
+    priceCurrency: text("price_currency").notNull(),
+    priceDivisor: real("price_divisor").notNull().default(1),
+    foundedYear: integer("founded_year"),
+    isFinancial: integer("is_financial", { mode: "boolean" }).notNull().default(false),
+    watched: integer("watched", { mode: "boolean" }).notNull().default(true),
+    /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
+    securityType: text("security_type"),
+    /** Sektor nach GICS laut Anbieter, z. B. "Real Estate". Strenger als `sector`, der Anleihen von Versorgern als REIT führt. */
+    gicSector: text("gic_sector"),
+    /** ISIN laut Anbieter oder aus der Aufnahme über die ISIN; ordnet Positionen aus dem Depot zu. Mehrere Notizen können sie teilen. */
+    isin: text("isin"),
+  },
+  (t) => [index("stocks_isin").on(t.isin)],
+);
 
 const stockId = () =>
   text("stock_id")
@@ -113,6 +119,8 @@ export const portfolios = sqliteTable("portfolios", {
   profile: text("profile").notNull(),
   cashEur: real("cash_eur").notNull().default(0),
   otherEur: real("other_eur").notNull().default(0),
+  /** Depot bei der comdirect (`depotId` der Bank), aus dem der Bestand übernommen wird; `null`, solange keines gewählt ist. */
+  comdirectDepotId: text("comdirect_depot_id"),
 });
 
 const portfolioId = () =>

@@ -196,7 +196,7 @@ describe("Server Actions", () => {
 
   it("liest ISINs und Symbole aus dem Textfeld", async () => {
     await expect(addStocks(form({ titel: "Depot: GB0004544929 5 Stück; kap.il, KSPI.US" }))).rejects.toThrow("redirect:/vorrat?lauf=1");
-    expect(db.job(1)!.args).toEqual({ isins: ["GB0004544929"], symbols: ["KAP.IL", "KSPI.US"] });
+    expect(db.job(1)!.args).toEqual({ isins: ["GB0004544929"], symbols: ["KAP.IL", "KSPI.US"], watch: true });
     await expect(addStocks(form({ titel: "nichts Brauchbares" }))).rejects.toThrow(/redirect:\/vorrat\?fehler=Bitte%20mindestens/);
   });
 

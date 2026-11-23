@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEodhdFundamentals } from "./eodhdFundamentals.ts";
+import { isinOf, parseEodhdFundamentals } from "./eodhdFundamentals.ts";
 
 const SAMPLE = {
   General: { Sector: "Technology", GicSector: "Information Technology", CountryISO: "US", CurrencyCode: "USD" },
@@ -99,5 +99,17 @@ describe("EODHD-Fundamentaldaten", () => {
       },
     });
     expect(parsed.years.map((y) => y.shares)).toEqual([null, 50, 50, 50]);
+  });
+});
+
+describe("ISIN aus den Stammdaten", () => {
+  it.each([
+    [" de000basf111 ", "DE000BASF111"],
+    ["DE000BASF11", null],
+    ["", null],
+    [undefined, null],
+  ])("liest %j als %j", (value, expected) => {
+    expect(isinOf(value)).toBe(expected);
+    expect(parseEodhdFundamentals({ General: { ISIN: value } }).isin).toBe(expected);
   });
 });

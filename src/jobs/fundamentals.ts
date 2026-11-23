@@ -43,6 +43,7 @@ export function ingestFundamentals(db: Database, symbol: string, raw: string, op
   const securityType = isCedear(symbol, derived.country) ? CEDEAR : parsed.securityType;
   if (securityType !== null) db.setSecurityType(symbol, securityType);
   if (parsed.gicSector !== null) db.setGicSector(symbol, parsed.gicSector);
+  if (parsed.isin !== null) db.setIsin(symbol, parsed.isin);
   if (options.keepRaw) db.saveRawDocument(symbol, FUNDAMENTALS_KIND, raw);
   db.saveFundamentals(symbol, parsed.years, "eodhd");
   return parsed;

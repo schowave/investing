@@ -68,7 +68,7 @@ function Distribution({ title, column, shares }: { title: string; column: string
 
 export default async function PortfolioPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; lauf?: string }>;
 }) {
   const id = Number((await props.params).id);
   const query = await props.searchParams;
@@ -87,7 +87,9 @@ export default async function PortfolioPage(props: {
   const unrated = view.rows.filter((r) => r.action === "bewerten").length;
 
   let finding: string;
-  if (empty) finding = "Noch kein Bestand eingetragen. Trag unten Stückzahlen und Barbestand ein, dann erscheinen hier die Vorschläge.";
+  if (empty)
+    finding =
+      "Noch kein Bestand eingetragen. Trag unten Stückzahlen und Barbestand ein oder übernimm sie aus der comdirect, dann erscheinen hier die Vorschläge.";
   else if (sells.length + buys.length === 0)
     finding =
       targetCount === 0
@@ -121,6 +123,9 @@ export default async function PortfolioPage(props: {
           </p>
         </div>
         <div className="title-actions">
+          <Link className="button quiet" href={`${here}/comdirect`}>
+            Aus comdirect übernehmen
+          </Link>
           <a className="button quiet" href="#bestand">
             Bestand pflegen
           </a>
@@ -128,7 +133,20 @@ export default async function PortfolioPage(props: {
       </div>
 
       {query.fehler && <div className="notice error">Nicht gespeichert: {query.fehler}</div>}
-      {query.gespeichert && <div className="notice ok">Bestand gespeichert.</div>}
+      {query.gespeichert === "comdirect" ? (
+        <div className="notice ok">
+          Bestand aus der comdirect übernommen.
+          {query.lauf && (
+            <>
+              {" "}
+              Aktien, die noch fehlten, werden aufgenommen (<Link href="/abgleich">Lauf {query.lauf}</Link>); der nächste Abruf ordnet sie
+              zu.
+            </>
+          )}
+        </div>
+      ) : (
+        query.gespeichert && <div className="notice ok">Bestand gespeichert.</div>
+      )}
       {view.unpriced.length > 0 && (
         <div className="notice">Ohne Kurs und deshalb nicht im Wert enthalten: {view.unpriced.map((s) => names.get(s)).join(", ")}.</div>
       )}

@@ -191,7 +191,8 @@ Regeln:
   Portfolio-Tabelle wird kopiert und als Textdatei übergeben.
 - **CSV:** Jede Kennzahl kann per CSV eingetragen und korrigiert werden (`pnpm run import:fundamentals`; bereinigte Gewinne,
   Titel ohne Anbieterdaten).
-- **Ist-Positionen:** von Hand, keine Broker-Anbindung.
+- **Ist-Positionen:** von Hand oder aus dem Depot bei der comdirect (Abschnitt 6.1). Jede Aktie trägt dazu ihre ISIN aus den
+  Stammdaten des Anbieters oder aus der Aufnahme über die ISIN.
 - **Lizenz:** Der Tarif ist ein Privattarif für einen einzelnen Nutzer. Die Daten dürfen lokal gespeichert, aber nicht für
   andere angezeigt werden (9).
 
@@ -274,17 +275,51 @@ zu prüfen.
 
 Seiten:
 
-| Seite       | Inhalt                                                                                                                                                                                                                      |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse, Limit und Status der Bewertung                                                                                                                                    |
-| Aktie       | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen, Jev-Vorschläge                                                                                            |
-| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, innere Rendite von Bestand und Ziel im Schnitt (nach Wert gewichtet, ohne Bargeld), Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro |
-| Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist; abgedeckte Märkte                                                                                               |
-| Abgleich    | Läufe (Abgleich, Importe), nächtlicher Abgleich an oder aus                                                                                                                                                                 |
-| Aufgaben    | keine eigene Seite: unvollständige und zu prüfende Bewertungen stehen in der Rangliste und im Zähler der Navigation                                                                                                         |
-| Strategie   | `docs/STRATEGIE.md` mit Inhaltsverzeichnis, Tageswerte, Druckansicht; Unterseite Änderungsprotokoll                                                                                                                         |
+| Seite       | Inhalt                                                                                                                                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rangliste   | Watchlist nach innerer Rendite, mit Spanne, Risikoklasse, Limit und Status der Bewertung                                                                                                                                                                           |
+| Aktie       | Eingaben mit Vorschlag und Übersteuerung, Risikoraster, innere Rendite bei alternativen Kursen, Zehnjahresreihen, Jev-Vorschläge                                                                                                                                   |
+| Portfolio   | Ist gegen Ziel, Kauf- und Verkaufsvorschläge, innere Rendite von Bestand und Ziel im Schnitt (nach Wert gewichtet, ohne Bargeld), Verteilung nach Branche und Region; Bestand als Stückzahl je Aktie und Barbestand in Euro, von Hand oder aus der comdirect (6.1) |
+| Datenvorrat | Alle gespeicherten Titel nach vorläufiger innerer Rendite, mit Filter und Suche; Aufnahme in die Watchlist; abgedeckte Märkte                                                                                                                                      |
+| Abgleich    | Läufe (Abgleich, Importe), nächtlicher Abgleich an oder aus                                                                                                                                                                                                        |
+| Aufgaben    | keine eigene Seite: unvollständige und zu prüfende Bewertungen stehen in der Rangliste und im Zähler der Navigation                                                                                                                                                |
+| Strategie   | `docs/STRATEGIE.md` mit Inhaltsverzeichnis, Tageswerte, Druckansicht; Unterseite Änderungsprotokoll                                                                                                                                                                |
 
 Start-Watchlist: Imperial Brands, Charter Communications, Halyk Savings Bank, 3i Group, Universal Health Services, BASF.
+
+### 6.1 Bestand aus der comdirect
+
+Der Bestand eines Portfolios lässt sich aus einem Depot bei der comdirect übernehmen (REST-API der Bank, im Online-Banking
+einmal freizuschalten). Es gibt keinen Abruf im Hintergrund: Jede Sitzung bei der Bank braucht eine TAN.
+
+- **Ablauf:** Knopf „Aus comdirect übernehmen“ auf der Portfolioseite, PIN eingeben, Sitzungs-TAN bestätigen (pushTAN in der
+  App oder photoTAN: Grafik scannen, TAN eintippen; andere Verfahren lehnt die Anwendung mit Hinweis ab), Vorschau, „Übernehmen“.
+  Erst dieser Schritt schreibt. Ein Vorgang verfällt nach 15 Minuten, die TAN muss binnen 9 Minuten nach der Anmeldung
+  freigegeben sein (so lange gilt das Token der Bank). Ein Schritt läuft je Vorgang nur einmal zur Zeit; eine falsche TAN beendet
+  den Vorgang, statt sie zu wiederholen. Fünf TAN-Anforderungen ohne Freigabe sperren bei der Bank den Zugang; die Anwendung
+  hört nach drei auf, bis der Nutzer bestätigt, sich inzwischen im Online-Banking mit TAN angemeldet zu haben. Scheitert nach
+  der Freigabe das Laden von Depot oder Bestand, lässt es sich ohne neue TAN wiederholen.
+- **Zugangsdaten:** Client-ID, Client-Secret und Zugangsnummer stehen in der Umgebung (`COMDIRECT_CLIENT_ID`,
+  `COMDIRECT_CLIENT_SECRET`, `COMDIRECT_USERNAME` in `.env.local` bzw. `/opt/investing/.env`). Die PIN wird bei jedem Abruf
+  eingegeben und nie gespeichert, auch nicht im Protokoll; die Tokens der Bank liegen nur für die Dauer des Vorgangs im Speicher
+  des Servers und werden am Ende widerrufen.
+- **Depot:** Jedes Portfolio merkt sich höchstens ein Depot. Beim ersten Abruf (oder wenn das gemerkte Depot fehlt) wählt der
+  Nutzer es aus der Liste der Bank; mehrere Portfolios aus einem Depot gibt es nicht.
+- **Zuordnung über die ISIN:** Aktien, deren ISIN bekannt ist, gehen mit ihrer Stückzahl in den Bestand; stehen mehrere Notizen
+  mit derselben ISIN in der Datenbank, gewinnt die auf der Watchlist, dann die schon gehaltene, dann eine Stammaktie (kein
+  CEDEAR, keine Vorzugsaktie), dann eine mit Kurs. Gehaltenen und beobachteten Aktien ohne gespeicherte ISIN trägt der Abruf sie
+  aus der gespeicherten Antwort des Anbieters nach; bleibt eine gehaltene Aktie ohne ISIN, behält die Übernahme ihre Stückzahl
+  und weist darauf hin. Aktien, die noch nicht in der Datenbank stehen, werden über die ISIN aufgenommen (Lauf „Titel
+  aufnehmen“, nicht auf die Watchlist) und zählen bis dahin mit ihrem Kurswert laut Bank zu den sonstigen Anlagen; der nächste
+  Abruf ordnet sie richtig zu. Eine ISIN, deren Aufnahme angestoßen war und keine Notiz brachte, stößt er 30 Tage lang nicht
+  erneut an. Fonds, ETF, Anleihen, Zertifikate
+  und alles andere, was keine Aktie ist, zählen immer mit dem Kurswert laut Bank zu den sonstigen Anlagen.
+- **Barbestand:** der Saldo des Verrechnungskontos, das zum Depot gehört. Tagesgeld und andere Konten zählen nicht.
+- **Vorschau:** je Position alte und neue Stückzahl, neue und weggefallene Positionen, Barbestand und sonstige Anlagen alt und
+  neu. Die Übernahme ersetzt den ganzen Bestand; zurück geht es von Hand oder über den Tagesstand. Meldet die Bank mehr
+  Positionen, als sie liefert, lässt sich nichts übernehmen.
+- **Zugriff:** Die Anwendung hat keine eigene Anmeldung; erreichbar ist sie nur über den Cloudflare-Tunnel hinter Cloudflare
+  Access (Google). Antworten der Bank werden mit zod geprüft.
 
 ## 7. Abnahmetests für das Rechenmodul
 
@@ -432,5 +467,5 @@ Offene Fragen zur Methode stehen in Strategie 11.
 ## 10. Nicht in Version 1
 
 Steuern (Quellensteuer, Abgeltungsteuer), Transaktionskosten in der Anwendung, Screening über den Gesamtmarkt,
-Broker-Anbindung, Backtest als Funktion der Oberfläche (als Werkzeug gibt es ihn, Abschnitt 8.1; er setzt Kosten an, die
+Aufträge an die Bank (die comdirect liefert nur den Bestand, 6.1), Backtest als Funktion der Oberfläche (als Werkzeug gibt es ihn, Abschnitt 8.1; er setzt Kosten an, die
 Anwendung nicht), maximaler Kaufpreis nach Buchmethode, Währungsprognosen, Einstellungen für Strategie-Parameter (Abschnitt 1).

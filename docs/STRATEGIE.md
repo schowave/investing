@@ -92,6 +92,7 @@ Unternehmens.
 | Basislimit, Positionslimit    | Höchstgewicht einer Aktie ohne Risiko; Positionslimit = Basislimit · (1 − Risikowert) (7.2)                                                                                                                                                        |
 | Tauschschwelle                | Vorsprung in Prozentpunkten innerer Rendite, den eine neue Aktie vor einer gehaltenen haben muss (7.4)                                                                                                                                             |
 | Zielportfolio                 | Gewichte, die sich aus den Kandidaten nach Abschnitt 7 ergeben; der Rest ist Bargeld („Bargeld im Ziel“)                                                                                                                                           |
+| Bestand, Depot                | Bestand: was ein Portfolio heute hält, Stückzahlen je Aktie, Barbestand und sonstige Anlagen („Ist“). Depot: das Konto bei der Bank, aus dem der Bestand eines Portfolios übernommen werden kann                                                   |
 
 Prozentpunkte und Prozent: Eine Rendite von 7 % liegt 2 Prozentpunkte über einer von 5 %. „Punkte“ meint immer Prozentpunkte.
 

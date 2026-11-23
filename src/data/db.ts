@@ -2,7 +2,7 @@
 
 import { DatabaseSync } from "node:sqlite";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { and, asc, count, desc, eq, gt, isNull, lte, max, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, lte, max, or, type SQL, sql } from "drizzle-orm";
 import { drizzle, type NodeSQLiteDatabase } from "drizzle-orm/node-sqlite";
 import { migrateDatabase } from "./migrate.ts";
 import * as t from "./schema.ts";
@@ -72,6 +72,8 @@ export interface Portfolio {
   cashEur: number;
   /** Wert der Anlagen, die die Strategie nicht bewertet (Fonds, Anleihen, ETF), in Euro. */
   otherEur: number;
+  /** Depot bei der comdirect, aus dem der Bestand übernommen wird. */
+  comdirectDepotId: string | null;
 }
 
 export interface StockSearchHit {
@@ -260,6 +262,7 @@ function toPortfolio(r: PortfolioRow): Portfolio {
     profile: r.profile === "global" ? "global" : "fokussiert",
     cashEur: r.cashEur,
     otherEur: r.otherEur,
+    comdirectDepotId: r.comdirectDepotId,
   };
 }
 
@@ -1109,6 +1112,55 @@ export class Database {
   /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock". */
   setSecurityType(id: string, type: string): void {
     this.#db.update(t.stocks).set({ securityType: type }).where(eq(t.stocks.id, id)).run();
+  }
+
+  /** ISIN einer Notiz (aus den Stammdaten des Anbieters oder der Aufnahme über die ISIN). */
+  setIsin(id: string, isin: string): void {
+    this.#db.update(t.stocks).set({ isin }).where(eq(t.stocks.id, id)).run();
+  }
+
+  /** Notizen je ISIN; eine ISIN kann an mehreren Börsen notieren. Unbekannte ISINs fehlen in der Antwort. */
+  stockIdsByIsin(isins: readonly string[]): Map<string, string[]> {
+    const found = new Map<string, string[]>();
+    if (isins.length === 0) return found;
+    const rows = this.#db
+      .select({ id: t.stocks.id, isin: t.stocks.isin })
+      .from(t.stocks)
+      .where(inArray(t.stocks.isin, [...isins]))
+      .orderBy(t.stocks.id)
+      .all();
+    for (const row of rows) found.set(row.isin!, [...(found.get(row.isin!) ?? []), row.id]);
+    return found;
+  }
+
+  /** Die Aktien aus `ids`, für die noch keine ISIN gespeichert ist. */
+  stockIdsWithoutIsin(ids: readonly string[]): string[] {
+    if (ids.length === 0) return [];
+    return this.#db
+      .select({ id: t.stocks.id })
+      .from(t.stocks)
+      .where(and(inArray(t.stocks.id, [...new Set(ids)]), isNull(t.stocks.isin)))
+      .orderBy(t.stocks.id)
+      .all()
+      .map((r) => r.id);
+  }
+
+  setComdirectDepot(portfolioId: number, depotId: string | null): void {
+    this.#db.update(t.portfolios).set({ comdirectDepotId: depotId }).where(eq(t.portfolios.id, portfolioId)).run();
+  }
+
+  /**
+   * Ersetzt den ganzen Bestand eines Portfolios in einem Schritt: Barbestand, sonstige Anlagen und Stückzahlen. Positionen,
+   * die nicht in `shares` stehen, fallen weg.
+   */
+  replaceHoldings(portfolioId: number, bestand: { cashEur: number; otherEur: number; shares: ReadonlyMap<string, number> }): void {
+    this.#db.transaction((tx) => {
+      tx.update(t.portfolios).set({ cashEur: bestand.cashEur, otherEur: bestand.otherEur }).where(eq(t.portfolios.id, portfolioId)).run();
+      tx.delete(t.holdings).where(eq(t.holdings.portfolioId, portfolioId)).run();
+      for (const [stockId, shares] of bestand.shares) {
+        if (shares > 0) tx.insert(t.holdings).values({ portfolioId, stockId, shares }).run();
+      }
+    });
   }
 
   /** Sektor nach GICS laut Anbieter. */
