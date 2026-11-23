@@ -16,7 +16,7 @@ describe("Split nach dem letzten Abschluss", () => {
     db.saveSplits(stock.id, [{ date: "2026-11-01", ratio: 8 }]);
     const { proposals } = computeValuation(db, stock, "2026-11-19");
     expect(proposals.details.unadjustedSplit).toEqual({ date: "2026-11-01", ratio: 8 });
-    expect(proposals.notes.at(-1)).toMatch(/nach dem letzten Abschluss \(2025\)/);
+    expect(proposals.notes).toContainEqual(expect.stringMatching(/nach dem letzten Abschluss \(2025\)/));
     // Ein Split, der erst nach dem Stichtag liegt, zählt nicht.
     expect(computeValuation(db, stock, "2026-10-31").proposals.details.unadjustedSplit).toBeNull();
   });

@@ -6,6 +6,7 @@
 import { z } from "zod";
 import type { Database, Stock } from "../data/db.ts";
 import { currentProposals } from "../judgement/factors.ts";
+import { dataWarnings } from "./dataChecks.ts";
 import type { Basis, Review } from "./review.ts";
 import { basisOf, reviewOf } from "./review.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
@@ -17,7 +18,7 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  * seit der Bewertung auch aus der neuen Rechnung kommen können. Ältere Tagesstände im Verlauf bleiben, wie sie gerechnet
  * wurden; an der Versionsgrenze kann der Verlauf deshalb springen.
  */
-export const CALC_VERSION = 10;
+export const CALC_VERSION = 11;
 
 /**
  * Version der Strategie, wie sie im Kopf von `docs/STRATEGIE.md` steht (ein Test vergleicht beide). Steigt bei jeder Änderung,
@@ -125,6 +126,19 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
     proposals.details.payoutEarningsLevel ?? null,
     proposals.standIns,
   );
+
+  // Verdächtige Anbieterdaten als Hinweis, nur in der Anwendung (Spezifikation 4.1); sie ändern keine Rechnung.
+  if (appChecks) {
+    proposals.notes.push(
+      ...dataWarnings({
+        stock,
+        years: fundamentals.slice(-10),
+        payments,
+        netBuybacksPerShare: proposals.details.netBuybacksPerShare,
+        price,
+      }),
+    );
+  }
 
   // Verglichen wird mit dem Tagesstand vom Tag der Bewertung. Ihn speichern der Abgleich und das Speichern der Bewertung.
   const before = assessedOn === null ? null : storedBaseline(db.valuationDetailsAsOf(stock.id, assessedOn));
