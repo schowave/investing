@@ -1,6 +1,8 @@
 // Ordnet die Positionen eines comdirect-Depots dem Bestand eines Portfolios zu (Spezifikation 6.1). Rein rechnend:
 // kein Abruf, keine Datenbank; die Vorschau zeigt, was die Übernahme ändern würde.
 
+import { type Listing, pickListing } from "../data/listings.ts";
+
 /** Eine Position im Depot, wie die Bank sie meldet, schon geprüft und auf das Nötige reduziert. */
 export interface DepotPosition {
   isin: string | null;
@@ -12,16 +14,6 @@ export interface DepotPosition {
   quantity: number;
   /** Kurswert laut Bank in Euro; `null`, wenn die Bank keinen in Euro nennt. */
   valueEur: number | null;
-}
-
-/** Notiz in der Datenbank, die zu einer ISIN passt. */
-export interface Listing {
-  id: string;
-  watched: boolean;
-  /** Stammaktie laut Anbieter (kein CEDEAR, keine Vorzugsaktie); unbekannt zählt als ja. */
-  common: boolean;
-  /** Es gibt einen Kurs. */
-  priced: boolean;
 }
 
 /** Das Depot ist führend: Was dort nicht liegt, fällt weg. */
@@ -69,20 +61,6 @@ export interface CurrentBestand {
   names: ReadonlyMap<string, string>;
 }
 
-/**
- * Mehrere Notizen derselben ISIN: die auf der Watchlist, dann die schon gehaltene, dann eine Stammaktie (kein CEDEAR mit
- * eigenem Bezugsverhältnis), dann eine mit Kurs, zuletzt die erste nach Symbol.
- */
-function pick(listings: readonly Listing[], held: ReadonlyMap<string, number>): string {
-  const rank = (l: Listing) => [Number(l.watched), Number(held.has(l.id)), Number(l.common), Number(l.priced)];
-  const sorted = [...listings].sort((a, b) => {
-    const [ra, rb] = [rank(a), rank(b)];
-    const diff = ra.map((value, i) => rb[i]! - value).find((d) => d !== 0);
-    return diff ?? a.id.localeCompare(b.id);
-  });
-  return sorted[0]!.id;
-}
-
 const round = (value: number) => Math.round(value * 100) / 100;
 /** Stückzahlen auf sechs Stellen: Bruchstücke aus Sparplänen in mehreren Lagerstellen addieren sich sonst ungenau. */
 const roundShares = (value: number) => Math.round(value * 1e6) / 1e6;
@@ -111,7 +89,7 @@ export function previewBestand(
     if (position.quantity <= 0) continue;
     const found = position.kind === "aktie" && position.isin ? listings.get(position.isin) : undefined;
     if (found && found.length > 0) {
-      const id = pick(found, current.shares);
+      const id = pickListing(found, current.shares);
       shares.set(id, roundShares((shares.get(id) ?? 0) + position.quantity));
       if (!names.has(id)) names.set(id, position.name);
       isins.set(id, position.isin);

@@ -4,12 +4,14 @@
 import { z } from "zod";
 import type { Database } from "../data/db.ts";
 import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
+import { wikifolioCredentials } from "../data/wikifolio.ts";
 import { RECOMPUTE_JOB, recomputeAll } from "../valuation/recompute.ts";
 import type { JobContext, JobResult } from "./context.ts";
 import { refreshStock } from "./fundamentals.ts";
 import { type HistoryOptions, historyTodo, loadHistory } from "./history.ts";
 import { addByIsin, FUNDAMENTALS_CALLS, importStockpile } from "./stockpile.ts";
 import { syncJob } from "./sync.ts";
+import { syncWikifolios } from "./wikifolio.ts";
 
 const TickerSymbol = z
   .string()
@@ -34,10 +36,21 @@ export const JOB_KINDS = {
     args: z.object({}),
     cancellable: false,
     run: (ctx: JobContext) =>
-      syncJob(ctx, {
-        dir: process.env.INVESTING_BACKUPS ?? "data/backups",
-        keep: Number(process.env.INVESTING_BACKUP_KEEP ?? 7),
-      }),
+      syncJob(
+        ctx,
+        {
+          dir: process.env.INVESTING_BACKUPS ?? "data/backups",
+          keep: Number(process.env.INVESTING_BACKUP_KEEP ?? 7),
+        },
+        wikifolioCredentials(process.env),
+      ),
+  },
+  wikifolio: {
+    label: "wikifolio abgleichen",
+    args: z.object({ portfolioId: z.number().int().positive().optional(), reloadUniverse: z.boolean().default(false) }),
+    cancellable: false,
+    run: (ctx: JobContext, args: { portfolioId?: number; reloadUniverse: boolean }) =>
+      syncWikifolios(ctx, { ...args, credentials: wikifolioCredentials(process.env), now: new Date() }),
   },
   "stock-refresh": {
     label: "Aktie aktualisieren",

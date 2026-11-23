@@ -123,6 +123,10 @@ export const portfolios = sqliteTable("portfolios", {
   otherEur: real("other_eur").notNull().default(0),
   /** Depot bei der comdirect (`depotId` der Bank), aus dem der Bestand übernommen wird; `null`, solange keines gewählt ist. */
   comdirectDepotId: text("comdirect_depot_id"),
+  /** Symbol des eigenen Wikifolios (z. B. WFSHYSEL); gesetzt heißt Bestandsquelle wikifolio, sonst von Hand. */
+  wikifolio: text("wikifolio"),
+  /** Zeitpunkt des letzten erfolgreichen Abgleichs mit wikifolio (ISO). */
+  syncedAt: text("synced_at"),
 });
 
 const portfolioId = () =>
@@ -139,6 +143,44 @@ export const holdings = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.portfolioId, t.stockId] })],
 );
+
+/**
+ * Positionen eines Wikifolios, die keiner Aktie in der Datenbank zugeordnet sind (unbekannte ISIN, ETF, Fonds). Ihr Wert zum
+ * Einstandskurs steht im Portfolio als sonstige Anlagen.
+ */
+export const unmatchedPositions = sqliteTable(
+  "unmatched_positions",
+  {
+    portfolioId: portfolioId(),
+    isin: text("isin").notNull(),
+    quantity: real("quantity").notNull(),
+    /** Einstandswert in Euro (Stückzahl mal durchschnittlicher Kaufkurs); `null`, wenn wikifolio keinen Kaufkurs nennt. */
+    valueEur: real("value_eur"),
+  },
+  (t) => [primaryKey({ columns: [t.portfolioId, t.isin] })],
+);
+
+/**
+ * Aktien, die im Anlageuniversum eines Wikifolios handelbar sind (Strategie 7.1). Gespeichert wird nur die Schnittmenge mit den
+ * Aktien der Datenbank, nicht das ganze Universum; wann es geladen wurde, steht in `tradable_loaded`.
+ */
+export const tradableStocks = sqliteTable(
+  "tradable_stocks",
+  {
+    portfolioId: portfolioId(),
+    stockId: stockId(),
+  },
+  (t) => [primaryKey({ columns: [t.portfolioId, t.stockId] })],
+);
+
+/** Wann das Anlageuniversum eines Wikifolios zuletzt vollständig geladen wurde und wie viele ISINs es enthielt. */
+export const tradableLoaded = sqliteTable("tradable_loaded", {
+  portfolioId: integer("portfolio_id")
+    .primaryKey()
+    .references(() => portfolios.id, { onDelete: "cascade" }),
+  loadedAt: text("loaded_at").notNull(),
+  isins: integer("isins").notNull(),
+});
 
 export const portfolioSnapshots = sqliteTable(
   "portfolio_snapshots",

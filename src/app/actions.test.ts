@@ -27,11 +27,13 @@ const {
   saveInputs,
   saveManualPrice,
   setAutoSync,
+  setPortfolioSource,
   setWatched,
   startHistory,
   startIndexImport,
   startRefresh,
   startSync,
+  startWikifolioSync,
 } = await import("./actions.ts");
 
 const form = (fields: Record<string, string>) => {
@@ -192,6 +194,25 @@ describe("Server Actions", () => {
     ]);
     await expect(cancelJob(1)).rejects.toThrow("redirect:/abgleich");
     expect(db.job(1)!.status).toBe("cancelled");
+  });
+
+  it("setzt die Bestandsquelle wikifolio, gleicht gleich ab und sperrt die Pflege von Hand", async () => {
+    const id = db.createPortfolio("Wikifolio", "fokussiert");
+    const page = `/portfolio/${id}`;
+    await expect(setPortfolioSource(id, form({ wikifolio: "wf0shysel" }))).rejects.toThrow(`redirect:${page}?lauf=1`);
+    expect(db.portfolio(id)!.wikifolio).toBe("WF0SHYSEL");
+    expect(db.job(1)!).toMatchObject({ kind: "wikifolio", args: { portfolioId: id, reloadUniverse: false } });
+
+    await expect(saveHoldings(id, form({ cash: "5" }))).rejects.toThrow(/fehler=Der%20Bestand%20kommt%20aus%20wikifolio/);
+    expect(db.portfolio(id)!.cashEur).toBe(0);
+
+    await expect(startWikifolioSync(id)).rejects.toThrow(`redirect:${page}?lauf=`);
+    await expect(setPortfolioSource(id, form({ wikifolio: "kein symbol" }))).rejects.toThrow(/fehler=Symbol%20des%20Wikifolios/);
+    expect(db.portfolio(id)!.wikifolio).toBe("WF0SHYSEL");
+
+    await expect(setPortfolioSource(id, form({ wikifolio: "" }))).rejects.toThrow(`redirect:${page}?gespeichert=1`);
+    expect(db.portfolio(id)!.wikifolio).toBeNull();
+    await expect(setPortfolioSource(999, form({ wikifolio: "" }))).rejects.toThrow("redirect:/portfolio");
   });
 
   it("liest ISINs und Symbole aus dem Textfeld", async () => {

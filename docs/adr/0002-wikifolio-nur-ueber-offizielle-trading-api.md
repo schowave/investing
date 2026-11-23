@@ -1,0 +1,3 @@
+# wikifolio nur über die offizielle Trading-API
+
+Das eigene Wikifolio wird ausschließlich über die offizielle Trading-API von wikifolio angebunden (Schlüssel nach schriftlicher Zustimmung). Die inoffiziellen Bibliotheken über die Website-Anmeldung sind schneller verfügbar und liefern auch Wertentwicklung und Handelshistorie, verstoßen aber gegen die AGB („Maschinelle und/oder automatisierte Interaktionen … nur nach vorhergehender schriftlicher Zustimmung“), gefährden das Trader-Konto und scheitern an der Zwei-Faktor-Anmeldung beim Handeln. Deshalb führt die Anwendung ein eigenes Orderprotokoll, und bis die Schlüssel da sind, wird das Wikifolio von Hand gepflegt.

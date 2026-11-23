@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { wikifolioCredentials } from "../../../data/wikifolio.ts";
 import { loadPortfolio } from "../../../valuation/portfolioRun.ts";
 import type { Share } from "../../../valuation/portfolioView.ts";
-import { deletePortfolio, saveHoldings } from "../../actions.ts";
+import { deletePortfolio, saveHoldings, setPortfolioSource, startWikifolioSync } from "../../actions.ts";
 import { amount, isoDate, percent } from "../../format.ts";
 import { stockPath } from "../../origin.ts";
 import { database, today } from "../../server.ts";
@@ -85,11 +86,16 @@ export default async function PortfolioPage(props: {
   const sells = view.rows.filter((r) => r.action === "verkaufen");
   const empty = holdings.size === 0 && portfolio.cashEur === 0 && portfolio.otherEur === 0;
   const unrated = view.rows.filter((r) => r.action === "bewerten").length;
+  const fromWikifolio = portfolio.wikifolio !== null;
+  const unmatched = fromWikifolio ? db.unmatchedPositions(portfolio.id) : [];
+  const tradable = fromWikifolio ? db.tradable(portfolio.id) : null;
+  const keysMissing = fromWikifolio && wikifolioCredentials(process.env) === null;
 
   let finding: string;
   if (empty)
-    finding =
-      "Noch kein Bestand eingetragen. Trag unten Stückzahlen und Barbestand ein oder übernimm sie aus der comdirect, dann erscheinen hier die Vorschläge.";
+    finding = fromWikifolio
+      ? "Noch kein Bestand aus wikifolio übernommen. Nach dem ersten Abgleich erscheinen hier die Vorschläge."
+      : "Noch kein Bestand eingetragen. Trag unten Stückzahlen und Barbestand ein oder übernimm sie aus der comdirect, dann erscheinen hier die Vorschläge.";
   else if (sells.length + buys.length === 0)
     finding =
       targetCount === 0
@@ -118,17 +124,30 @@ export default async function PortfolioPage(props: {
           <h1>{portfolio.name}</h1>
           <p className="finding">{finding}</p>
           <p className="meta">
+            {fromWikifolio
+              ? `Bestand aus wikifolio ${portfolio.wikifolio}, ${portfolio.syncedAt ? `abgeglichen am ${isoDate(portfolio.syncedAt.slice(0, 10))} um ${portfolio.syncedAt.slice(11, 16)} UTC` : "noch nicht abgeglichen"}${tradable ? `; Anlageuniversum vom ${isoDate(tradable.loadedAt.slice(0, 10))}` : ""} · `
+              : ""}
             Profil {portfolio.profile} · Basislimit {percent(profile.baseLimit)} · Mindestposition {percent(profile.minPosition, 0)} · Hürde{" "}
             {percent(profile.minReturn)} (Anleiherendite) · Tauschschwelle {profile.swapThreshold * 100} Punkte
           </p>
         </div>
         <div className="title-actions">
-          <Link className="button quiet" href={`${here}/comdirect`}>
-            Aus comdirect übernehmen
-          </Link>
-          <a className="button quiet" href="#bestand">
-            Bestand pflegen
-          </a>
+          {fromWikifolio ? (
+            <form action={startWikifolioSync.bind(null, portfolio.id)}>
+              <button className="quiet" type="submit">
+                Jetzt abgleichen
+              </button>
+            </form>
+          ) : (
+            <>
+              <Link className="button quiet" href={`${here}/comdirect`}>
+                Aus comdirect übernehmen
+              </Link>
+              <a className="button quiet" href="#bestand">
+                Bestand pflegen
+              </a>
+            </>
+          )}
         </div>
       </div>
 
@@ -145,7 +164,31 @@ export default async function PortfolioPage(props: {
           )}
         </div>
       ) : (
-        query.gespeichert && <div className="notice ok">Bestand gespeichert.</div>
+        query.gespeichert && <div className="notice ok">Gespeichert.</div>
+      )}
+      {query.lauf && query.gespeichert !== "comdirect" && (
+        <div className="notice ok">
+          Abgleich mit wikifolio eingestellt (Lauf {query.lauf}); den Fortschritt zeigt <Link href="/abgleich">Abgleich</Link>.
+        </div>
+      )}
+      {keysMissing && (
+        <div className="notice">
+          Die Schlüssel für die wikifolio-API fehlen (WIKIFOLIO_CLIENT_API_KEY, WIKIFOLIO_USER_API_KEY). Bis sie eingetragen sind, bleibt
+          der letzte Stand stehen.
+        </div>
+      )}
+      {unmatched.length > 0 && (
+        <div className="notice">
+          Im Wikifolio, aber keiner Aktie zugeordnet und deshalb zum Einstandswert unter sonstige Anlagen:{" "}
+          {unmatched.map((u) => `${u.isin} (${amount(u.quantity, 0)} St.)`).join(", ")}. Aktien nimmst du über ihre ISIN im{" "}
+          <Link href="/vorrat">Datenvorrat</Link> auf.
+        </div>
+      )}
+      {view.untradable.length > 0 && (
+        <div className="notice">
+          Kandidaten, die im Anlageuniversum des Wikifolios fehlen und deshalb übergangen werden:{" "}
+          {view.untradable.map((s) => names.get(s)).join(", ")}.
+        </div>
       )}
       {view.unpriced.length > 0 && (
         <div className="notice">Ohne Kurs und deshalb nicht im Wert enthalten: {view.unpriced.map((s) => names.get(s)).join(", ")}.</div>
@@ -254,97 +297,135 @@ export default async function PortfolioPage(props: {
       </div>
 
       <div className="columns">
-        <form className="card" id="bestand" action={saveHoldings.bind(null, portfolio.id)}>
-          <div className="card-head">
-            <h2>Bestand pflegen</h2>
-            <span className="meta">ein leeres Feld bedeutet 0</span>
-          </div>
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Position</th>
-                  <th className="num">Menge</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>
-                    <label htmlFor="cash" className="factor">
-                      Barbestand
-                    </label>
-                  </td>
-                  <td className="num">
-                    <span className="field">
-                      <input
-                        id="cash"
-                        name="cash"
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        defaultValue={fieldNumber(portfolio.cashEur)}
-                      />
-                      <span className="unit">€</span>
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <label htmlFor="other" className="factor">
-                      Sonstige Anlagen
-                    </label>
-                    <span className="hint">Fonds, Anleihen und ETF, die die Strategie nicht bewertet; zählen zum Gesamtwert</span>
-                  </td>
-                  <td className="num">
-                    <span className="field">
-                      <input
-                        id="other"
-                        name="other"
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
-                        autoComplete="off"
-                        defaultValue={fieldNumber(portfolio.otherEur)}
-                      />
-                      <span className="unit">€</span>
-                    </span>
-                  </td>
-                </tr>
-                {stocks.map((stock) => (
-                  <tr key={stock.id}>
+        {fromWikifolio ? (
+          <section className="card" id="bestand">
+            <div className="card-head">
+              <h2>Bestand aus wikifolio</h2>
+            </div>
+            <div className="scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Position</th>
+                    <th className="num">Menge</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Barbestand</td>
+                    <td className="num">{euro(portfolio.cashEur)}</td>
+                  </tr>
+                  {[...holdings].map(([stockId, count]) => (
+                    <tr key={stockId}>
+                      <td>{names.get(stockId) ?? stockId}</td>
+                      <td className="num">{amount(count, 0)} St.</td>
+                    </tr>
+                  ))}
+                  {unmatched.map((u) => (
+                    <tr key={u.isin}>
+                      <td>
+                        {u.isin} <small>nicht zugeordnet</small>
+                      </td>
+                      <td className="num">{amount(u.quantity, 0)} St.</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
+          <form className="card" id="bestand" action={saveHoldings.bind(null, portfolio.id)}>
+            <div className="card-head">
+              <h2>Bestand pflegen</h2>
+              <span className="meta">ein leeres Feld bedeutet 0</span>
+            </div>
+            <div className="scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Position</th>
+                    <th className="num">Menge</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
                     <td>
-                      <label htmlFor={`shares:${stock.id}`} className="factor">
-                        {stock.name}
+                      <label htmlFor="cash" className="factor">
+                        Barbestand
                       </label>
                     </td>
                     <td className="num">
                       <span className="field">
                         <input
-                          id={`shares:${stock.id}`}
-                          name={`shares:${stock.id}`}
+                          id="cash"
+                          name="cash"
                           type="number"
                           min={0}
-                          step="any"
+                          step="0.01"
                           inputMode="decimal"
                           autoComplete="off"
-                          defaultValue={fieldNumber(holdings.get(stock.id))}
+                          defaultValue={fieldNumber(portfolio.cashEur)}
                         />
-                        <span className="unit">St.</span>
+                        <span className="unit">€</span>
                       </span>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="savebar">
-            <button type="submit">Bestand speichern</button>
-            <span className="meta">Titel, die hier fehlen, nimmst du im Datenvorrat auf die Watchlist.</span>
-          </div>
-        </form>
+                  <tr>
+                    <td>
+                      <label htmlFor="other" className="factor">
+                        Sonstige Anlagen
+                      </label>
+                      <span className="hint">Fonds, Anleihen und ETF, die die Strategie nicht bewertet; zählen zum Gesamtwert</span>
+                    </td>
+                    <td className="num">
+                      <span className="field">
+                        <input
+                          id="other"
+                          name="other"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          defaultValue={fieldNumber(portfolio.otherEur)}
+                        />
+                        <span className="unit">€</span>
+                      </span>
+                    </td>
+                  </tr>
+                  {stocks.map((stock) => (
+                    <tr key={stock.id}>
+                      <td>
+                        <label htmlFor={`shares:${stock.id}`} className="factor">
+                          {stock.name}
+                        </label>
+                      </td>
+                      <td className="num">
+                        <span className="field">
+                          <input
+                            id={`shares:${stock.id}`}
+                            name={`shares:${stock.id}`}
+                            type="number"
+                            min={0}
+                            step="any"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            defaultValue={fieldNumber(holdings.get(stock.id))}
+                          />
+                          <span className="unit">St.</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="savebar">
+              <button type="submit">Bestand speichern</button>
+              <span className="meta">Titel, die hier fehlen, nimmst du im Datenvorrat auf die Watchlist.</span>
+            </div>
+          </form>
+        )}
 
         <div className="stack">
           {history.length > 1 && (
@@ -372,6 +453,28 @@ export default async function PortfolioPage(props: {
               </div>
             </section>
           )}
+          <section className="card">
+            <div className="card-head">
+              <h2>Bestandsquelle</h2>
+            </div>
+            <form className="card-body" action={setPortfolioSource.bind(null, portfolio.id)}>
+              <p className="meta" style={{ marginBottom: 12 }}>
+                Mit dem Symbol eines eigenen Wikifolios kommen Bargeld und Stückzahlen aus wikifolio (nachts und auf Knopfdruck), und
+                Kandidaten sind nur Titel aus seinem Anlageuniversum. Leer heißt: Bestand von Hand.
+              </p>
+              <div className="row">
+                <input
+                  type="text"
+                  name="wikifolio"
+                  placeholder="z. B. WF0SHYSEL"
+                  aria-label="Symbol des Wikifolios"
+                  autoComplete="off"
+                  defaultValue={portfolio.wikifolio ?? ""}
+                />
+                <button type="submit">Speichern</button>
+              </div>
+            </form>
+          </section>
           <section className="card">
             <div className="card-head">
               <h2>Portfolio löschen</h2>

@@ -67,7 +67,15 @@ function vorgangOf(portfolioId: number, vorgangId: string): Vorgang {
 
 /** Meldet sich mit der PIN an und fordert die Sitzungs-TAN an. Die PIN wird nur weitergereicht, nie gespeichert. */
 export async function startComdirect(portfolioId: number, form: FormData): Promise<void> {
-  if (!database().portfolio(portfolioId)) redirect("/portfolio");
+  const portfolio = database().portfolio(portfolioId);
+  if (!portfolio) redirect("/portfolio");
+  if (portfolio.wikifolio) {
+    redirect(
+      withQuery(`/portfolio/${portfolioId}`, {
+        fehler: "Der Bestand kommt aus wikifolio und lässt sich nicht aus der comdirect übernehmen.",
+      }),
+    );
+  }
   const d = deps(portfolioId);
   if (form.get("zaehler") === "on") resetOpenChallenges();
   const raw = form.get("pin");

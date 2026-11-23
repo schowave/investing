@@ -56,6 +56,8 @@ export interface Stock {
   securityType?: string | null;
   /** Letzter Kurstag eines eingestellten Titels; nur der Rückblick (`includeDelisted`) kennt solche Titel. */
   delistedOn?: string | null;
+  /** ISIN laut Anbieter; `null`, solange sie nicht aus den Abschlüssen gelesen ist. */
+  isin?: string | null;
 }
 
 export interface Price {
@@ -76,6 +78,27 @@ export interface Portfolio {
   otherEur: number;
   /** Depot bei der comdirect, aus dem der Bestand übernommen wird. */
   comdirectDepotId: string | null;
+  /** Symbol des eigenen Wikifolios; gesetzt heißt Bestandsquelle wikifolio, `null` heißt von Hand. */
+  wikifolio: string | null;
+  /** Letzter erfolgreicher Abgleich mit wikifolio (ISO-Zeitpunkt). */
+  syncedAt: string | null;
+}
+
+/** Position eines Wikifolios ohne passende Aktie in der Datenbank. */
+export interface UnmatchedPosition {
+  isin: string;
+  quantity: number;
+  /** Einstandswert in Euro; `null`, wenn wikifolio keinen Kaufkurs nennt. */
+  valueEur: number | null;
+}
+
+/** Bestand eines Wikifolios, wie der Abgleich ihn übernimmt. */
+export interface WikifolioState {
+  cashEur: number;
+  /** Stückzahlen je Aktie. */
+  holdings: ReadonlyMap<string, number>;
+  unmatched: readonly UnmatchedPosition[];
+  syncedAt: string;
 }
 
 export interface StockSearchHit {
@@ -255,6 +278,7 @@ function toStock(r: StockRow): Stock {
     gicSector: r.gicSector,
     securityType: r.securityType,
     delistedOn: r.delistedOn,
+    isin: r.isin,
   };
 }
 
@@ -266,6 +290,8 @@ function toPortfolio(r: PortfolioRow): Portfolio {
     cashEur: r.cashEur,
     otherEur: r.otherEur,
     comdirectDepotId: r.comdirectDepotId,
+    wikifolio: r.wikifolio,
+    syncedAt: r.syncedAt,
   };
 }
 
@@ -396,6 +422,72 @@ export class Database {
       .values({ portfolioId, stockId, shares })
       .onConflictDoUpdate({ target: [t.holdings.portfolioId, t.holdings.stockId], set: { shares } })
       .run();
+  }
+
+  /** Setzt die Bestandsquelle: ein Wikifolio-Symbol oder `null` für Pflege von Hand. Ein Wechsel vergisst den letzten Abgleich. */
+  setWikifolio(portfolioId: number, symbol: string | null): void {
+    this.#db.transaction((tx) => {
+      tx.update(t.portfolios).set({ wikifolio: symbol, syncedAt: null }).where(eq(t.portfolios.id, portfolioId)).run();
+      tx.delete(t.unmatchedPositions).where(eq(t.unmatchedPositions.portfolioId, portfolioId)).run();
+      tx.delete(t.tradableStocks).where(eq(t.tradableStocks.portfolioId, portfolioId)).run();
+      tx.delete(t.tradableLoaded).where(eq(t.tradableLoaded.portfolioId, portfolioId)).run();
+    });
+  }
+
+  /**
+   * Übernimmt den Bestand eines Wikifolios in einem Schritt: Bargeld, Stückzahlen, nicht zugeordnete Positionen. Deren
+   * Einstandswert steht danach als sonstige Anlagen im Portfolio; Positionen, die nicht mehr im Wikifolio stehen, verschwinden.
+   */
+  replaceWithWikifolio(portfolioId: number, state: WikifolioState): void {
+    const otherEur = state.unmatched.reduce((sum, p) => sum + (p.valueEur ?? 0), 0);
+    this.#db.transaction((tx) => {
+      tx.update(t.portfolios)
+        .set({ cashEur: state.cashEur, otherEur, syncedAt: state.syncedAt })
+        .where(eq(t.portfolios.id, portfolioId))
+        .run();
+      tx.delete(t.holdings).where(eq(t.holdings.portfolioId, portfolioId)).run();
+      for (const [stockId, shares] of state.holdings) {
+        if (shares > 0) tx.insert(t.holdings).values({ portfolioId, stockId, shares }).run();
+      }
+      tx.delete(t.unmatchedPositions).where(eq(t.unmatchedPositions.portfolioId, portfolioId)).run();
+      for (const position of state.unmatched)
+        tx.insert(t.unmatchedPositions)
+          .values({ portfolioId, ...position })
+          .run();
+    });
+  }
+
+  unmatchedPositions(portfolioId: number): UnmatchedPosition[] {
+    return this.#db
+      .select({ isin: t.unmatchedPositions.isin, quantity: t.unmatchedPositions.quantity, valueEur: t.unmatchedPositions.valueEur })
+      .from(t.unmatchedPositions)
+      .where(eq(t.unmatchedPositions.portfolioId, portfolioId))
+      .orderBy(t.unmatchedPositions.isin)
+      .all();
+  }
+
+  /** Speichert, welche Aktien im Anlageuniversum eines Wikifolios handelbar sind (ersetzt den vorigen Stand). */
+  setTradable(portfolioId: number, stockIds: Iterable<string>, loadedAt: string, isins: number): void {
+    this.#db.transaction((tx) => {
+      tx.delete(t.tradableStocks).where(eq(t.tradableStocks.portfolioId, portfolioId)).run();
+      for (const stockId of new Set(stockIds)) tx.insert(t.tradableStocks).values({ portfolioId, stockId }).run();
+      tx.insert(t.tradableLoaded)
+        .values({ portfolioId, loadedAt, isins })
+        .onConflictDoUpdate({ target: t.tradableLoaded.portfolioId, set: { loadedAt, isins } })
+        .run();
+    });
+  }
+
+  /** Handelbare Aktien eines Wikifolios; `null`, solange das Anlageuniversum nie geladen wurde (dann gilt keine Einschränkung). */
+  tradable(portfolioId: number): { stockIds: Set<string>; loadedAt: string; isins: number } | null {
+    const loaded = this.#db.select().from(t.tradableLoaded).where(eq(t.tradableLoaded.portfolioId, portfolioId)).get();
+    if (!loaded) return null;
+    const rows = this.#db
+      .select({ stockId: t.tradableStocks.stockId })
+      .from(t.tradableStocks)
+      .where(eq(t.tradableStocks.portfolioId, portfolioId))
+      .all();
+    return { stockIds: new Set(rows.map((r) => r.stockId)), loadedAt: loaded.loadedAt, isins: loaded.isins };
   }
 
   /** Stückzahlen je Aktie. */
@@ -1185,6 +1277,14 @@ export class Database {
         if (shares > 0) tx.insert(t.holdings).values({ portfolioId, stockId, shares }).run();
       }
     });
+  }
+
+  /** Aktien je ISIN (Watchlist und Datenvorrat); eine ISIN kann mehrere Notizen haben. */
+  stocksByIsin(): Map<string, Stock[]> {
+    const result = new Map<string, Stock[]>();
+    const rows = this.#db.select().from(t.stocks).where(sql`${t.stocks.isin} IS NOT NULL`).orderBy(t.stocks.id).all();
+    for (const row of rows) result.set(row.isin!, [...(result.get(row.isin!) ?? []), toStock(row)]);
+    return result;
   }
 
   /** Sektor nach GICS laut Anbieter. */

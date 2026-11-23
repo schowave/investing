@@ -1,7 +1,7 @@
 // Ist-Bestand gegen Zielportfolio (Strategie 7). Reine Rechnung.
 
 import type { Profile } from "../calc/index.ts";
-import { EXCLUSION_SCORE, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";
+import { EXCLUSION_SCORE, isCandidate, proposals, RISK_FACTOR_IDS, RISK_FACTORS, targetPortfolio } from "../calc/index.ts";
 
 export interface PortfolioItem {
   id: string;
@@ -16,6 +16,11 @@ export interface PortfolioItem {
   priceEur: number | null;
   /** Zahlen und Kurs passen nicht zusammen (`doubtfulNumbers`); die Rendite zählt dann nicht in den Schnitt. */
   doubtful?: boolean;
+  /**
+   * `false`: Das Portfolio kann den Titel nicht kaufen (nicht im Anlageuniversum des Wikifolios); er ist dann kein Kandidat
+   * (Strategie 7.1). Fehlt der Wert, gilt der Titel als handelbar.
+   */
+  tradable?: boolean;
 }
 
 interface PortfolioRow {
@@ -61,6 +66,8 @@ export interface PortfolioView {
   targetReturn: number | null;
   /** Gehaltene Titel ohne berechenbare oder ohne belastbare Rendite; sie fehlen im Schnitt. */
   heldWithoutReturn: string[];
+  /** Titel, die Kandidat wären, aber in diesem Portfolio nicht handelbar sind (Strategie 7.1). */
+  untradable: string[];
 }
 
 /** Mit dem Gewicht gemittelte innere Rendite; Titel ohne Gewicht oder ohne Rendite bleiben außen vor. */
@@ -117,7 +124,12 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
     region: item.region,
     heldWeight: weight(item),
   }));
-  const target = targetPortfolio(stocks, profile);
+  // Nicht handelbare Titel sind keine Kandidaten; gehaltene bleiben es, denn was im Portfolio liegt, lässt sich auch verkaufen.
+  const buyable = (item: PortfolioItem) => item.tradable !== false || item.shares > 0;
+  const target = targetPortfolio(
+    stocks.filter((_, index) => buyable(items[index]!)),
+    profile,
+  );
   const targetWeight = new Map(target.positions.map((p) => [p.id, p.weight]));
   const proposal = new Map(proposals(stocks, target).map((p) => [p.id, p]));
 
@@ -156,5 +168,6 @@ export function buildPortfolioView(profile: Profile, cashEur: number, items: rea
     heldReturn: averageReturn(items.map((item) => ({ weight: weight(item), innerReturn: usable(item) }))),
     targetReturn: averageReturn(items.map((item) => ({ weight: targetWeight.get(item.id) ?? 0, innerReturn: usable(item) }))),
     heldWithoutReturn: items.filter((item) => weight(item) > 0 && usable(item) === null).map((item) => item.id),
+    untradable: stocks.filter((stock, index) => !buyable(items[index]!) && isCandidate(stock, profile)).map((stock) => stock.id),
   };
 }

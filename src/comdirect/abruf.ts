@@ -3,8 +3,8 @@
 
 import { z } from "zod";
 import type { Database } from "../data/db.ts";
-import { isinOf, searchEodhd } from "../data/eodhdFundamentals.ts";
-import { FUNDAMENTALS_KIND } from "../data/eodhdSnapshot.ts";
+import { searchEodhd } from "../data/eodhdFundamentals.ts";
+import { backfillIsins, listingsFor } from "../data/listings.ts";
 import { isDailyLimit } from "../jobs/context.ts";
 import { failedIsinsSince } from "../jobs/stockpile.ts";
 import {
@@ -19,7 +19,7 @@ import {
   pushStatus,
   revoke,
 } from "./api.ts";
-import { type Listing, previewBestand } from "./bestand.ts";
+import { previewBestand } from "./bestand.ts";
 import { closeVorgang, openVorgang, type Step, type Vorgang } from "./vorgang.ts";
 
 export interface AbrufDeps {
@@ -88,24 +88,6 @@ export async function startAbruf(portfolioId: number, pin: string, deps: AbrufDe
   return openVorgang(portfolioId, session, { step: "tan", challenge }, dispose, now);
 }
 
-/**
- * Trägt die ISIN gehaltener und beobachteter Aktien aus der gespeicherten Antwort des Anbieters nach. Ältere Einträge
- * haben noch keine; ohne sie fände der Abruf die eigenen Positionen nicht und würde sie als weggefallen werten.
- */
-function backfillIsins(db: Database, ids: readonly string[]): void {
-  for (const id of db.stockIdsWithoutIsin(ids)) {
-    const raw = db.rawDocument(id, FUNDAMENTALS_KIND);
-    if (!raw) continue;
-    try {
-      const general = (JSON.parse(raw.body) as { General?: { ISIN?: unknown } }).General;
-      const isin = isinOf(typeof general?.ISIN === "string" ? general.ISIN : null);
-      if (isin) db.setIsin(id, isin);
-    } catch {
-      // Kaputte Rohantwort: Die Aktie bleibt ohne ISIN; die Suche bei EODHD kann sie noch zuordnen.
-    }
-  }
-}
-
 /** Je Suche bei EODHD höchstens so lange warten, und für alle Suchen zusammen höchstens so lange. */
 const LOOKUP_TIMEOUT_MS = 10_000;
 const LOOKUP_BUDGET_MS = 60_000;
@@ -166,25 +148,6 @@ const QueuedArgs = z.looseObject({ isins: z.array(z.string()) });
 /** ISINs, die schon in einem offenen Lauf „Titel aufnehmen“ stehen. */
 export function queuedIsins(db: Database): Set<string> {
   return new Set(db.activeJobs().flatMap((job) => (job.kind === "add-stocks" ? (QueuedArgs.safeParse(job.args).data?.isins ?? []) : [])));
-}
-
-function listingsFor(db: Database, isins: readonly string[]): Map<string, Listing[]> {
-  const ids = db.stockIdsByIsin(isins);
-  return new Map(
-    [...ids].map(([isin, list]) => [
-      isin,
-      list.map((id) => {
-        const stock = db.stock(id);
-        const type = stock?.securityType ?? null;
-        return {
-          id,
-          watched: stock?.watched ?? false,
-          common: type === null || type === "Common Stock",
-          priced: db.latestPrice(id) !== null,
-        };
-      }),
-    ]),
-  );
 }
 
 /** Holt den Bestand eines Depots und rechnet die Vorschau gegen den heutigen Bestand des Portfolios. */
@@ -297,6 +260,9 @@ export async function applyVorschau(db: Database, vorgang: Vorgang): Promise<str
     if (vorgang.state.step !== "vorschau") throw new ComdirectError("Es gibt noch keine Vorschau zum Übernehmen.");
     const { preview, depot, stand } = vorgang.state;
     if (!stand.complete) throw new ComdirectError("Die Bank hat nicht alle Positionen geliefert; übernommen wird nichts.");
+    if (db.portfolio(vorgang.portfolioId)?.wikifolio) {
+      throw new ComdirectError("Der Bestand dieses Portfolios kommt aus wikifolio; übernommen wird nichts.");
+    }
     db.replaceHoldings(vorgang.portfolioId, { cashEur: preview.cash.after, otherEur: preview.other.after, shares: preview.shares });
     db.setComdirectDepot(vorgang.portfolioId, depot.id);
     closeVorgang(vorgang);

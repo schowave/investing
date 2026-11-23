@@ -829,8 +829,10 @@ Quellen nennen keine Zahl. Imperial Brands (1,8 % in den Folien) läge bei 26 % 
 
 - ihre Bewertung vollständig ist (Rückflussniveau, Wachstum und alle 15 Risikofaktoren haben einen Wert, ein Kurs liegt vor und
   die innere Rendite ist berechenbar),
-- ihr Risikowert unter dem Ausschluss liegt und
-- ihre vergleichbare innere Rendite im Basisfall mindestens die Hürde erreicht.
+- ihr Risikowert unter dem Ausschluss liegt,
+- ihre vergleichbare innere Rendite im Basisfall mindestens die Hürde erreicht und
+- das Portfolio sie kaufen kann. Ein Depot kann jede Aktie kaufen; bei einem Wikifolio muss sie im Anlageuniversum stehen. Was
+  ein Portfolio bereits hält, gilt als handelbar.
 
 Die Hürde ist die Rendite der zehnjährigen Euro-Staatsanleihe bester Bonität (Zinsstrukturkurve der Europäischen
 Zentralbank) plus `huerde.aufschlag`, mindestens `huerde.mindestwert`; liegt keine Anleiherendite vor, gilt
@@ -839,12 +841,13 @@ Zentralbank) plus `huerde.aufschlag`, mindestens `huerde.mindestwert`; liegt kei
 Es gibt kein Renditeziel. Ausgewählt wird nach Rang, bis das Portfolio voll ist; Bargeld bleibt nur, wenn die Kandidaten
 ausgehen.
 
-**Begründung.** Was die Staatsanleihe nicht schlägt, lohnt das Risiko nicht. Das Risiko steckt bereits zweimal in der
+**Begründung.** Was die Staatsanleihe nicht schlägt, lohnt das Risiko nicht. Ein Ziel, das sich nicht kaufen lässt, ist keines:
+Ohne die Einschränkung bliebe sein Gewicht als Bargeld liegen, statt an den nächsten Kandidaten zu gehen. Das Risiko steckt bereits zweimal in der
 Rechnung, in der Ausfallwahrscheinlichkeit und im Positionslimit; ein weiterer Aufschlag würde es dreifach zählen. Bargeld
 bringt nichts.
 
 **Herkunft.** Interview: „Ich habe nicht so eine klare Zielrendite“, aber Aktien müssen Anleihen schlagen; kein Bargeld.
-Anleiherendite als Hürde ohne Aufschlag: eigene Setzung. Die frühere Regel (Anleiherendite plus 5 Punkte, mindestens 7 %, und
+Anleiherendite als Hürde ohne Aufschlag und Handelbarkeit je Portfolio: eigene Setzung. Die frühere Regel (Anleiherendite plus 5 Punkte, mindestens 7 %, und
 das schon im vorsichtigen Fall) ist gestrichen: Sie ließ im Depot des Autors nur einen von 18 Titeln zu und hielt drei Viertel
 bar.
 
@@ -1342,3 +1345,10 @@ mit dem Vorwärtsprotokoll prüfbar (8.4), frühestens nach etwa zwei bis drei J
 **Vermutung.** Auch im globalen Profil ist eine höhere Tauschschwelle besser. **Stand.** Nicht geprüft. Ein früher
 Rückblick-Lauf mit dem globalen Profil ist zwar gerechnet worden, seine Ergebnisse sind aber nicht festgehalten; die
 Tauschschwelle wurde dabei nicht verglichen.
+
+### 11.19 Bargeldpuffer für Gebühren im Wikifolio
+
+**Vermutung.** Ein investierbares Wikifolio braucht einen kleinen Bargeldpuffer, weil wikifolio die Gebühren vom Bargeld abzieht
+und negatives Bargeld nach sieben Tagen Zwangsverkäufe auslöst; ein Puffer in Höhe der Gebühren eines Quartals kostet weniger
+Rendite als ein erzwungener Verkauf. **Stand.** Nicht geprüft. Das Wikifolio ist eine Testversion ohne Gebühren; die Frage
+wird vor der Veröffentlichung entschieden.
