@@ -403,9 +403,10 @@ Verfahren:
    (`db.stocks({ includeDelisted: true })`); Abgleich, Bewertung, Suche und Titelsuche im Datenvorrat überspringen sie. Der Import
    liest die Monatskurse aus `survivorship/monthly-prices.jsonl` neben der Datenbank, wählt nach Umsatz und Ende der Reihe
    (`src/data/delisted.ts`), braucht 12 Abrufe je Titel und lässt dem Abgleich die Reserve (`SYNC_RESERVE`).
-   Bei eingestellten Titeln schließt der Rückblick Schuld- und Vorzugstitel, Kursfehler (Monatssprung über das Neunfache oder unter
-   ein Zwanzigstel) und Umbenennungen (Abschlüsse über die Einstellung hinaus) aus (`delistedArtefact`); der Bericht zählt sie unter
-   „ausgeschlossen“.
+   Bei eingestellten Titeln schließt der Rückblick Schuld- und Vorzugstitel, Kursfehler (bereinigter Kurs springt über das
+   Neunfache; Sprung oder Absturz nur im bereinigten, nicht im rohen Kurs; Absturz im Verhältnis eines Splits) und Umbenennungen
+   (Abschlüsse über die Einstellung hinaus) aus (`delistedArtefact`); echte Abstürze bleiben drin. Der Bericht zählt die
+   Ausgeschlossenen unter „ausgeschlossen“.
 7. Umschlag ist zweiseitig gemessen (Käufe plus Verkäufe, als Anteil des Depots; ein voller Austausch zählt 200 %). Die Kosten
    gelten je Handelsumsatz in diesem Sinn. Der Bericht nennt außerdem die Zahl der Ausreißer (Positionsmonate über +100 % oder
    unter −60 %), die Gründe für übersprungene Titel und die Hürde des Laufs.

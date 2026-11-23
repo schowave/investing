@@ -11,14 +11,19 @@ const DEBT_LIKE = /\b(nt|sub|deb|perp|prp|elks|enhcd|subordinated|fixed|floating
 /** Vorzugsaktien tragen im Kürzel ein „-P“ oder „-PA“. */
 const PREFERRED_CODE = /-P[A-Z]?\.[A-Z]+$/;
 
+const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7));
+
 export type DelistedArtefact = "wertpapier" | "kursfehler" | "fortgesetzt";
 
 /**
  * Erkennt unter den eingestellten Titeln (Survivorship-Daten) solche, die der Rückblick nicht als Aktie zählen darf:
  * - `wertpapier`: Schuld- oder Vorzugstitel (Name, Kürzel oder ein Kurs, der über Jahre in einem Band von 20 % um 20 bis 30 USD
  *   bleibt, wie bei Papieren mit 25 USD Nennwert);
- * - `kursfehler`: ein Monat mit mehr als dem Neunfachen oder weniger als einem Zwanzigstel des Vormonats (bereinigt), fast immer ein
- *   Datenfehler oder ein Umtausch;
+ * - `kursfehler`: ein Monatskurs, der nicht stimmen kann: der bereinigte Kurs springt auf mehr als das Neunfache (meist ein nicht
+ *   angepasster Reverse Split), er springt über das Neunfache oder fällt unter ein Zwanzigstel, während der rohe Kurs ruhig bleibt
+ *   (Fehler der Anpassung), oder er fällt auf unter die Hälfte im Verhältnis eines Splits (mindestens 2:1) in der Nähe (nicht
+ *   angepasst). Ein echter Absturz ohne Split bleibt drin: Das sind die Gescheiterten, die der Rückblick braucht. Dass der rohe Kurs
+ *   springt und der bereinigte nicht (Reverse Split), ist richtig bereinigt und kein Fehler;
  * - `fortgesetzt`: Abschlüsse reichen mehr als ein Jahr über die Einstellung hinaus, das Unternehmen besteht unter anderem Kürzel
  *   weiter (Umbenennung) und steht dort schon.
  * Heuristik für Titel mit `delistedOn`; lebende Titel prüft sie nicht.
@@ -26,7 +31,8 @@ export type DelistedArtefact = "wertpapier" | "kursfehler" | "fortgesetzt";
 export function delistedArtefact(
   stock: Pick<Stock, "id" | "name" | "delistedOn">,
   fiscalYears: readonly number[],
-  bars: readonly { close: number; adjustedClose: number }[],
+  bars: readonly { month: string; close: number; adjustedClose: number }[],
+  splits: readonly { date: string; ratio: number }[] = [],
 ): DelistedArtefact | null {
   if (!stock.delistedOn) return null;
   if (DEBT_LIKE.test(stock.name) || PREFERRED_CODE.test(stock.id)) return "wertpapier";
@@ -40,9 +46,21 @@ export function delistedArtefact(
     if (median >= 20 && median <= 30 && spread < 1.2) return "wertpapier";
   }
   for (let i = 1; i < bars.length; i++) {
-    const before = bars[i - 1]!.adjustedClose;
-    const ratio = before > 0 ? bars[i]!.adjustedClose / before : 1;
-    if (ratio > 9 || ratio < 0.05) return "kursfehler";
+    const [prev, bar] = [bars[i - 1]!, bars[i]!];
+    if (prev.adjustedClose <= 0 || prev.close <= 0) continue;
+    const adjusted = bar.adjustedClose / prev.adjustedClose;
+    const raw = bar.close / prev.close;
+    if (adjusted > 9) return "kursfehler";
+    if (adjusted < 0.05 && raw > 1 / 3 && raw < 3) return "kursfehler";
+    // Ein Absturz im Verhältnis eines Splits desselben Monats (±1) ist kein Absturz, sondern ein nicht angepasster Split.
+    const split = splits.find(
+      (s) =>
+        s.ratio >= 2 &&
+        Math.abs(monthIndex(s.date) - monthIndex(bar.month)) <= 1 &&
+        adjusted < 0.5 &&
+        Math.abs(adjusted * s.ratio - 1) < 0.3,
+    );
+    if (split) return "kursfehler";
   }
   if (fiscalYears.some((y) => y > Number(stock.delistedOn!.slice(0, 4)) + 1)) return "fortgesetzt";
   return null;

@@ -34,8 +34,9 @@ describe("fingerprint", () => {
 
 describe("delistedArtefact", () => {
   const live = { id: "AAA.US", name: "AAA Inc", delistedOn: "2022-06-30" };
-  const flat = (price: number, n = 60) => Array.from({ length: n }, () => ({ close: price, adjustedClose: price }));
-  const walk = (prices: number[]) => prices.map((p) => ({ close: p, adjustedClose: p }));
+  const month = (i: number) => `${2016 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`;
+  const flat = (price: number, n = 60) => Array.from({ length: n }, (_, i) => ({ month: month(i), close: price, adjustedClose: price }));
+  const walk = (prices: number[], raw: number[] = prices) => prices.map((p, i) => ({ month: month(i), close: raw[i]!, adjustedClose: p }));
 
   it("prüft nur eingestellte Titel", () => {
     expect(delistedArtefact({ ...live, delistedOn: null }, [2020], flat(25))).toBeNull();
@@ -53,10 +54,24 @@ describe("delistedArtefact", () => {
     expect(delistedArtefact(live, [2020], flat(25, 20))).toBeNull();
   });
 
-  it("erkennt Kurssprünge als Datenfehler, auch einen Absturz auf ein Zwanzigstel, nicht aber einen auf ein Drittel", () => {
+  it("erkennt unmögliche Kurse als Datenfehler: Sprung nach oben, Fehler der Anpassung, nicht angepassten Split", () => {
     expect(delistedArtefact(live, [2020], walk([10, 11, 150]))).toBe("kursfehler");
-    expect(delistedArtefact(live, [2020], walk([10, 0.4]))).toBe("kursfehler");
+    // Bereinigter Kurs fällt auf ein Hundertstel, der rohe bleibt ruhig: Fehler der Anpassung.
+    expect(delistedArtefact(live, [2020], walk([10, 0.1], [10, 9]))).toBe("kursfehler");
+    // Der rohe Kurs springt auf das Zwanzigfache, der bereinigte nicht: richtig bereinigter Reverse Split, kein Fehler.
+    expect(delistedArtefact(live, [2020], walk([10, 10.5], [1, 20]))).toBeNull();
+    // Rohkurs fällt auf ein Zehntel genau im Monat eines Splits 10:1: nicht angepasster Split, kein Absturz.
+    expect(delistedArtefact(live, [2020], walk([10, 1]), [{ date: "2016-02-10", ratio: 10 }])).toBe("kursfehler");
+  });
+
+  it("lässt echte Abstürze drin, auch auf ein Zwanzigstel und tiefer: die Gescheiterten braucht der Rückblick", () => {
+    expect(delistedArtefact(live, [2020], walk([10, 0.4]))).toBeNull();
+    expect(delistedArtefact(live, [2020], walk([10, 0.003]))).toBeNull();
     expect(delistedArtefact(live, [2020], walk([10, 3.3]))).toBeNull();
+    // Ein Split mit anderem Verhältnis erklärt den Absturz nicht.
+    expect(delistedArtefact(live, [2020], walk([10, 0.4]), [{ date: "2016-02-10", ratio: 2 }])).toBeNull();
+    // Ein Split mit Verhältnis nahe 1 erklärt keine gewöhnliche Bewegung.
+    expect(delistedArtefact(live, [2020], walk([10, 8]), [{ date: "2016-02-10", ratio: 1.25 }])).toBeNull();
   });
 
   it("erkennt eine Umbenennung an Abschlüssen, die über die Einstellung hinausreichen", () => {

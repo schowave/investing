@@ -156,18 +156,26 @@ nächste beginnt.
     sie zeigt, dass der Effekt groß sein kann, nicht wie groß. Einstellungsabschläge gab es keine (die Strategie verkaufte vor dem
     Ende der Reihe), `--einstellung 0` und `1` liefern daher dasselbe.
   - **Bereinigt (23.11.2026):** Der Rückblick schließt bei eingestellten Titeln drei Muster aus (`delistedArtefact` in
-    `src/valuation/universe.ts`, im Bericht als „ausgeschlossen“): Schuld- und Vorzugstitel (24 von 2.440; Namen wie „JR SUB NT“,
+    `src/valuation/universe.ts`, im Bericht als „ausgeschlossen“): Schuld- und Vorzugstitel (23 von 2.440; Namen wie „JR SUB NT“,
     Kürzel „-PB“, ein Kurs über Jahre in einem Band von 20 % um 20 bis 30 USD), Umbenennungen mit weiterlaufenden Abschlüssen (36)
-    und Titel mit einem Monatssprung über das Neunfache oder unter ein Zwanzigstel (247, Datenfehler oder Umtausch). Danach: Gesamtrendite
-    +562 % → **+391 %** (p. a. 20,7 % → 17,1 %), Güte 0,77 → 0,60, schwaches Viertel 0,35 → 0,22, größter Rückgang −34 % → −42 %,
-    Median der Fensterrendite +67 % → +66 %, Fenster besser in 34 %. Gekauft wurden fünf eingestellte Titel: Bed Bath & Beyond (14,6 %,
-    −46 % und −52 %), Tupperware (−34 %), PDL BioPharma (−7 %), GreenSky (+36 %), Shell Midstream (+48 %).
-  - **Lesart:** Der Survivorship-Effekt ist groß: −170 bis −230 Prozentpunkte Gesamtrendite je nach Bereinigung (+335 % roh, +391 %
-    bereinigt), Güte −0,17 bis −0,20. Die Regel „Sprung über das Neunfache“ wirft zehn Prozent der Titel hinaus, auch echte (etwa
-    Waddell & Reed); die Spanne bildet diese Unsicherheit ab. Die Zahl der Titel, die den Abstand erzeugen, ist klein (wenige
-    Einstellungen mit großem Gewicht), also ist auch die Aussagekraft begrenzt. Einstellungsabschläge gab es keine, `--einstellung`
-    wirkt daher nicht. Offen: die Stufe unter 20 Mio. USD, eine Prüfung der Sprungregel von Hand an einer Stichprobe, und die Frage,
-    ob die Strategie den Effekt abfedern soll (Obergrenze je Titel, Mindestqualität). Entscheidungen zur Strategie bleiben im
+    und Kursfehler (93: bereinigter Kurs springt auf mehr als das Neunfache, meist ein nicht angepasster Reverse Split; Sprung oder
+    Absturz nur im bereinigten, nicht im rohen Kurs; Absturz im Verhältnis eines Splits). Danach: Gesamtrendite +562 % → **+315 %**
+    (p. a. 20,7 % → 15,2 %), Güte 0,77 → 0,54, schwaches Viertel 0,35 → 0,22, größter Rückgang −34 % → −41 %, Median der
+    Fensterrendite +67 % → +66 % (Differenz der Fenster im Median −22 Punkte), Fenster besser in 17 %. Gekauft wurden sieben
+    eingestellte Titel: Bed Bath & Beyond (14,6 %, −46 % und −52 %), Tupperware (−34 %), PDL BioPharma (−7 %), Cosan (−31 % und
+    −99 %), Waddell & Reed (+32 %), GreenSky (+36 %), Shell Midstream (+48 %).
+  - **Prüfung der Sprungregel von Hand (40 Stichproben der ersten Fassung):** Die erste Fassung (jeder Monat über das Neunfache oder
+    unter ein Zwanzigstel) schloss auch echte Gescheiterte aus (Absturz ohne Split: Jones Energy, Key Energy, Vertex Energy,
+    SPAC-Abwicklungen) und richtig bereinigte Reverse Splits (roher Kurs springt, bereinigter nicht); das hätte den Effekt
+    unterschätzt (+391 %). Die jetzige Fassung lässt echte Abstürze drin.
+  - **Bleibende Unschärfe:** Ein Absturz auf fast null ohne Split kann eine Insolvenz sein oder ein Umtausch, bei dem die Reihe den
+    Rest am Freiverkehr weiterführt (Cosan: −99 % im März 2021, tatsächlich Umtausch in die Aktie der Muttergesellschaft). Der Rückblick
+    kann beides nicht unterscheiden; Cosan zählt hier als Totalverlust und drückt das Ergebnis um einen unbekannten, kleinen
+    zweistelligen Betrag in Prozentpunkten. Der Einstellungsgrund (Insolvenz, Übernahme, Umtausch) fehlt in den Daten.
+  - **Lesart:** Der Survivorship-Effekt ist groß: −170 bis −250 Prozentpunkte Gesamtrendite (+391 % mit der groben ersten Regel,
+    +315 % mit der jetzigen; +335 % roh), Güte −0,17 bis −0,23. Wenige Einstellungen mit großem Gewicht erzeugen ihn; die Aussagekraft
+    ist begrenzt. Einstellungsabschläge gab es keine, `--einstellung` wirkt daher nicht. Offen: die Stufe unter 20 Mio. USD und die
+    Frage, ob die Strategie den Effekt abfedern soll (Obergrenze je Titel, Mindestqualität). Entscheidungen zur Strategie bleiben im
     Kreislauf von STRATEGIE.md (Offene Fragen, Änderungsprotokoll).
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
