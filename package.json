@@ -21,6 +21,7 @@
     "compact": "node scripts/compact.ts",
     "import:isin": "node --env-file-if-exists=.env.local scripts/import-isin.ts",
     "import:history": "node --env-file-if-exists=.env.local scripts/import-history.ts",
+    "import:delisted": "node --env-file-if-exists=.env.local scripts/import-delisted.ts",
     "migrate": "node scripts/migrate.ts",
     "backup": "node scripts/backup.ts",
     "judge": "node --env-file-if-exists=.env.local scripts/judge.ts",

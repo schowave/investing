@@ -104,6 +104,8 @@ async function collectSymbols(ctx: JobContext, request: StockpileRequest, token:
 export async function importStockpile(ctx: JobContext, request: StockpileRequest): Promise<JobResult> {
   const token = requireToken(ctx);
   const names = await collectSymbols(ctx, request, token);
+  // Ein Kürzel, das einem eingestellten Titel gehört (Survivorship-Daten), darf nicht von einem neuen Listing überschrieben werden.
+  for (const id of ctx.db.delistedStockIds()) names.delete(id);
   const known = ctx.db.stockIdsWithRawDocument(FUNDAMENTALS_KIND);
   const wanted = request.refreshAll
     ? [...new Set([...known, ...names.keys()])].sort()

@@ -99,7 +99,7 @@ export function runBacktest(
     };
   };
 
-  const stocks = db.stocks({ includeStockpile: true });
+  const stocks = db.stocks({ includeStockpile: true, includeDelisted: true });
   const set = buildCandidates(stocks, load, rebalanceMonths, { fx: deps.fx, inflationGap, minCapEur: options.minCapEur, last });
   const quoteCurrency = new Map(stocks.map((s) => [s.id, s.priceCurrency]));
   // Als eingestellt gilt nur, wessen Tageskurse auch aufhören; läuft nur die Monatsreihe nicht weiter, ist der Titel nicht tot.

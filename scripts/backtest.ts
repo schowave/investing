@@ -9,6 +9,7 @@
 //           --jaehrlich          nur einmal im Jahr umschichten
 //           --zufall 200         Läufe der Zufallsgegenprobe (0 schaltet sie ab)
 //           --fenster 36         Länge der rollenden Fenster in Monaten
+//           --einstellung 0.5    Verlust, der drei Monate nach dem Ende einer Kursreihe angesetzt wird (0 bis 1; Standard 0,5)
 //           --ohne-index         ohne Vergleichsindex (kein Abruf bei Yahoo)
 //           --feste-zinsen       Hürde und Bargeldzins fest (Anleiherendite von heute, 3,4 %) statt Zinsverlauf der EZB je Stichtag
 //           --neu-laden          Wechselkurse, Zinsen und Index neu abrufen (sonst gilt der Stand von heute)
@@ -45,7 +46,7 @@ function fail(message: string): never {
 }
 
 // Unbekannte Optionen und fehlende Werte laut ablehnen: ein Tippfehler darf keinen Lauf mit Standardwerten ergeben.
-const VALUE_FLAGS = ["name", "start", "profil", "tausch", "zufall", "fenster", "vergleich"];
+const VALUE_FLAGS = ["name", "start", "profil", "tausch", "zufall", "fenster", "vergleich", "einstellung"];
 const SWITCHES = ["jaehrlich", "ohne-index", "neu-laden", "feste-zinsen"];
 if (args[0] !== "vergleich") {
   for (let i = 0; i < args.length; i++) {
@@ -95,6 +96,7 @@ const Options = z.object({
   tausch: z.coerce.number().min(0).max(0.2).optional(),
   zufall: z.coerce.number().int().min(0).max(5000).default(DEFAULT_OPTIONS.randomRuns),
   fenster: z.coerce.number().int().min(12).max(120).default(DEFAULT_OPTIONS.windowMonths),
+  einstellung: z.coerce.number().min(0).max(1).default(DEFAULT_OPTIONS.delistLoss),
 });
 const parsed = Options.safeParse({
   name: value("name"),
@@ -103,6 +105,7 @@ const parsed = Options.safeParse({
   tausch: value("tausch"),
   zufall: value("zufall"),
   fenster: value("fenster"),
+  einstellung: value("einstellung"),
 });
 if (!parsed.success) fail(`Ungültige Option: ${parsed.error.issues.map((i) => `--${String(i.path[0])}: ${i.message}`).join("; ")}`);
 const cli = parsed.data;
@@ -200,6 +203,7 @@ const result = runBacktest(
     every: flag("jaehrlich") ? 4 : 1,
     randomRuns: cli.zufall,
     windowMonths: cli.fenster,
+    delistLoss: cli.einstellung,
     hurdle: bondYield ?? 0.03,
   },
   { name: cli.name, fx, benchmark, rates },

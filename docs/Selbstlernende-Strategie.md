@@ -135,6 +135,14 @@ nächste beginnt.
     8.230 Titel mit Reihe ab 2016 und mindestens zwölf Monaten Kursen kämen rund 2.400 über die Schwelle; mit 20 Mio. USD als Grenze
     würden etwa 1.700 davon (70 %) mit rund 3.400 Titeln (34.000 Aufrufe) erfasst, mit 1 Mio. etwa 2.200 (93 %) mit rund 6.000 Titeln
     (60.000 Aufrufe). Der Abruf läuft deshalb nach fallendem Umsatz in Stufen und lässt sich nach jeder Stufe beenden.
+  - **Pilot mit den 500 umsatzstärksten (23.11.2026, auf einer Kopie der Datenbank, 4.836 Abrufe):** Von 500 Titeln waren 97 Symbole
+    schon an lebende Titel vergeben (Umbenennungen und neue Listings; sie fehlen), 89 hatten keine Jahresabschlüsse, 314 wurden
+    geladen. Davon wurden im Rückblick 87 Kandidaten und genau einer gekauft (L Brands, ab Oktober 2019, 11,5 %): eine Umbenennung
+    (heute Bath & Body Works), keine echte Einstellung. Gesamtrendite +562 % → +592 %, Güte 0,77 → 0,79, Fenstermedian der Rendite
+    +67 % → +70 %, Umschlag unverändert. Es gab keinen einzigen Einstellungsabschlag, `--einstellung 0` und `1` liefern daher dasselbe.
+    Lesart: Für die umsatzstärksten Einstellungen ist der Survivorship-Effekt in dieser Messung nicht sichtbar, weil die
+    Strategie sie nicht auswählte; das ist **kein Beleg für Entwarnung**, denn 87 von 3.374 Titeln der Stufe sind geladen und die
+    Abschlüsse vieler Gescheiterter fehlen oder sind unvollständig.
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
     sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis

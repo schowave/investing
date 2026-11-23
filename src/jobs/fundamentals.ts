@@ -33,11 +33,18 @@ function isCedear(symbol: string, country: string): boolean {
  * Den Firmensitz überschreibt er nur im Datenvorrat; auf der Watchlist kann er von Hand gesetzt sein.
  * @throws NoAnnualReportsError, bevor etwas gespeichert ist.
  */
-export function ingestFundamentals(db: Database, symbol: string, raw: string, options: { keepRaw: boolean }): EodhdFundamentals {
+export function ingestFundamentals(
+  db: Database,
+  symbol: string,
+  raw: string,
+  options: { keepRaw: boolean; delistedOn?: string },
+): EodhdFundamentals {
   const parsed = parseEodhdFundamentals(JSON.parse(raw));
   if (parsed.years.length === 0) throw new NoAnnualReportsError();
   const derived = stockFromEodhd(symbol, parsed);
   db.addStockIfMissing(derived);
+  // Gleich nach dem Anlegen kennzeichnen: Ein Abbruch danach darf keinen lebenden Titel ohne Kurse hinterlassen.
+  if (options.delistedOn) db.setDelistedOn(symbol, options.delistedOn);
   db.setSeatInStockpile(symbol, derived.country, derived.region);
   if (parsed.foundedYear !== null) db.setFoundedYearIfMissing(symbol, parsed.foundedYear);
   const securityType = isCedear(symbol, derived.country) ? CEDEAR : parsed.securityType;

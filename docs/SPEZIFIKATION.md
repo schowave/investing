@@ -397,6 +397,11 @@ Verfahren:
    ein Monatsbalken, gilt der letzte davor. Endet eine Monatsreihe, bevor der Zeitraum zu Ende ist, und laufen auch die
    Tageskurse nicht weiter, wird im dritten Monat ohne Kurs ein Verlust von 50 % angesetzt (Annahme: Einstellung). Eine
    Übernahme gegen bar zählt damit ebenfalls als Verlust; die Zahl der Abschläge steht im Bericht.
+   Der Verlust ist mit `--einstellung` einstellbar (0 bis 1). Eingestellte Titel, die `pnpm run import:delisted` geladen hat
+   (Spalte `stocks.delisted_on`, Kurse, Abschlüsse, Dividenden und Splits wie bei lebenden Titeln), lädt der Rückblick mit
+   (`db.stocks({ includeDelisted: true })`); Abgleich, Bewertung, Suche und Titelsuche im Datenvorrat überspringen sie. Der Import
+   liest die Monatskurse aus `survivorship/monthly-prices.jsonl` neben der Datenbank, wählt nach Umsatz und Ende der Reihe
+   (`src/data/delisted.ts`), braucht 12 Abrufe je Titel und lässt dem Abgleich die Reserve (`SYNC_RESERVE`).
 7. Umschlag ist zweiseitig gemessen (Käufe plus Verkäufe, als Anteil des Depots; ein voller Austausch zählt 200 %). Die Kosten
    gelten je Handelsumsatz in diesem Sinn. Der Bericht nennt außerdem die Zahl der Ausreißer (Positionsmonate über +100 % oder
    unter −60 %), die Gründe für übersprungene Titel und die Hürde des Laufs.

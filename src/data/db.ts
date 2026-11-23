@@ -54,6 +54,8 @@ export interface Stock {
   gicSector?: string | null;
   /** Art des Wertpapiers laut Anbieter, z. B. "Common Stock"; `null`, wenn unbekannt. */
   securityType?: string | null;
+  /** Letzter Kurstag eines eingestellten Titels; nur der Rückblick (`includeDelisted`) kennt solche Titel. */
+  delistedOn?: string | null;
 }
 
 export interface Price {
@@ -252,6 +254,7 @@ function toStock(r: StockRow): Stock {
     watched: r.watched,
     gicSector: r.gicSector,
     securityType: r.securityType,
+    delistedOn: r.delistedOn,
   };
 }
 
@@ -300,12 +303,20 @@ export class Database {
     this.#db.insert(t.stocks).values(stock).onConflictDoNothing().run();
   }
 
-  /** Ohne Angabe nur die Watchlist; mit `includeStockpile` auch der Datenvorrat. */
-  stocks(options: { includeStockpile?: boolean } = {}): Stock[] {
+  /**
+   * Ohne Angabe nur die Watchlist; mit `includeStockpile` auch der Datenvorrat. Eingestellte Titel (Survivorship-Daten für den
+   * Rückblick) gehören nicht zum Datenvorrat und kommen nur mit `includeDelisted`, damit Abgleich und Bewertung sie überspringen.
+   */
+  stocks(options: { includeStockpile?: boolean; includeDelisted?: boolean } = {}): Stock[] {
     return this.#db
       .select()
       .from(t.stocks)
-      .where(options.includeStockpile ? undefined : eq(t.stocks.watched, true))
+      .where(
+        and(
+          options.includeStockpile ? undefined : eq(t.stocks.watched, true),
+          options.includeDelisted ? undefined : isNull(t.stocks.delistedOn),
+        ),
+      )
       .orderBy(t.stocks.id)
       .all()
       .map(toStock);
@@ -314,6 +325,17 @@ export class Database {
   stock(id: string): Stock | null {
     const row = this.#db.select().from(t.stocks).where(eq(t.stocks.id, id)).get();
     return row ? toStock(row) : null;
+  }
+
+  /** Symbole der eingestellten Titel (Survivorship-Daten); ein neues Listing mit gleichem Kürzel darf sie nicht überschreiben. */
+  delistedStockIds(): Set<string> {
+    const rows = this.#db.select({ id: t.stocks.id }).from(t.stocks).where(sql`${t.stocks.delistedOn} IS NOT NULL`).all();
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /** Kennzeichnet einen Titel als eingestellt (letzter Kurstag). */
+  setDelistedOn(id: string, date: string): void {
+    this.#db.update(t.stocks).set({ delistedOn: date }).where(eq(t.stocks.id, id)).run();
   }
 
   /** Nimmt eine Aktie auf die Watchlist oder legt sie zurück in den Datenvorrat. */
@@ -328,7 +350,7 @@ export class Database {
     return this.#db
       .select({ stock: t.stocks, fiscalYears: sql<number>`(${fiscalYears})` })
       .from(t.stocks)
-      .where(or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern)))
+      .where(and(isNull(t.stocks.delistedOn), or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern))))
       .orderBy(desc(t.stocks.watched), t.stocks.name)
       .limit(limit)
       .all()
@@ -788,6 +810,7 @@ export class Database {
   #screeningWhere(filter: ScreeningFilter, ...extra: (SQL | undefined)[]): SQL | undefined {
     const pattern = filter.query ? containing(filter.query) : null;
     return and(
+      isNull(t.stocks.delistedOn),
       or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")),
       filter.region ? eq(t.stocks.region, filter.region) : undefined,
       pattern ? or(likeEscaped(t.stocks.name, pattern), likeEscaped(t.stocks.id, pattern)) : undefined,
@@ -896,7 +919,7 @@ export class Database {
       })
       .from(t.stocks)
       .leftJoin(t.screening, eq(t.screening.stockId, t.stocks.id))
-      .where(or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock")))
+      .where(and(isNull(t.stocks.delistedOn), or(isNull(t.stocks.securityType), eq(t.stocks.securityType, "Common Stock"))))
       .all();
     const groups = new Map<string, CoverageRow>();
     for (const row of rows) {
@@ -915,6 +938,7 @@ export class Database {
     return this.#db
       .selectDistinct({ region: t.stocks.region })
       .from(t.stocks)
+      .where(isNull(t.stocks.delistedOn))
       .orderBy(asc(t.stocks.region))
       .all()
       .map((r) => r.region);

@@ -24,6 +24,8 @@ export const stocks = sqliteTable(
     gicSector: text("gic_sector"),
     /** ISIN laut Anbieter oder aus der Aufnahme über die ISIN; ordnet Positionen aus dem Depot zu. Mehrere Notizen können sie teilen. */
     isin: text("isin"),
+    /** Letzter Kurstag eines eingestellten Titels (Übernahme, Insolvenz, Rückzug). Nur der Rückblick lädt solche Titel; Abgleich und Bewertung überspringen sie. */
+    delistedOn: text("delisted_on"),
   },
   (t) => [index("stocks_isin").on(t.isin)],
 );
