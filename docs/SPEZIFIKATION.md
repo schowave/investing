@@ -130,6 +130,10 @@ Regeln:
   vier Quartale mehr als 15 % unter der Gewinnschätzung lagen oder der Umsatz des letzten Quartals mindestens 15 % unter dem
   Vorjahresquartal liegt (nicht bei Finanzwerten). Das ist nur ein Hinweis, kein Abzug und nicht Teil der Strategie
   (`src/judgement/situation.ts`).
+- Bewertungen von außen, etwa durch ein Modell wie Opus: `pnpm run bewertung:dossier` schreibt je Aktie alles, was zur
+  Bewertung gehört, als JSON; `pnpm run bewertung:setzen` übernimmt Ergebnisdateien als Werte von Hand (Notiz
+  „Opus-Einschätzung“), mit derselben Prüfung wie die Aktienseite und passender Berichtswährung, und rechnet danach Datenvorrat
+  und Portfolios neu (`src/valuation/assessmentFile.ts`; Ablauf im Skill `.claude/skills/opus-bewertung`).
 
 ## 4. Daten
 
