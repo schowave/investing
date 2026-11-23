@@ -1211,18 +1211,20 @@ Ergebnis eines Laufs, kein Parameter).
 Diese Werte gehören nicht zu den Regeln der Strategie, beeinflussen aber, welche Titel die Anwendung und der Rückblick
 überhaupt betrachten. Sie werden wie 10.1 geprüft.
 
-| Schlüssel                    | Wert       | Wofür                                                                                                                                                       |
-| ---------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `plausibilitaet.rueckfluss`  | 30 %       | Rückflussniveau über diesem Anteil des Kurses gilt als Datenfehler: Ausschluss im Rückblick, Arm „zahlen“ und Datenbestand; Warnung bei beobachteten Titeln |
-| `plausibilitaet.kurs_gewinn` | 2-fach     | Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler, ebenso                                                                                 |
-| `handwert.wachstum_min`      | −20 %      | Kleinstes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                        |
-| `handwert.wachstum_max`      | 30 %       | Größtes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                          |
-| `rueckblick.marktwert`       | 300 Mio. € | Mindestmarktwert eines Titels im Rückblick und im Arm „zahlen“                                                                                              |
-| `rueckblick.kosten`          | 0,25 %     | Kosten je Handelsumsatz im Rückblick                                                                                                                        |
-| `rueckblick.bargeldzins`     | 3,4 %      | Verzinsung des Bargelds im Rückblick, wenn kein Zinsverlauf der EZB gilt (`--feste-zinsen` oder fehlender Wert)                                             |
-| `rueckblick.einstellung`     | 50 %       | Verlust, der für eine eingestellte Kursreihe angesetzt wird                                                                                                 |
-| `rueckblick.zufallslaeufe`   | 200 Läufe  | Läufe der Zufallsauswahl                                                                                                                                    |
-| `rueckblick.fenster`         | 36 Monate  | Länge der rollenden Fenster                                                                                                                                 |
+| Schlüssel                    | Wert       | Wofür                                                                                                                                                                                              |
+| ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plausibilitaet.rueckfluss`  | 30 %       | Rückflussniveau über diesem Anteil des Kurses gilt als Datenfehler: Ausschluss im Rückblick, Arm „zahlen“ und Datenbestand; Warnung bei beobachteten Titeln, entfällt bei Rückflussniveau von Hand |
+| `plausibilitaet.kurs_gewinn` | 2-fach     | Kurs unter diesem Vielfachen des Gewinnniveaus gilt als Datenfehler, ebenso                                                                                                                        |
+| `plausibilitaet.aktienzahl`  | 3-fach     | Springt die Aktienzahl um mindestens dieses Vielfache und später ungefähr zurück, gilt das als Datenfehler; nur Warnung der Anwendung, nicht im Rückblick (11.19)                                  |
+| `plausibilitaet.kursalter`   | 30 Tage    | Kurs, der so weit hinter dem jüngsten Kurs seiner Börse liegt, gilt im Datenbestand als veraltet (meist ein umbenanntes Kürzel)                                                                    |
+| `handwert.wachstum_min`      | −20 %      | Kleinstes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                                                               |
+| `handwert.wachstum_max`      | 30 %       | Größtes Wachstum, das von Hand eingegeben werden kann (Euro-Kaufkraft); Eingabeschutz, keine Regel                                                                                                 |
+| `rueckblick.marktwert`       | 300 Mio. € | Mindestmarktwert eines Titels im Rückblick und im Arm „zahlen“                                                                                                                                     |
+| `rueckblick.kosten`          | 0,25 %     | Kosten je Handelsumsatz im Rückblick                                                                                                                                                               |
+| `rueckblick.bargeldzins`     | 3,4 %      | Verzinsung des Bargelds im Rückblick, wenn kein Zinsverlauf der EZB gilt (`--feste-zinsen` oder fehlender Wert)                                                                                    |
+| `rueckblick.einstellung`     | 50 %       | Verlust, der für eine eingestellte Kursreihe angesetzt wird                                                                                                                                        |
+| `rueckblick.zufallslaeufe`   | 200 Läufe  | Läufe der Zufallsauswahl                                                                                                                                                                           |
+| `rueckblick.fenster`         | 36 Monate  | Länge der rollenden Fenster                                                                                                                                                                        |
 
 ## 11. Offene Fragen
 
@@ -1355,8 +1357,9 @@ Stabilus ergab das einen Vorschlag rund 14-mal so hoch wie der tatsächliche Rü
 Aktienzahl im Fenster um mindestens 0,5 % sinkt, werden solche Titel nicht mehr nach oben gereiht, ohne dass echte Rückkäufer
 verloren gehen. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom 23.11.2026): Der Rückblick wurde in 86 % der Fenster
 schlechter. Vermutlich führt der Anbieter die Aktienzahl oft über Jahre unverändert, sodass die Probe auch echte Rückkäufe
-streicht. Ebenso verworfen: ein Sprung der Aktienzahl ohne Split als Ausschluss im Rückblick; er bleibt eine Warnung der
-Anwendung (Spezifikation 4.1).
+streicht. Ebenso verworfen: ein Sprung der Aktienzahl ohne Split (1,8-fach) als Ausschluss im Rückblick. Als Warnung der
+Anwendung bleibt nur der Fall, dass die Aktienzahl zeitweise die Stückelung wechselt (`plausibilitaet.aktienzahl`, 10.3;
+Spezifikation 4.1).
 
 ### 11.20 Dividenden nach Zahlungsjahr
 

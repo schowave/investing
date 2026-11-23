@@ -35,11 +35,15 @@ for (const target of targets) {
     failed++;
     continue;
   }
-  const { fields, errors, stockId } = parseAssessment(
-    JSON.parse(readFileSync(join(dir, `${file}.opus.json`), "utf8")),
-    stock.reportingCurrency,
-    inflationGapOf(db, stock).gap,
-  );
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(join(dir, `${file}.opus.json`), "utf8"));
+  } catch (error) {
+    console.log(`nicht  ${id}  ${file}.opus.json: ${error instanceof Error ? error.message : String(error)}`);
+    failed++;
+    continue;
+  }
+  const { fields, errors, stockId } = parseAssessment(raw, stock.reportingCurrency, inflationGapOf(db, stock).gap);
   if (stockId !== "" && stockId !== id && file === id) errors.push(`Datei gehört zu ${stockId}`);
   if (errors.length > 0) {
     console.log(`nicht  ${id}  ${errors.join("; ")}`);

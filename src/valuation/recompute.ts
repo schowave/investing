@@ -36,16 +36,22 @@ function olderCalcToday(db: Database, stockId: string, date: string): boolean {
   return baseline !== null && baseline.calcVersion !== CALC_VERSION;
 }
 
-/** @param date ISO-Datum der Tagesstände, z. B. 2026-11-19. */
-/** Älter als so viele Tage gilt ein Kurs im Datenvorrat als veraltet (`plausibilitaet.kursalter`, Spezifikation 4.1). */
-const MAX_PRICE_AGE_DAYS = 30;
+/** Älter als so viele Tage gilt ein Kurs im Datenvorrat als veraltet (`plausibilitaet.kursalter`, Strategie 10.3). */
+export const MAX_PRICE_AGE_DAYS = 30;
 
-/** Kurs fehlt nicht, ist aber älter als `MAX_PRICE_AGE_DAYS` vor dem Stichtag. */
-export function stalePrice(priceDate: string | null, date: string): boolean {
-  if (priceDate === null) return false;
-  return (Date.parse(date) - Date.parse(priceDate)) / 86_400_000 > MAX_PRICE_AGE_DAYS;
+/**
+ * Kurs fehlt nicht, liegt aber mehr als `MAX_PRICE_AGE_DAYS` hinter dem jüngsten Kurs derselben Börse. Gemessen an der Börse,
+ * nicht am Kalender: Lädt der Abgleich den Datenvorrat eine Weile nicht (Budget) oder ist die Datenbank eine ältere Kopie,
+ * veralten alle Kurse einer Börse gemeinsam und gelten nicht als Datenfehler.
+ */
+export function stalePrice(priceDate: string | null, newestOnExchange: string | undefined): boolean {
+  if (priceDate === null || newestOnExchange === undefined) return false;
+  return (Date.parse(newestOnExchange) - Date.parse(priceDate)) / 86_400_000 > MAX_PRICE_AGE_DAYS;
 }
 
+const exchangeOf = (stockId: string) => stockId.slice(stockId.lastIndexOf(".") + 1);
+
+/** @param date ISO-Datum der Tagesstände, z. B. 2026-11-19. */
 export function recomputeAll(db: Database, date: string): RecomputeReport {
   const held = new Set<string>();
   for (const portfolio of db.portfolios()) for (const id of db.holdings(portfolio.id).keys()) held.add(id);
@@ -76,10 +82,16 @@ export function recomputeAll(db: Database, date: string): RecomputeReport {
       growth: valuation.inputs.growth ?? null,
       riskScore: valuation.riskScore,
       innerReturn: valuation.returns?.base ?? null,
-      // Ein Kurs, der seit Wochen nicht kommt, gehört oft zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR 2026).
-      implausible: doubtfulNumbers(valuation, proposals) !== null || stalePrice(priceDate, date),
+      implausible: doubtfulNumbers(valuation, proposals) !== null,
     });
   }
+  // Ein Kurs, der seit Wochen nicht kommt, gehört oft zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR 2026).
+  const newest = new Map<string, string>();
+  for (const row of screening) {
+    const exchange = exchangeOf(row.stockId);
+    if (row.priceDate && row.priceDate > (newest.get(exchange) ?? "")) newest.set(exchange, row.priceDate);
+  }
+  for (const row of screening) if (stalePrice(row.priceDate, newest.get(exchangeOf(row.stockId)))) row.implausible = true;
   db.saveScreening(screening);
   report.screened = screening.filter((r) => r.innerReturn !== null).length;
   try {

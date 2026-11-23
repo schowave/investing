@@ -582,8 +582,8 @@ describe("doubtfulNumbers", () => {
     expect(doubtfulNumbers(evaluate({ ...proposals.values, payoutLevel: 1 }, {}, 40), proposals)).toBe(
       "Aktienzahl springt 2019 um den Faktor 5,0 und später zurück: andere Stückelung in einem Teil der Jahre.",
     );
-    // Mit einem Rückflussniveau von Hand hat ein Mensch die Stückelung geprüft.
-    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 1 }, 40), proposals)).toBeNull();
+    // Ein Rückflussniveau von Hand behebt die übrigen Werte je Aktie nicht: Die Warnung bleibt.
+    expect(doubtfulNumbers(evaluate(proposals.values, { payoutLevel: 1 }, 40), proposals)).toMatch(/^Aktienzahl springt/);
     // Echte Kapitalmaßnahmen kehren nicht zurück; kleinere Sprünge zählen nicht.
     expect(shareJump(steadyYears((y) => (y.shares = y.fiscalYear >= 2023 ? 500 : 100)))).toBeNull();
     expect(shareJump(steadyYears((y) => (y.shares = y.fiscalYear === 2021 ? 250 : 100)))).toBeNull();

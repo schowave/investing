@@ -180,18 +180,15 @@ export function splitBasis(
   return "unknown";
 }
 
-/** Ab diesem Faktor von einem Jahr aufs nächste zählt ein Sprung der Aktienzahl für die Prüfung (Spezifikation 4.1). */
-const MIN_SHARE_JUMP = 3;
+/** Ab diesem Faktor von einem Jahr aufs nächste zählt ein Sprung der Aktienzahl (`plausibilitaet.aktienzahl`, Strategie 10.3). */
+export const MIN_SHARE_JUMP = 3;
 
 /**
  * Erster Sprung der Aktienzahl um mindestens `MIN_SHARE_JUMP`, auf den später ein Sprung zurück folgt (beide zusammen
  * ungefähr Faktor 1): Die Reihe wechselt zeitweise die Stückelung (Aktien statt Hinterlegungsscheine, Tausender), ein
  * Datenfehler (XYF, NLB). Echte Kapitalmaßnahmen und Gratisaktien kehren nicht zurück und fallen nicht darunter.
  */
-export function shareJump(
-  years: readonly { fiscalYear: number; shares: number | null }[],
-  _splits: readonly { date: string; ratio: number }[] = [],
-): { fiscalYear: number; factor: number } | null {
+export function shareJump(years: readonly { fiscalYear: number; shares: number | null }[]): { fiscalYear: number; factor: number } | null {
   const jumps: { fiscalYear: number; ratio: number }[] = [];
   for (let i = 1; i < years.length; i++) {
     const before = years[i - 1]!.shares;
@@ -836,11 +833,12 @@ function implausibleReason(price: number | null, payoutLevel: number | undefined
 export function doubtfulNumbers(valuation: Valuation, proposals: Proposals): string | null {
   const split = proposals.details.unadjustedSplit;
   if (split) return `Aktiensplit vom ${split.date} ist in den Zahlen nicht bereinigt.`;
-  if (valuation.manual.includes("payoutLevel")) return null;
+  // Wie der Split ein Fehler der Reihe selbst: Ein Rückflussniveau von Hand behebt die übrigen Werte je Aktie nicht.
   const jump = proposals.details.shareJump;
   if (jump) {
     return `Aktienzahl springt ${jump.fiscalYear} um den Faktor ${jump.factor.toFixed(1).replace(".", ",")} und später zurück: andere Stückelung in einem Teil der Jahre.`;
   }
+  if (valuation.manual.includes("payoutLevel")) return null;
   return implausibleReason(valuation.price, valuation.inputs.payoutLevel, proposals.details.earningsLevel);
 }
 

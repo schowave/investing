@@ -216,9 +216,11 @@ und ein Aktiensplit, um den die Zahlen je Aktie offenbar nicht bereinigt sind.
   ungefähr zurück (Datenfehler; XYF, NLB; echte Kapitalmaßnahmen und Gratisaktien kehren nicht zurück und zählen nicht), und
   ein Split nach dem letzten Abschluss, solange nicht
   erkennbar ist, ob dessen Zahlen bereinigt sind (Sandisk 2026; nur in der Anwendung, der Rückblick überspringt solche Monate
-  selbst). Im Datenvorrat gilt zusätzlich ein Kurs als unbrauchbar, der älter als 30 Tage ist (`MAX_PRICE_AGE_DAYS`); meist
-  gehört er zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR).
-- Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss, Kurs-Gewinn-Verhältnis und Aktienzahl: Wer es setzt, hat
+  selbst). Beide bleiben auch bei einem Rückflussniveau von Hand bestehen, weil es die übrigen Werte je Aktie nicht behebt.
+  Im Datenvorrat gilt zusätzlich ein Kurs als unbrauchbar, der mehr als 30 Tage hinter dem jüngsten Kurs seiner Börse liegt
+  (`plausibilitaet.kursalter`); meist gehört er zu einem umbenannten oder eingestellten Kürzel (ASGN → EFOR). Veralten alle
+  Kurse einer Börse gemeinsam (Abgleich ausgesetzt, ältere Kopie der Datenbank), gilt das nicht.
+- Ist das Rückflussniveau von Hand gesetzt, entfallen die Grenzen für Rückfluss und Kurs-Gewinn-Verhältnis: Wer es setzt, hat
   Kurs und Zahlen angesehen, und ein sehr niedriges KGV kann echt sein, wenn der Markt einen Gewinneinbruch erwartet (FinVolution
   nach dem Zinsdeckel 2025). Ein unbereinigter Split wird weiter gemeldet. Rückblick und Vorwärtsprotokoll rechnen ohne Werte von
   Hand und sind nicht betroffen.

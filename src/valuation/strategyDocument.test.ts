@@ -44,11 +44,12 @@ import {
 import { parseInflationForecasts } from "../data/reference.ts";
 import { FACTOR_QUESTIONS, JUDGED_FACTORS } from "../judgement/factors.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
+import { MAX_PRICE_AGE_DAYS } from "./recompute.ts";
 import { REVIEW_MONTHS, reviewOf } from "./review.ts";
 import { STRATEGY_VERSION } from "./run.ts";
 import { keyedValues, markdownTables, parseValue, prose, strategyHead, withoutHead } from "./strategyDocument.ts";
 import { MIN_MARKET_CAP_EUR } from "./universe.ts";
-import { growthInputBounds, MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS, proposeInputs } from "./valuation.ts";
+import { growthInputBounds, MAX_PAYOUT_YIELD, MIN_PRICE_TO_EARNINGS, MIN_SHARE_JUMP, proposeInputs } from "./valuation.ts";
 
 const docs = join(import.meta.dirname, "..", "..", "docs");
 const strategy = readFileSync(join(docs, "STRATEGIE.md"), "utf8");
@@ -101,7 +102,7 @@ const isoAfter = (date: string, months: number, days = 0) => {
   return d.toISOString().slice(0, 10);
 };
 
-type Unit = "%" | "Prozentpunkte" | "Jahre" | "Monate" | "-fach" | "Mrd. €" | "Mio. €" | "Läufe";
+type Unit = "%" | "Prozentpunkte" | "Jahre" | "Monate" | "Tage" | "-fach" | "Mrd. €" | "Mio. €" | "Läufe";
 interface Check {
   unit: Unit;
   check: (v: number) => void;
@@ -453,6 +454,8 @@ const CHECKS: Record<string, Check> = {
   // Werte der Umsetzung und des Rückblicks (10.3).
   "plausibilitaet.rueckfluss": { unit: "%", check: (v) => expect(MAX_PAYOUT_YIELD).toBe(v) },
   "plausibilitaet.kurs_gewinn": { unit: "-fach", check: (v) => expect(MIN_PRICE_TO_EARNINGS).toBe(v) },
+  "plausibilitaet.aktienzahl": { unit: "-fach", check: (v) => expect(MIN_SHARE_JUMP).toBe(v) },
+  "plausibilitaet.kursalter": { unit: "Tage", check: (v) => expect(MAX_PRICE_AGE_DAYS).toBe(v) },
   "handwert.wachstum_min": { unit: "%", check: (v) => close(growthInputBounds(0).min / 100, v) },
   "handwert.wachstum_max": { unit: "%", check: (v) => close(growthInputBounds(0).max / 100, v) },
   "rueckblick.marktwert": {

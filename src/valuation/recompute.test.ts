@@ -36,16 +36,20 @@ function prepared() {
 }
 
 describe("veralteter Kurs im Datenvorrat", () => {
-  it("gilt nach mehr als 30 Tagen ohne Kurs als unbrauchbar", () => {
+  it("gilt mehr als 30 Tage hinter dem jüngsten Kurs derselben Börse als unbrauchbar", () => {
     expect(stalePrice("2026-10-20", "2026-11-19")).toBe(false);
     expect(stalePrice("2026-10-19", "2026-11-19")).toBe(true);
     expect(stalePrice(null, "2026-11-19")).toBe(false);
+    expect(stalePrice("2026-10-19", undefined)).toBe(false);
     const db = prepared();
     db.addStockIfMissing({ ...stock, id: "ALT.US", watched: false });
     db.saveFundamentals("ALT.US", steadyYears(), "eodhd");
     db.saveRawCloses("ALT.US", [{ date: "2026-06-18", close: 40 }]);
     recomputeAll(db, "2026-11-19");
     expect(db.screening({}, 10, 0).map((r) => r.stock.id)).not.toContain("ALT.US");
+    // Veralten alle Kurse einer Börse gemeinsam (Abgleich ausgesetzt, alte Kopie), ist das kein Datenfehler.
+    recomputeAll(db, "2027-03-01");
+    expect(db.screening({}, 10, 0).map((r) => r.stock.id)).toContain("VORRAT.US");
   });
 });
 

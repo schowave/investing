@@ -63,6 +63,7 @@ const UNITS: readonly [RegExp, string, number][] = [
   [/^-fach\b/, "-fach", 1],
   [/^Jahre?\b/, "Jahre", 1],
   [/^Monate?\b/, "Monate", 1],
+  [/^Tage?\b/, "Tage", 1],
   [/^Läufe?\b/, "Läufe", 1],
 ];
 

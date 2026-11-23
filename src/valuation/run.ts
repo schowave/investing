@@ -17,7 +17,7 @@ import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, propos
  * seit der Bewertung auch aus der neuen Rechnung kommen können. Ältere Tagesstände im Verlauf bleiben, wie sie gerechnet
  * wurden; an der Versionsgrenze kann der Verlauf deshalb springen.
  */
-export const CALC_VERSION = 9;
+export const CALC_VERSION = 10;
 
 /**
  * Version der Strategie, wie sie im Kopf von `docs/STRATEGIE.md` steht (ein Test vergleicht beide). Steigt bei jeder Änderung,
@@ -81,12 +81,16 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
   // Split nach dem letzten Abschluss: Der Kurs gilt schon nach dem Split, ob die Abschlüsse bereinigt sind, zeigt erst der
   // nächste. Bis dahin passen Werte je Aktie und Kurs womöglich nicht zusammen (Sandisk 2026: Faktor 8). Der Rückblick
   // überspringt solche Monate selbst (src/backtest/candidates.ts).
-  // Zeitweise andere Stückelung der Aktienzahl: nur eine Warnung der Anwendung (Spezifikation 4.1), nicht im Rückblick.
-  proposals.details.shareJump = shareJump(fundamentals.slice(-10));
+  // Warnungen nur der Anwendung (Spezifikation 4.1), nicht für Rückblick und Vorwärtsprotokoll (`manual: false`), weil sie dort
+  // das Ergebnis verschlechterten (Strategie 11.19). Zeitweise andere Stückelung der Aktienzahl:
+  const appChecks = options.manual !== false;
+  if (appChecks) proposals.details.shareJump = shareJump(fundamentals.slice(-10));
+  // Split ab dem Beginn des letzten Geschäftsjahrs, ohne Beleg, dass die Zahlen bereinigt sind. Ab Jahresbeginn statt
+  // Jahresende, weil das Geschäftsjahr nicht im Dezember enden muss; einen Split im Jahr selbst erkennt splitBasis als bereinigt.
   const lastYear = fundamentals.at(-1)?.fiscalYear;
-  if (!proposals.details.unadjustedSplit && lastYear !== undefined) {
+  if (appChecks && !proposals.details.unadjustedSplit && lastYear !== undefined) {
     const later = history.splits.find(
-      (s) => Math.abs(s.ratio - 1) >= 0.2 && s.date > `${lastYear}-12-31` && s.date <= date && splitBasis(fundamentals, s) !== "adjusted",
+      (s) => Math.abs(s.ratio - 1) >= 0.2 && s.date >= `${lastYear}-01-01` && s.date <= date && splitBasis(fundamentals, s) !== "adjusted",
     );
     if (later) {
       proposals.details.unadjustedSplit = later;
