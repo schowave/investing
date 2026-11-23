@@ -143,6 +143,21 @@ nächste beginnt.
     Lesart: Für die umsatzstärksten Einstellungen ist der Survivorship-Effekt in dieser Messung nicht sichtbar, weil die
     Strategie sie nicht auswählte; das ist **kein Beleg für Entwarnung**, denn 87 von 3.374 Titeln der Stufe sind geladen und die
     Abschlüsse vieler Gescheiterter fehlen oder sind unvollständig.
+  - **Ganze Stufe ab 20 Mio. USD (23.11.2026, Kopie der Datenbank, 34.932 Abrufe):** Von 3.374 Titeln waren 463 Symbole belegt, 471
+    ohne Abschlüsse, 2.440 wurden geladen (keine Fehler, keine Namensabweichung). Der Rückblick (Oktober 2016 bis November 2026)
+    fällt gegenüber dem Lauf ohne diese Titel deutlich: Gesamtrendite +562 % → +335 % (p. a. 20,7 % → 15,7 %), Güte 0,77 → 0,57,
+    schwaches Viertel 0,35 → 0,22, größter Rückgang −34 % → −42 %, Fenster besser in 24 %, Median der Fensterrendite +67 % → +66 %.
+    Der Median der Fenster hält fast; der Abstand kommt aus wenigen Zeiträumen und Titeln.
+  - **Was dahintersteckt:** Zehn der geladenen Titel wurden gekauft, einer davon mit 14,6 % (Bed Bath & Beyond, −46 % und −52 %).
+    Nicht alle sind echte Einstellungen: zwei sind Wertpapiere, die der Anbieter als Stammaktie führt, aber keine sind (RZB: Reinsurance
+    Group, DTY: DTE Energy, vermutlich Hybrid- oder Schuldtitel), L Brands ist eine Umbenennung mit doppelter Reihe (altes Kürzel),
+    Cosan (−99 % in einem Monat, Umtausch des ADR) ist vermutlich ein Datenartefakt. Echt sind Bed Bath & Beyond, Tupperware
+    (Insolvenz), PDL BioPharma, Waddell & Reed, GreenSky, Shell Midstream (Übernahme). Die Zahl +335 % ist also **nicht sauber**:
+    sie zeigt, dass der Effekt groß sein kann, nicht wie groß. Einstellungsabschläge gab es keine (die Strategie verkaufte vor dem
+    Ende der Reihe), `--einstellung 0` und `1` liefern daher dasselbe.
+  - **Vor einer belastbaren Zahl:** Titel bereinigen, die keine Stammaktien sind oder dieselbe Firma unter altem Kürzel führen
+    (Hybridtitel, Umbenennungen, ADR-Umtausch), und Ausreißer wie Cosan prüfen; dann den Lauf wiederholen. Die Stufe ab 5 Mio. USD
+    und die Entscheidung, ob die Strategie den Effekt abfedern soll (z. B. Obergrenze je Titel, Mindestqualität), kommen danach.
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
     sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis
