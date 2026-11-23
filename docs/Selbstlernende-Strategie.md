@@ -119,6 +119,14 @@ nächste beginnt.
   - **Stichprobe (200 zufällige Titel, 153 mit Antwort):** 75 % enden ab 2016, 43 % davon mit mindestens 5 Mio. USD Umsatz, 33 % mit
     mindestens 20 Mio. Hochgerechnet bleiben bei 20 Mio. etwa 5.400 Titel (bei 5 Mio. etwa 7.100). Die Enden verteilen sich über alle
     Jahre ab 2016, mit Häufung 2018 und 2021 bis 2023.
+  - **Ergebnis von Schritt A (23.11.2026, 16.618 Aufrufe, keine Fehler bei vier parallelen Anfragen):** 3.657 Titel haben keine Kurse ab
+    2005. Bei 9.496 endet die Reihe ab Januar 2016. Davon haben 5.529 mindestens 5 Mio. USD Monatsumsatz, 4.732 mindestens 10 Mio.,
+    3.853 mindestens 20 Mio. und 2.869 mindestens 50 Mio.; mit 20 Mio. ist die Hochrechnung der Stichprobe (5.400) also zu hoch
+    gewesen. Die Enden der ausgewählten 3.853 verteilen sich auf 2016 bis 2026, mit Häufung 2021 (830). Die Kurse liegen in
+    `data/survivorship/monthly-prices.jsonl` (37 MB, nicht in Git); sie sind die Grundlage für Schritt B.
+  - **Folge für Schritt B:** Mit 20 Mio. USD sind es rund 38.500 Aufrufe, eine Nacht. Die Umsatzschwelle ist noch nicht geeicht: In der
+    Datenbank fehlt das Volumen, die Eichung gegen den Marktwert gelingt erst mit den Abschlüssen. Deshalb zuerst eine Zufallsauswahl
+    von rund 150 Titeln über alle Umsatzstufen (etwa 1.500 Aufrufe), um zu sehen, ab welchem Umsatz der Marktwert 300 Mio. € erreicht.
   - **Schritt B, Abschlüsse, Dividenden, Splits (je Titel rund zehn Aufrufe):** In der Reihenfolge fallender Umsatz. Der erste Teil sind
     die 500 größten (rund 5.000 Aufrufe); danach `pnpm run backtest --vergleich` gegen den Stand ohne diese Titel. Der Rest verteilt
     sich auf höchstens 40.000 Aufrufe je Nacht neben dem Tagesabgleich; dessen Verbrauch ist vorher zu messen. Gesamt rund 70.000 bis
