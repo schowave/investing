@@ -7,7 +7,7 @@ import type { Stock } from "../data/db.ts";
 export const MIN_MARKET_CAP_EUR = 300e6;
 
 /** Schuldtitel und Hybridpapiere mit Kürzeln wie „JR SUB NT“, „PERP CAP SECS“, „ELKS“, die der Anbieter nicht als Anleihe erkennt. */
-const DEBT_LIKE = /\b(nt|sub|deb|perp|prp|elks|enhcd|subordinated|fixed|floating)\b/i;
+const DEBT_LIKE = /\b(nt|sub|deb|perp|prp|elks|enhcd|subordinated)\b/i;
 /** Vorzugsaktien tragen im Kürzel ein „-P“ oder „-PA“. */
 const PREFERRED_CODE = /-P[A-Z]?\.[A-Z]+$/;
 
@@ -21,8 +21,9 @@ export type DelistedArtefact = "wertpapier" | "kursfehler" | "fortgesetzt";
  *   bleibt, wie bei Papieren mit 25 USD Nennwert);
  * - `kursfehler`: ein Monatskurs, der nicht stimmen kann: der bereinigte Kurs springt auf mehr als das Neunfache (meist ein nicht
  *   angepasster Reverse Split), er springt über das Neunfache oder fällt unter ein Zwanzigstel, während der rohe Kurs ruhig bleibt
- *   (Fehler der Anpassung), oder er fällt auf unter die Hälfte im Verhältnis eines Splits (mindestens 2:1) in der Nähe (nicht
- *   angepasst). Ein echter Absturz ohne Split bleibt drin: Das sind die Gescheiterten, die der Rückblick braucht. Dass der rohe Kurs
+ *   (Fehler der Anpassung), oder roher und bereinigter Kurs fallen (Split ab 2:1) oder steigen (Reverse Split ab 1:2) gemeinsam im
+ *   Verhältnis eines Splits in der Nähe (nicht angepasst). Verglichen werden nur benachbarte Monate; ein echter Anstieg über das
+ *   Neunfache in einem Monat (Meme-Spitze) zählt als Fehler, das ist eine bekannte Unschärfe. Ein echter Absturz ohne Split bleibt drin: Das sind die Gescheiterten, die der Rückblick braucht. Dass der rohe Kurs
  *   springt und der bereinigte nicht (Reverse Split), ist richtig bereinigt und kein Fehler;
  * - `fortgesetzt`: Abschlüsse reichen mehr als ein Jahr über die Einstellung hinaus, das Unternehmen besteht unter anderem Kürzel
  *   weiter (Umbenennung) und steht dort schon.
@@ -47,20 +48,23 @@ export function delistedArtefact(
   }
   for (let i = 1; i < bars.length; i++) {
     const [prev, bar] = [bars[i - 1]!, bars[i]!];
+    // Nur benachbarte Monate vergleichen: Nach einer Lücke ist ein Anstieg kein Monatssprung.
+    if (monthIndex(bar.month) - monthIndex(prev.month) !== 1) continue;
     if (prev.adjustedClose <= 0 || prev.close <= 0) continue;
     const adjusted = bar.adjustedClose / prev.adjustedClose;
     const raw = bar.close / prev.close;
     if (adjusted > 9) return "kursfehler";
     if (adjusted < 0.05 && raw > 1 / 3 && raw < 3) return "kursfehler";
-    // Ein Absturz im Verhältnis eines Splits desselben Monats (±1) ist kein Absturz, sondern ein nicht angepasster Split.
-    const split = splits.find(
+    // Roher und bereinigter Kurs bewegen sich im Verhältnis eines Splits desselben Monats (±1) gleich: Der Split ist nicht
+    // angepasst, die Bewegung kein Absturz oder Anstieg. Ist der bereinigte Kurs richtig angepasst, fällt der rohe nicht mit.
+    const unadjustedSplit = splits.some(
       (s) =>
-        s.ratio >= 2 &&
         Math.abs(monthIndex(s.date) - monthIndex(bar.month)) <= 1 &&
-        adjusted < 0.5 &&
-        Math.abs(adjusted * s.ratio - 1) < 0.3,
+        Math.abs(adjusted * s.ratio - 1) < 0.3 &&
+        Math.abs(raw / adjusted - 1) < 0.3 &&
+        ((s.ratio >= 2 && adjusted < 0.5) || (s.ratio <= 0.5 && adjusted > 2)),
     );
-    if (split) return "kursfehler";
+    if (unadjustedSplit) return "kursfehler";
   }
   if (fiscalYears.some((y) => y > Number(stock.delistedOn!.slice(0, 4)) + 1)) return "fortgesetzt";
   return null;

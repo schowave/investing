@@ -186,6 +186,27 @@ describe("buildCandidates", () => {
     expect(set.byMonth.get(MONTH)!.map((c) => c.id)).not.toContain("HYB.US");
   });
 
+  it("reicht Monate und Splits an die Prüfung weiter: nicht angepasster Split schließt aus, lebende Titel bleiben", () => {
+    const months2 = ["2026-09", MONTH];
+    const base = stockData("SPL.US", months2);
+    // Rohkurs und bereinigter Kurs fallen im Oktober gemeinsam auf ein Drittel, Split 3:1 im selben Monat.
+    const crash = new Map([
+      ["2026-09", { close: 60, adjustedClose: 60 }],
+      [MONTH, { close: 20, adjustedClose: 20 }],
+    ]);
+    const withSplit = {
+      ...base,
+      stock: { ...base.stock, delistedOn: "2026-11-01" },
+      bars: crash,
+      splits: [{ date: "2026-10-15", ratio: 3 }],
+    };
+    const live = { ...base, stock: { ...base.stock, id: "LIVE2.US", delistedOn: null }, bars: crash, splits: [] };
+    const set = buildCandidates([withSplit.stock, live.stock], (s) => (s.id === "SPL.US" ? withSplit : live), months2, ctx);
+    expect(set.skipped.ausgeschlossen).toBe(months2.length);
+    expect(set.bars.has("SPL.US")).toBe(false);
+    expect(set.bars.has("LIVE2.US")).toBe(true);
+  });
+
   it("lässt Anleihen und Nicht-Stammaktien aus und zählt die Gründe", () => {
     const bond = stockData("ANL.US", months);
     const preferred = { ...bond.stock, name: "DTE Energy Company 2020 Series G" };

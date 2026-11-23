@@ -1040,8 +1040,8 @@ Die Zahlen sind ein Maßstab zum Vergleichen zweier Fassungen der Strategie, kei
 
 - **Survivorship-Bias:** Der Datenbestand enthält fast nur Unternehmen, die es heute noch gibt. Gescheiterte und übernommene
   Unternehmen fehlen weitgehend; das hebt jedes Ergebnis, vermutlich stark. Ein Pilot (23.11.2026) hat 2.440 eingestellte US-Titel ab 20 Mio. USD
-  Monatsumsatz nachgeladen: Der Rückblick fiel von +562 % auf +315 % Gesamtrendite, die Güte von 0,77 auf 0,54, der größte
-  Rückgang stieg von −34 % auf −41 %; getrieben von sieben gekauften Einstellungen (etwa Bed Bath & Beyond). Die Zahlen von 8.2
+  Monatsumsatz nachgeladen: Der Rückblick fiel von +562 % auf +315 % Gesamtrendite (+378 %, wenn man Cosan, einen Umtausch, nicht als Verlust zählt), die
+  Güte von 0,77 auf 0,54, der größte Rückgang stieg von −34 % auf −41 %; getrieben von sieben gekauften Einstellungen (etwa Bed Bath & Beyond). Die Zahlen von 8.2
   enthalten diese Titel nicht (Einzelheiten und Grenzen in `docs/Selbstlernende-Strategie.md`, Stufe 6).
 - **Nur Zahlenfaktoren:** Die sechs Urteilsfaktoren und alle Werte von Hand fehlen (8.1). Ob Urteile die Auswahl verbessern oder
   verschlechtern, misst der Rückblick nicht.

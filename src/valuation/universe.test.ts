@@ -64,6 +64,57 @@ describe("delistedArtefact", () => {
     expect(delistedArtefact(live, [2020], walk([10, 1]), [{ date: "2016-02-10", ratio: 10 }])).toBe("kursfehler");
   });
 
+  it("erkennt einen nicht angepassten Split nur, wenn roher und bereinigter Kurs gemeinsam fallen, auch über den Jahreswechsel", () => {
+    // Dezember 2016 -> Januar 2017, Split 3:1 im Dezember (±1 Monat zählt): beide Kurse fallen auf ein Drittel.
+    const bars = [
+      { month: "2016-11", close: 30, adjustedClose: 30 },
+      { month: "2016-12", close: 30, adjustedClose: 30 },
+      { month: "2017-01", close: 10, adjustedClose: 10 },
+    ];
+    expect(delistedArtefact(live, [2020], bars, [{ date: "2016-12-20", ratio: 3 }])).toBe("kursfehler");
+    // Richtig bereinigt: echter Absturz auf 0,3 plus Split 3:1, der rohe Kurs fällt also auf ein Zehntel, der bereinigte auf 0,3.
+    const adjustedRight = [
+      { month: "2016-11", close: 30, adjustedClose: 10 },
+      { month: "2016-12", close: 3, adjustedClose: 3 },
+    ];
+    expect(delistedArtefact(live, [2020], adjustedRight, [{ date: "2016-12-20", ratio: 3 }])).toBeNull();
+    // Toleranz: 0,45 statt 1/3 liegt außerhalb von ±30 % um das Verhältnis, ein Split in zwei Monaten Abstand zählt nicht.
+    const off = [
+      { month: "2016-11", close: 30, adjustedClose: 30 },
+      { month: "2016-12", close: 13.5, adjustedClose: 13.5 },
+    ];
+    expect(delistedArtefact(live, [2020], off, [{ date: "2016-12-20", ratio: 3 }])).toBeNull();
+    expect(delistedArtefact(live, [2020], bars, [{ date: "2016-09-20", ratio: 3 }])).toBeNull();
+  });
+
+  it("erkennt einen nicht angepassten Reverse Split bis 1:9 an roher und bereinigter Reihe", () => {
+    const bars = [
+      { month: "2016-01", close: 2, adjustedClose: 2 },
+      { month: "2016-02", close: 10, adjustedClose: 10 },
+    ];
+    expect(delistedArtefact(live, [2020], bars, [{ date: "2016-02-10", ratio: 0.2 }])).toBe("kursfehler");
+    expect(delistedArtefact(live, [2020], bars)).toBeNull();
+  });
+
+  it("vergleicht nur benachbarte Monate und überspringt Reihen mit Kursen unter oder gleich null", () => {
+    const gap = [
+      { month: "2016-01", close: 1, adjustedClose: 1 },
+      { month: "2016-08", close: 50, adjustedClose: 50 },
+    ];
+    expect(delistedArtefact(live, [2020], gap)).toBeNull();
+    const zero = [
+      { month: "2016-01", close: 0, adjustedClose: 0 },
+      { month: "2016-02", close: 50, adjustedClose: 50 },
+    ];
+    expect(delistedArtefact(live, [2020], zero)).toBeNull();
+  });
+
+  it("prüft zuerst den Namen: ein Schuldtitel mit Kursfehler gilt als Wertpapier", () => {
+    expect(delistedArtefact({ ...live, name: "Qwest Corp. NT" }, [2020], walk([10, 11, 150]))).toBe("wertpapier");
+    // Ein Wort wie „Floating“ im Namen einer Stammaktie macht sie nicht zum Schuldtitel.
+    expect(delistedArtefact({ ...live, name: "Fifth Street Senior Floating Rate Corp" }, [2020], walk([10, 11]))).toBeNull();
+  });
+
   it("lässt echte Abstürze drin, auch auf ein Zwanzigstel und tiefer: die Gescheiterten braucht der Rückblick", () => {
     expect(delistedArtefact(live, [2020], walk([10, 0.4]))).toBeNull();
     expect(delistedArtefact(live, [2020], walk([10, 0.003]))).toBeNull();
