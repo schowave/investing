@@ -209,8 +209,20 @@ trap 'rm -f "$env_file"' EXIT
 ) > "$env_file"
 echo "Schlüssel: $(cut -d= -f1 "$env_file" | tr '\n' ' ')"
 scp -i "$PVE_SSH_KEY" -o IdentitiesOnly=yes "$env_file" "$PVE_HOST:/tmp/investing.env"
-ssh_ "pct push $INVESTING_CTID /tmp/investing.env /opt/investing/.env --perms 600 && rm /tmp/investing.env \
-  && pct exec $INVESTING_CTID -- bash -c 'cd /opt/investing && docker compose up -d --force-recreate investing worker'"
+# Zusammenführen statt ersetzen: Schlüssel, die nur im LXC stehen (etwa die von wikifolio), bleiben erhalten.
+ssh_ "pct push $INVESTING_CTID /tmp/investing.env /opt/investing/.env.neu --perms 600 && rm /tmp/investing.env"
+ssh_ "pct exec $INVESTING_CTID -- bash -s" <<'SH'
+set -e
+cd /opt/investing
+umask 077
+touch .env
+awk -F= 'NR == FNR { neu[$1] = 1; print; next } !($1 in neu)' .env.neu .env > .env.tmp
+mv .env.tmp .env
+rm .env.neu
+chmod 600 .env
+echo "Schlüssel im LXC: $(cut -d= -f1 .env | tr '\n' ' ')"
+docker compose up -d --force-recreate investing worker
+SH
 '''
 
 [tasks."deploy:db"]
