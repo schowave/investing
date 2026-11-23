@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { PROFILE_FOCUSED } from "../calc/index.ts";
 import type { Stock } from "../data/db.ts";
 import { Database } from "../data/db.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
-import { logForward } from "./forwardLog.ts";
+import { logForward, RANKING_SIZE } from "./forwardLog.ts";
 import { recomputeAll } from "./recompute.ts";
 import type { StockValuation } from "./run.ts";
 import { assess, CALC_VERSION, computeValuation, STRATEGY_VERSION } from "./run.ts";
@@ -54,6 +55,33 @@ describe("saveForwardLog", () => {
     const row = { stockId: "A.US", weight: 0.1, innerReturn: 0.08, riskScore: 0.2, priceEur: CLOSE };
     db.saveForwardLog(DATE, "zahlen", "fokussiert", { calcVersion: 99, strategyVersion: "2.3" }, [row], { key: "k", value: "v" });
     expect(db.forwardLog()).toMatchObject([{ calcVersion: 99, strategyVersion: "2.3" }]);
+    db.close();
+  });
+});
+
+describe("saveForwardRanking", () => {
+  it("ersetzt die Rangliste desselben Tages und Arms und lässt andere Arme und Tage stehen", () => {
+    const db = new Database(":memory:");
+    addStock(db, "A.US");
+    addStock(db, "B.US");
+    const versions = { calcVersion: 99, strategyVersion: "2.3" };
+    const row = (stockId: string, rank: number) => ({
+      rank,
+      stockId,
+      innerReturn: 0.1,
+      riskScore: 0.2,
+      sector: "X",
+      region: "Y",
+      priceEur: 10,
+    });
+    db.saveForwardRanking(DATE, "zahlen", versions, [row("A.US", 1), row("B.US", 2)], { key: "k", value: "v" });
+    db.saveForwardRanking(DATE, "urteil", versions, [row("A.US", 1)], { key: "k2", value: "v" });
+    db.saveForwardRanking(DATE, "zahlen", versions, [row("B.US", 1)], { key: "k", value: "w" });
+    expect(db.forwardRanking().map((r) => `${r.arm}|${r.rank}|${r.stockId}|${r.strategyVersion}`)).toEqual([
+      "urteil|1|A.US|2.3",
+      "zahlen|1|B.US|2.3",
+    ]);
+    expect(db.setting("k")).toBe("w");
     db.close();
   });
 });
@@ -169,6 +197,111 @@ describe("logForward", () => {
     logForward(db, DATE, valueAll(db));
     const rows = db.forwardLog().filter((r) => r.arm === "zahlen" && r.profile === "global");
     expect(rows.map((r) => r.stockId)).toEqual(["A.US"]);
+    db.close();
+  });
+
+  it("schreibt je Arm die Rangliste nach innerer Rendite, auch mit den Titeln, die nicht ins Portfolio kommen", () => {
+    const db = new Database(":memory:");
+    // Je niedriger der Kurs, desto höher die innere Rendite.
+    addStock(db, "TEUER.US", {}, SHARES, 44);
+    addStock(db, "MITTEL.US", {}, SHARES + 1e6, 40);
+    addStock(db, "GUENSTIG.US", {}, SHARES + 2e6, 36);
+    logForward(db, DATE, valueAll(db));
+    const ranking = db.forwardRanking().filter((r) => r.arm === "zahlen");
+    expect(ranking.map((r) => [r.rank, r.stockId])).toEqual([
+      [1, "GUENSTIG.US"],
+      [2, "MITTEL.US"],
+      [3, "TEUER.US"],
+    ]);
+    expect(ranking[0]!.innerReturn).toBeGreaterThan(ranking[2]!.innerReturn);
+    expect(ranking.every((r) => r.date === DATE && r.sector === stock.sector && r.region === stock.region && r.priceEur > 0)).toBe(true);
+    expect(ranking.every((r) => r.calcVersion === CALC_VERSION && r.strategyVersion === STRATEGY_VERSION)).toBe(true);
+    db.close();
+  });
+
+  it("schreibt die Rangliste einmal im Monat, im nächsten Monat eine neue, und kürzt sie auf die ersten Plätze", () => {
+    const db = new Database(":memory:");
+    for (let i = 0; i < RANKING_SIZE + 5; i++) addStock(db, `S${String(i).padStart(3, "0")}.US`, {}, SHARES + i * 1e6, 30 + i / 10);
+    const valued = valueAll(db);
+    logForward(db, DATE, valued);
+    expect(db.forwardRanking()).toHaveLength(RANKING_SIZE);
+    expect(db.forwardRanking()[0]).toMatchObject({ rank: 1, stockId: "S000.US" });
+    expect(db.forwardRanking().at(-1)).toMatchObject({ rank: RANKING_SIZE });
+    expect(db.setting("forward-ranking:zahlen")).toBe("2026-11");
+
+    logForward(db, "2026-11-25", valued);
+    expect(db.forwardRanking()).toHaveLength(RANKING_SIZE);
+    logForward(db, "2026-12-01", valued);
+    expect(new Set(db.forwardRanking().map((r) => r.date))).toEqual(new Set([DATE, "2026-12-01"]));
+    db.close();
+  });
+
+  it("schreibt die Rangliste des Arms „urteil“ nur aus beobachteten, vollständig bewerteten Titeln", () => {
+    const db = new Database(":memory:");
+    const watched = addStock(db, "URTEIL.US", { watched: true });
+    addStock(db, "ANDERER.US", { watched: true }, SHARES + 1e6);
+    addStock(db, "VORRAT.US", {}, SHARES + 2e6);
+    const open = computeValuation(db, watched, DATE).valuation.missing;
+    assess(
+      db,
+      watched,
+      open.map((key) => ({ key, value: 0.1 })),
+      DATE,
+    );
+    logForward(db, DATE, valueAll(db));
+    const judged = db.forwardRanking().filter((r) => r.arm === "urteil");
+    expect(judged.map((r) => r.stockId)).toEqual(["URTEIL.US"]);
+    expect(db.forwardRanking().filter((r) => r.arm === "zahlen").length).toBe(3);
+    db.close();
+  });
+
+  it("ordnet die Rangliste nur nach innerer Rendite, auch wenn ein Titel schon gehalten wird", () => {
+    const db = new Database(":memory:");
+    addStock(db, "A.US", {}, SHARES, 40);
+    addStock(db, "B.US", {}, SHARES + 1e6, 39.9);
+    const valued = valueAll(db);
+    logForward(db, DATE, valued);
+    expect(db.forwardLogWeights("zahlen", "fokussiert", "2026-12-01").size).toBeGreaterThan(0); // im Dezember gehalten
+    logForward(db, "2026-12-01", valued);
+    const december = db.forwardRanking().filter((r) => r.date === "2026-12-01" && r.arm === "zahlen");
+    // B hat die etwas höhere Rendite (Aufschlag der Tauschschwelle gilt nur im Portfolio, nicht in der Rangliste)
+    expect(december.map((r) => r.stockId)).toEqual(["B.US", "A.US"]);
+    expect(december[0]!.priceEur).toBeCloseTo(39.9, 6);
+    db.close();
+  });
+
+  it("nimmt im Arm „urteil“ Titel unter der Hürde nicht in die Rangliste auf (wie im Zielportfolio)", () => {
+    const db = new Database(":memory:");
+    const cheap = addStock(db, "BILLIG.US", { watched: true }, SHARES, 40);
+    const dear = addStock(db, "TEUER.US", { watched: true }, SHARES + 1e6, 400);
+    for (const s of [cheap, dear])
+      assess(
+        db,
+        s,
+        computeValuation(db, s, DATE).valuation.missing.map((key) => ({ key, value: 0.05 })),
+        DATE,
+      );
+    const valued = valueAll(db);
+    expect(valued.get("TEUER.US")!.valuation.returns!.base!).toBeLessThan(PROFILE_FOCUSED.minReturn);
+    logForward(db, DATE, valued);
+    expect(
+      db
+        .forwardRanking()
+        .filter((r) => r.arm === "urteil")
+        .map((r) => r.stockId),
+    ).toEqual(["BILLIG.US"]);
+    db.close();
+  });
+
+  it("protokolliert das Portfolio auch dann, wenn die Rangliste scheitert, und meldet den Fehler danach", () => {
+    const db = new Database(":memory:");
+    addStock(db, "A.US");
+    db.saveForwardRanking = () => {
+      throw new Error("Rangliste kaputt");
+    };
+    expect(() => logForward(db, DATE, valueAll(db))).toThrow("Rangliste kaputt");
+    expect(db.forwardLog().length).toBeGreaterThan(0);
+    expect(db.setting("forward-ranking:zahlen")).toBeNull();
     db.close();
   });
 

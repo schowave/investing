@@ -315,3 +315,27 @@ export const forwardLog = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.date, t.arm, t.profile, t.stockId] })],
 );
+
+/**
+ * Vorwärtsprotokoll, Rangliste: die besten Kandidaten eines Arms zum Monatsanfang nach innerer Rendite (Rang 1 ist der beste), mit
+ * den Werten von damals. Anders als `forward_log` nicht nur das Portfolio, sondern auch die Titel dahinter; so lässt sich später das
+ * Ranking messen, nicht nur die Auswahl. Gilt für beide Profile (die Rangfolge der Strategie hängt nicht vom Profil ab).
+ */
+export const forwardRanking = sqliteTable(
+  "forward_ranking",
+  {
+    date: text("date").notNull(),
+    arm: text("arm").notNull(),
+    rank: integer("rank").notNull(),
+    stockId: stockId(),
+    innerReturn: real("inner_return").notNull(),
+    riskScore: real("risk_score").notNull(),
+    sector: text("sector").notNull(),
+    region: text("region").notNull(),
+    /** Kurs in Euro am Tag des Eintrags. */
+    priceEur: real("price_eur").notNull(),
+    calcVersion: integer("calc_version").notNull(),
+    strategyVersion: text("strategy_version").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.arm, t.stockId] })],
+);

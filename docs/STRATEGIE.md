@@ -1057,6 +1057,19 @@ Rückblick, 8.1) und mit allen Urteilen über die Watchlist. Das Protokoll ist d
 einzige, an der sich der Nutzen der Urteilsfaktoren zeigen kann. Es sagt noch nichts aus: Mit etwa 6 bis 12 Titeln im
 fokussierten und 20 bis 25 im globalen Profil ist ein Unterschied der Arme erst nach etwa zwei Jahren mehr als Rauschen.
 
+Neben dem Portfolio hält das Protokoll je Arm die Rangliste der besten 100 Kandidaten nach innerer Rendite fest, und zwar nur
+Titel, die auch ins Zielportfolio kommen könnten (über der Hürde, unter der Ausschlussgrenze beim Risiko; Rang, innere
+Rendite, Risikowert, Branche, Region, Kurs von damals; die Rangfolge hängt nicht vom Profil ab, gehaltene Titel haben darin keinen
+Aufschlag). Damit lässt sich später das Ranking messen und nicht nur die Auswahl, die davon übrig bleibt: Trägt es, liegt die
+gleich gewichtete Rendite der Ränge 1 bis 10 über der der Ränge 31 bis 100, über viele Monate und nicht in einem. Die
+Auswertung (`pnpm run forward`) rechnet in Euro mit Kurs und Ausschüttungen seit dem Eintrag (nicht wiederangelegt, ohne
+Kosten und Steuern, Ausschüttungen zum heutigen Wechselkurs) und stellt den MSCI World daneben; der Indexkurs wird beim Auswerten
+bei Yahoo geholt und nicht mitgeschrieben, ebenso die Ausschüttungen, die in der Datenbank stehen.
+Splits seit dem Eintrag werden im Kurs von damals berücksichtigt. Kleine Unschärfen bleiben: Der Kurs von damals ist der
+letzte gespeicherte Schlusskurs (bei einem Abgleich am frühen Morgen der des Vortags), der Indexkurs der des Eintragstags oder davor;
+die Zeiträume können um wenige Tage abweichen, und eine Ausschüttung mit Stichtag am Eintragstag zählt nicht. Der Index
+thesauriert, die Ausschüttungen des Portfolios werden nicht wiederangelegt; der Vergleich begünstigt den Index leicht.
+
 ## 9. Herkunft und Abweichungen vom Vorbild
 
 ### 9.1 Quellen

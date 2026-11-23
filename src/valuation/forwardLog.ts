@@ -4,9 +4,11 @@
 // - "zahlen": der ganze Datenvorrat, nur Zahlenfaktoren (wie der Rückblick und das Screening),
 // - "urteil": die Watchlist mit allen Risikofaktoren (Jev und Handeingaben), so wie die Anwendung sie vorschlägt.
 // Gehaltene Titel (Aufschlag der Tauschschwelle) sind die des letzten Eintrags im selben Arm und Profil.
+// Dazu je Arm die Rangliste der besten Kandidaten (`forward_ranking`), damit sich später das Ranking messen lässt und nicht nur die
+// Auswahl, die davon übrig bleibt.
 
 import type { Profile } from "../calc/index.ts";
-import { PROFILE_FOCUSED, PROFILE_GLOBAL, targetPortfolio, withHurdle } from "../calc/index.ts";
+import { isCandidate, PROFILE_FOCUSED, PROFILE_GLOBAL, targetPortfolio, withHurdle } from "../calc/index.ts";
 import type { Database } from "../data/db.ts";
 import { BOND_KEY } from "./portfolioRun.ts";
 import type { StockValuation } from "./run.ts";
@@ -15,6 +17,9 @@ import { fingerprint, isCommonShare, MIN_MARKET_CAP_EUR } from "./universe.ts";
 import { doubtfulNumbers } from "./valuation.ts";
 
 const FORWARD_ARMS = ["zahlen", "urteil"] as const;
+
+/** Wie viele Rangplätze je Arm und Monat protokolliert werden: deutlich mehr als gehalten werden, damit Rang 11 bis 100 mitgemessen wird. */
+export const RANKING_SIZE = 100;
 
 const PROFILES: readonly { name: string; profile: Profile }[] = [
   { name: "fokussiert", profile: PROFILE_FOCUSED },
@@ -127,19 +132,48 @@ export function logForward(db: Database, date: string, valued: ReadonlyMap<strin
   const month = date.slice(0, 7);
   const bond = db.referenceRate(BOND_KEY);
   let unjudged: StockValuation[] | null = null;
+  const candidatesOf = (arm: (typeof FORWARD_ARMS)[number], held: ReadonlyMap<string, number>, minReturn: number): Candidate[] => {
+    if (arm === "urteil") return judgedCandidates(db, valued, held);
+    unjudged ??= numbersOnly(db, valued, date);
+    return numberCandidates(db, unjudged, held, minReturn);
+  };
+  const versions = { calcVersion: CALC_VERSION, strategyVersion: STRATEGY_VERSION };
   let logged = 0;
+  /** Rangliste eines Arms: dieselben Kandidaten wie fürs Zielportfolio (Hürde, Ausschlussgrenze beim Risiko), nach innerer Rendite. */
+  const logRanking = (arm: (typeof FORWARD_ARMS)[number]) => {
+    const key = `forward-ranking:${arm}`;
+    if (db.setting(key) === month) return;
+    // Die Hürde ist für beide Profile dieselbe (`withHurdle`); gehaltene Titel haben in der Rangliste keinen Aufschlag.
+    const eligibility = withHurdle(PROFILE_FOCUSED, bond);
+    const ranked = candidatesOf(arm, new Map(), eligibility.minReturn)
+      .filter((c) => isCandidate(c, eligibility))
+      .sort((a, b) => b.innerReturn - a.innerReturn || a.id.localeCompare(b.id))
+      .slice(0, RANKING_SIZE)
+      .map((c, i) => ({
+        rank: i + 1,
+        stockId: c.id,
+        innerReturn: c.innerReturn,
+        riskScore: c.riskScore,
+        sector: c.sector,
+        region: c.region,
+        priceEur: c.priceEur,
+      }));
+    db.saveForwardRanking(date, arm, versions, ranked, { key, value: month });
+  };
+  let failure: unknown = null;
   for (const arm of FORWARD_ARMS) {
+    // Die Rangliste ist Zugabe: scheitert sie, soll das Portfolio des Monats trotzdem protokolliert werden; der Fehler geht danach hoch.
+    try {
+      logRanking(arm);
+    } catch (error) {
+      failure ??= error;
+    }
     for (const { name, profile } of PROFILES) {
       const key = `forward-log:${arm}:${name}`;
       if (db.setting(key) === month) continue;
       const withBond = withHurdle(profile, bond);
       const held = db.forwardLogWeights(arm, name, date);
-      let candidates: Candidate[];
-      if (arm === "urteil") candidates = judgedCandidates(db, valued, held);
-      else {
-        unjudged ??= numbersOnly(db, valued, date);
-        candidates = numberCandidates(db, unjudged, held, withBond.minReturn);
-      }
+      const candidates = candidatesOf(arm, held, withBond.minReturn);
       const byId = new Map(candidates.map((c) => [c.id, c]));
       const rows = targetPortfolio(candidates, withBond).positions.map((position) => {
         const candidate = byId.get(position.id)!;
@@ -151,9 +185,10 @@ export function logForward(db: Database, date: string, valued: ReadonlyMap<strin
           priceEur: candidate.priceEur,
         };
       });
-      db.saveForwardLog(date, arm, name, { calcVersion: CALC_VERSION, strategyVersion: STRATEGY_VERSION }, rows, { key, value: month });
+      db.saveForwardLog(date, arm, name, versions, rows, { key, value: month });
       logged += rows.length;
     }
   }
+  if (failure) throw failure;
   return logged;
 }

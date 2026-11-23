@@ -45,7 +45,9 @@ nächste beginnt.
 
 - **Was:** Der Abgleich schreibt zum Monatsanfang das Zielportfolio mit dem Kurs von damals in `forward_log`, in zwei Armen:
   „zahlen" (Datenvorrat, nur Zahlenfaktoren, ohne Eingaben von Hand) und „urteil" (Watchlist mit allen Risikofaktoren, so wie die
-  Anwendung vorschlägt). `pnpm run forward` zeigt die Kursrendite seit dem Eintrag und die Überschneidung der Arme.
+  Anwendung vorschlägt), und je Arm in `forward_ranking` die Rangliste der besten 100 Kandidaten. `pnpm run forward` zeigt die
+  Rendite seit dem Eintrag (Kurs und mit Ausschüttungen) neben dem MSCI World, die Überschneidung der Arme und die Rendite je
+  Rangbereich (1 bis 10, 11 bis 30, 31 bis 100).
 - **Verproben:** Nach dem ersten Abgleich eines Monats stehen je Arm und Profil Einträge; ein zweiter Abgleich im selben Monat
   ändert nichts. Nach drei Monaten ist der Vergleich der Arme lesbar.
 - **Stand 20.11.2026:** Ausgeliefert (Version 882df8a im LXC, Tabelle `forward_log` angelegt, Protokoll noch leer); der erste Eintrag entsteht
@@ -97,7 +99,15 @@ nächste beginnt.
 
 - **Was:** Kurse und Abschlüsse gescheiterter und übernommener Firmen, historische Indexzugehörigkeit, Abschlüsse in der damaligen
   Fassung mit Veröffentlichungsdatum, historische Anleiherenditen und Inflationsprognosen.
-- **Wann:** Wenn die Ergebnisse der Stufen 1 bis 5 eine Entscheidung tragen sollen, für die der Bias zählt. Offen ist die Quelle.
+- **Machbarkeit für die Kurs- und Abschlussdaten (geprüft 23.11.2026, nur lesend):** EODHD führt eingestellte Titel getrennt
+  (`exchange-symbol-list/US?delisted=1`): 33.453 Stammaktien allein in den USA, davon 16.671 an NYSE, NASDAQ, NYSE MKT; der Rest sind
+  Freiverkehr und Pink Sheets. Stichproben (SVB Financial, Activision, First Republic, Twitter, Bed Bath & Beyond) haben Abschlüsse
+  über 12 bis 38 Jahre (GuV, Bilanz, Cashflow), Monatskurse bis zum Einstellungstag und ein Einstellungsdatum. Der Abruf läge bei etwa
+  10 Aufrufen je Titel für die Abschlüsse; für die 16.671 Titel sind das rund 170.000 Aufrufe, also etwa zwei Tage Tagesbudget (rund
+  100.000), dazu knapp 700 KB je Antwort. Nicht geprüft: andere Börsen (Europa, Asien), Titel, die in der Liste fehlen, historische
+  Indexzugehörigkeit, Abschlüsse in damaliger Fassung. Ein Einlesen würde die Titelzahl in der Datenbank (13.207) etwa verdoppeln
+  und gehört vorher auf einen Plan (Auswahl nach Einstellungsjahr ab 2016, Marktwert, Aufrufbudget neben dem Tagesabgleich).
+- **Wann:** Wenn die Ergebnisse der Stufen 1 bis 5 eine Entscheidung tragen sollen, für die der Bias zählt.
 
 ### Stufe 7: Maschinelles Lernen des Rankings (später)
 

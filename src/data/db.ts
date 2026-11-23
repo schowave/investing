@@ -130,6 +130,24 @@ export interface ForwardLogEntry extends ForwardLogRow {
   strategyVersion: string;
 }
 
+/** Ein Rangplatz in der Rangliste des Vorwärtsprotokolls. */
+export interface ForwardRankingRow {
+  rank: number;
+  stockId: string;
+  innerReturn: number;
+  riskScore: number;
+  sector: string;
+  region: string;
+  priceEur: number;
+}
+
+export interface ForwardRankingEntry extends ForwardRankingRow {
+  date: string;
+  arm: string;
+  calcVersion: number;
+  strategyVersion: string;
+}
+
 export interface ScreeningRow {
   stockId: string;
   date: string;
@@ -1148,6 +1166,35 @@ export class Database {
         .onConflictDoUpdate({ target: t.settings.key, set: { value: done.value, updatedAt } })
         .run();
     });
+  }
+
+  /** Schreibt die Rangliste eines Arms zu einem Tag (ein früherer Eintrag desselben Tages wird ersetzt); `done` wie bei `saveForwardLog`. */
+  saveForwardRanking(
+    date: string,
+    arm: string,
+    versions: { calcVersion: number; strategyVersion: string },
+    rows: readonly ForwardRankingRow[],
+    done: { key: string; value: string },
+  ): void {
+    this.#db.transaction((tx) => {
+      tx.delete(t.forwardRanking)
+        .where(and(eq(t.forwardRanking.date, date), eq(t.forwardRanking.arm, arm)))
+        .run();
+      for (const row of rows)
+        tx.insert(t.forwardRanking)
+          .values({ date, arm, ...versions, ...row })
+          .run();
+      const updatedAt = new Date().toISOString();
+      tx.insert(t.settings)
+        .values({ key: done.key, value: done.value, updatedAt })
+        .onConflictDoUpdate({ target: t.settings.key, set: { value: done.value, updatedAt } })
+        .run();
+    });
+  }
+
+  /** Alle Ranglisten des Vorwärtsprotokolls, älteste zuerst, je Tag und Arm nach Rang. */
+  forwardRanking(): ForwardRankingEntry[] {
+    return this.#db.select().from(t.forwardRanking).orderBy(t.forwardRanking.date, t.forwardRanking.arm, t.forwardRanking.rank).all();
   }
 
   /** Gewichte des jüngsten Eintrags vor `before` (ohne ihn); leer, wenn es keinen gibt. */

@@ -108,7 +108,7 @@ export interface History {
   splits: readonly { date: string; ratio: number }[];
 }
 
-const MINOR_UNIT: Record<string, { currency: string; divisor: number }> = {
+export const MINOR_UNIT: Record<string, { currency: string; divisor: number }> = {
   GBX: { currency: "GBP", divisor: 100 },
   ILA: { currency: "ILS", divisor: 100 },
   ZAC: { currency: "ZAR", divisor: 100 },
