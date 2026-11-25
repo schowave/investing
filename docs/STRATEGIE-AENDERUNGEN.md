@@ -31,7 +31,7 @@ damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
   nicht wiederholen. Die Abweichung vom Autor bleibt; er kennt das laufende Programm, die Regel nur die Zahl des letzten
   Jahres. Für einzelne Titel bleibt das Rückflussniveau von Hand.
 
-## 25.11.2026 · nicht angenommen · Basislimits von 20 % und 10 %
+## 25.11.2026 · verworfen · Basislimits von 20 % und 10 %
 
 - **Anlass:** Im Webinar nennt der Autor Höchstgewichte von etwa 10 %, 5 % und 2 bis 3 % im globalen Depot und das Doppelte
   im fokussierten; das entspricht Basislimits von 10 % und 20 %.
@@ -44,10 +44,34 @@ damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
   Global, Stand: +14,8 % im Jahr, Fenstermedian +46 %, Güte 0,65, im schwachen Viertel 0,23, Umschlag 50 %, größter Rückgang
   −38 %, 22,1 Titel. Geprüft: +15,7 % im Jahr, Fenstermedian +63 %, besser in 52 % der Fenster (Median der Differenz 0,0
   Punkte), Güte 0,68, im schwachen Viertel 0,12, Umschlag 57 %, größter Rückgang −32 %, 15,0 Titel.
-- **Entscheidung:** fokussiert verworfen (weniger Titel, schwaches Viertel deutlich schlechter, kein Vorsprung im Median).
-  Global nicht angenommen: Der Vorsprung liegt im Mittel und im Fenstermedian, die Hälfte der Fenster ist schlechter und das
-  schwache Viertel fällt auf die Hälfte. Offen bleibt der Lauf mit den eingestellten Titeln und die Frage, ob der Autor seine
-  Limits ausschöpft; mit vollem Auffüllen hält das globale Profil 15 statt 22 Titel.
+  Global mit allen eingestellten Titeln (8.3), Stand: +12,7 % im Jahr, Fenstermedian +46 %, Güte 0,57, im schwachen Viertel
+  0,13, Umschlag 50 %, größter Rückgang −37 %, 21,9 Titel. Geprüft: +11,2 % im Jahr, Fenstermedian +41 %, besser in 24 % der
+  Fenster (Median der Differenz −4,7 Punkte), Güte 0,48, im schwachen Viertel 0,12, Umschlag 56 %, größter Rückgang −36 %,
+  14,8 Titel.
+- **Entscheidung:** verworfen, in beiden Profilen. Fokussiert: weniger Titel, schwaches Viertel deutlich schlechter, kein
+  Vorsprung im Median. Global: Der Vorsprung des Laufs ohne eingestellte Titel kam aus den fehlenden gescheiterten Unternehmen;
+  mit ihnen ist die Änderung in drei Vierteln der Fenster schlechter. Größere Positionen brauchen das Urteil, das der Autor hat
+  und der Rückblick nicht. Offen bleibt nur ein Verfahren, das wie der Autor die oberen Positionen auffüllt.
+
+## 25.11.2026 · verworfen · Keine Tilgung bei stetigem Gewinn und nicht schrumpfendem Umsatz
+
+- **Anlass:** Der Autor führt hohe Schulden nur über das Risiko (Webinar, Charter); die Tilgungsregel senkt bei Charter den
+  Rückfluss von 38,04 auf 4,01 je Aktie. Gesucht war ein Merkmal, das stabile Schuldner von schuldenfinanzierten Rückkäufern
+  bei schrumpfendem Geschäft trennt.
+- **Regel:** Strategie 3.6, offene Frage 11.8.
+- **Vorher:** Tilgung des Überhangs über dem Dreifachen des EBITDA über zehn Jahre, für alle Nicht-Finanzwerte. **Geprüft:**
+  keine Tilgung, wenn Faktor 1 keinen Abzug zeigt (kein Verlustjahr, kein Einbruch) und der Gesamtumsatz über die Reihe in
+  Euro-Kaufkraft nicht schrumpft.
+- **Kennzahlen:** Rückblick vom 25.11.2026 mit allen eingestellten Titeln (8.3), 2016-10 bis 2026-11, nach Kosten, ohne
+  Zufallsauswahl. Fokussiert, Stand: +15,4 % im Jahr, Fenstermedian +62 %, Güte 0,55, im schwachen Viertel 0,12, Umschlag
+  69 %, größter Rückgang −37 %. Geprüft: +13,3 % im Jahr, Fenstermedian +50 %, besser in 45 % der Fenster (Median der
+  Differenz −4,0 Punkte), Güte 0,47, im schwachen Viertel 0,12, Umschlag 71 %, größter Rückgang −37 %. Global, Stand: +12,7 %
+  im Jahr, Fenstermedian +46 %, Güte 0,57, im schwachen Viertel 0,13, Umschlag 50 %, größter Rückgang −37 %. Geprüft: +11,7 %
+  im Jahr, Fenstermedian +36 %, besser in 31 % der Fenster (Median der Differenz −2,5 Punkte), Güte 0,52, im schwachen Viertel
+  0,10, Umschlag 51 %, größter Rückgang −38 %.
+- **Entscheidung:** verworfen. Das Merkmal trennt nicht: Auch Titel mit bis dahin stetigem Gewinn und stabilem Umsatz kommen
+  mit hohen Schulden und Rückkäufen nach oben und enttäuschen. Die Regel bleibt; für einzelne stabile Schuldner gilt das
+  Rückflussniveau von Hand.
 
 ## 25.11.2026 · verworfen · Gehaltene Titel vorab zur Branchen- und Regionsgrenze zählen
 

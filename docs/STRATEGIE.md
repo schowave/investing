@@ -1304,9 +1304,9 @@ etwa 10 % für einen defensiven Titel (Coca-Cola), 5 % für einen mittleren (Dai
 Comcast und Charter fast genau, mit 10 % bei einem Risikowert von 13 und 17 %. Der Autor füllt aber nur die oberen Positionen
 auf; die Strategie füllt jede bis zum Limit und käme mit höheren Limits auf weniger Titel. Geprüft am 25.11.2026 ohne die
 eingestellten Titel (Änderungsprotokoll): fokussiert verworfen (7,6 statt 9,8 Titel, Güte im schwachen Viertel 0,19 statt
-0,35); global nicht angenommen (15 statt 22 Titel, Fenstermedian +63 % statt +46 %, aber nur in 52 % der Fenster besser und
-Güte im schwachen Viertel 0,12 statt 0,23). Offen: der Lauf mit den eingestellten Titeln und ein Verfahren, das wie der Autor
-nur die oberen Positionen auffüllt.
+0,35). Global mit den eingestellten Titeln ebenfalls verworfen (15 statt 22 Titel, 11,2 statt 12,7 % im Jahr, besser nur in
+24 % der Fenster); der Vorsprung ohne sie kam aus den fehlenden gescheiterten Unternehmen. Offen: ein Verfahren, das wie der
+Autor nur die oberen Positionen auffüllt.
 
 ### 11.5 Wachstum aus dem Umsatz bei Zyklikern
 
@@ -1342,6 +1342,9 @@ Beyond, QVC, Tupperware). Eine Lockerung müsste diese Titel weiter fernhalten; 
 stabile Schuldner (Kabelnetz, Versorger) von solchen Fällen trennt. Die Regel widerspricht dem Autor: Im Webinar ist Charter
 seine größte Position mit „eher moderatem“ Risiko, die Schulden nennt er als Risiko („für den Teil gibt es eine
 Ausfallkomponente“) und zählt die Rückkäufe voll. Bis zu einer Regel bleibt für solche Titel das Rückflussniveau von Hand.
+Geprüft und verworfen am 25.11.2026 (Änderungsprotokoll): keine Tilgung bei stetigem Gewinn und nicht schrumpfendem Umsatz.
+Mit den eingestellten Titeln 2,1 Punkte im Jahr schlechter im fokussierten und 1,0 im globalen Profil; das Merkmal trennt
+stabile Schuldner nicht von den späteren Verlierern.
 
 ### 11.9 Rückflussniveau von Hand in Höhe des gedeckelten Vorschlags
 
