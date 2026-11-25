@@ -1046,17 +1046,23 @@ gerechnet).
 
 Die Zahlen sind ein Maßstab zum Vergleichen zweier Fassungen der Strategie, keine Renditeerwartung.
 
-- **Survivorship-Bias:** Der Datenbestand enthält fast nur Unternehmen, die es heute noch gibt. Gescheiterte und übernommene
-  Unternehmen fehlen weitgehend; das hebt jedes Ergebnis, vermutlich stark. Ein Pilot (23.11.2026) hat 2.440 eingestellte US-Titel ab 20 Mio. USD
-  Monatsumsatz nachgeladen: Der Rückblick fiel von +562 % auf +315 % Gesamtrendite (+378 %, wenn man Cosan, einen Umtausch, nicht als Verlust zählt), die
-  Güte von 0,77 auf 0,54, der größte Rückgang stieg von −34 % auf −41 %; getrieben von sieben gekauften Einstellungen (etwa Bed Bath & Beyond). Die Zahlen von 8.2
-  enthalten diese Titel nicht (Einzelheiten und Grenzen in `docs/Selbstlernende-Strategie.md`, Stufe 6).
+- **Survivorship-Bias:** Der Datenbestand der Bewertung enthält nur Unternehmen, die es heute noch gibt. Für den Rückblick sind
+  seit dem 25.11.2026 alle 3.638 eingestellten Titel ab 20 Mio. USD Monatsumsatz nachgeladen (ohne Kurse der Titel darunter).
+  Mit ihnen fällt der Rückblick (Profil fokussiert, gleicher Datenstand) von +20,7 % auf +16,5 % im Jahr (+565 % auf +365 %
+  gesamt, Index +12,4 % im Jahr), die Güte von 0,77 auf 0,59, im schwachen Viertel von 0,35 auf 0,12; der größte Rückgang
+  steigt von −34 % auf −37 %, den Index schlägt er nur noch in 52 statt 69 % der Fenster. Den Unterschied machen vor allem
+  2016 bis 2020 (+68 % gegen +29 %, Index +33 %): gekaufte Titel mit hohen, schuldenfinanzierten Rückkäufen bei schrumpfendem
+  Geschäft (Bed Bath & Beyond −46 % und −52 %, QVC −28 %, Tupperware −34 %). Die Zahlen von 8.2 enthalten diese Titel noch
+  nicht; der Bias ist rund 4 Punkte im Jahr (Einzelheiten in `docs/Selbstlernende-Strategie.md`, Stufe 6).
 - **Nur Zahlenfaktoren:** Die sechs Urteilsfaktoren und alle Werte von Hand fehlen (8.1). Ob Urteile die Auswahl verbessern oder
   verschlechtern, misst der Rückblick nicht.
 - **Heutige Abschlüsse:** Die Abschlüsse liegen in heutiger Fassung vor, nicht in der damals veröffentlichten.
 - **Heutige Inflationsprognose:** Für alle Stichtage gelten die Inflationsprognosen von heute. Hürde und Bargeldzins folgen dem Zinsverlauf der EZB; fehlt ein Wert, gelten die festen Zinsen (der Bericht zählt diese Monate).
 - **Handel und Steuern:** Gehandelt wird zum Schlusskurs des Entscheidungstags; Steuern fehlen.
-- **Eingestellte Titel:** Der angesetzte Verlust ist eine Annahme und trifft auch Übernahmen gegen bar.
+- **Eingestellte Titel:** Der angesetzte Verlust ist eine Annahme und trifft auch Übernahmen gegen bar. Die Strategie trifft er
+  kaum: Ein Titel ohne Kurs ist kein Kandidat mehr und wird zum letzten Kurs verkauft, bevor der Verlust angesetzt wird (Lauf
+  mit 0 statt 50 % am 25.11.2026: identisch). Er wirkt vor allem auf die Zufallsauswahl. Ein Kurssturz in der Reihe selbst,
+  etwa ein Datenfehler bei einem Umtausch (Cosan 2021: −99 % in einem Monat, 1,1 Punkte im Jahr), schlägt dagegen voll durch.
 - **Wenig unabhängige Zeiträume:** Die Fenster überlappen stark; unabhängig sind nur etwa drei Dreijahreszeiträume. Ein Vorsprung
   kann aus einem einzigen Zyklus stammen.
 - **Rückschau bei der Wahl:** Die Tauschschwelle im fokussierten Profil wurde auf derselben Reihe gewählt (7.4); für sie ist der
@@ -1291,8 +1297,12 @@ Ausschüttungsniveau rechnen (3.7), fällt dieser Ausgleich weg. Bis zu einer Re
 ### 11.8 Tilgungsregel bei dauerhaft hoch verschuldeten Geschäftsmodellen
 
 **Vermutung.** Bei Geschäftsmodellen, die dauerhaft mit hohen Schulden arbeiten (Immobilienwerte, Kabelnetzbetreiber wie
-Charter), drückt die Tilgungsregel den Rückfluss zu weit (Charter, Stand 20.11.2026: 4,01 gegen 38,04 je Aktie). **Stand.**
-Nicht geprüft.
+Charter), drückt die Tilgungsregel den Rückfluss zu weit (Charter, Stand 20.11.2026: 4,01 gegen 38,04 je Aktie). Hohe
+Schulden zählen doppelt: als Tilgung im Rückflussdeckel (3.6) und im Risikofaktor Finanzierung (6.2). **Stand.** Vorerst
+nicht weiter verfolgt (25.11.2026). Im Rückblick mit eingestellten Titeln (8.3) gehören die größten Verluste zu genau diesem
+Muster, obwohl Tilgung und Risikofaktor schon griffen: schuldenfinanzierte Rückkäufe bei schrumpfendem Geschäft (Bed Bath &
+Beyond, QVC, Tupperware). Eine Lockerung müsste diese Titel weiter fernhalten; geprüft wird sie erst mit einem Merkmal, das
+stabile Schuldner (Kabelnetz, Versorger) von solchen Fällen trennt.
 
 ### 11.9 Rückflussniveau von Hand in Höhe des gedeckelten Vorschlags
 
@@ -1386,3 +1396,18 @@ Schlussdividenden in einem Kalenderjahr hin (Spezifikation 4.1).
 Dividendenniveau. Eine Zahlung über dem 2,5-Fachen des Medians aller Zahlungen als Sonderdividende auszulassen, sollte die
 Auswahl verbessern. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom 23.11.2026): in 86 % der Fenster schlechter.
 Große Sonderzahlungen sind offenbar oft echter Rückfluss. Die Anwendung weist darauf hin (Spezifikation 4.1).
+
+### 11.23 Branchen- und Regionsgrenze mit gehaltenen Titeln
+
+**Vermutung.** Gehaltene Titel behalten ihr Gewicht (7.2, Schritt 3), zählen bei der Grenze aber erst, wenn sie in der
+Rangfolge an der Reihe sind. Weiter vorn stehende Titel derselben Branche können deshalb zugekauft oder neu aufgenommen werden,
+obwohl die gehaltenen die Grenze schon füllen (Wikifolio Test am 25.11.2026: Consumer Cyclical 24,5 % statt höchstens 20 %).
+Die gehaltenen Gewichte vorab zu zählen, sollte Klumpen verhindern, ohne die Rendite zu senken. **Stand.** Geprüft und
+verworfen (Änderungsprotokoll vom 25.11.2026): im globalen Profil 3,5 Punkte im Jahr schlechter, in 72 % der Fenster
+schlechter. Die Grenze wirkt bewusst weich.
+
+### 11.24 Beteiligungsgesellschaften nach dem Geschäft einordnen
+
+**Vermutung.** Beteiligungsgesellschaften, deren Wert überwiegend an einer Beteiligung hängt (3i mit Action), gehören für die
+Branchengrenze in die Branche dieser Beteiligung, nicht zu den Finanzwerten. Heute blockiert die Grenze für Financial
+Services solche Titel neben Banken. **Stand.** Nicht geprüft.

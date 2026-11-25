@@ -12,6 +12,22 @@ und Tests im selben Schritt, und die Version steigt.
 Die Einträge vor Version 1.0 sind rückwirkend aus der Entwicklungsgeschichte zusammengestellt. Sie nennen nur Kennzahlen, die
 damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
 
+## 25.11.2026 · verworfen · Gehaltene Titel vorab zur Branchen- und Regionsgrenze zählen
+
+- **Anlass:** Im Wikifolio Test lag Consumer Cyclical im Zielportfolio bei 24,5 % statt höchstens 20 %. Gehaltene Titel
+  behalten ihr Gewicht, zählen aber erst, wenn sie in der Rangfolge an der Reihe sind; vorher stehende Titel derselben Branche
+  füllten den Raum (KB Home, Toll Brothers als Zukauf). Daneben fehlte Allwyn die Branche (vom Anbieter ohne Sektor; von Hand
+  auf Consumer Cyclical gesetzt, BOCHGR auf Financial Services).
+- **Regel:** Strategie 7.2, offene Frage 11.23.
+- **Vorher:** Freier Raum je Branche und Region = Grenze minus bereits vergebene Gewichte. **Geprüft:** zusätzlich minus die
+  aktuellen Gewichte aller gehaltenen Kandidaten, die in der Rangfolge später kommen.
+- **Kennzahlen:** Rückblick vom 25.11.2026 mit allen eingestellten Titeln (8.3), Profil global, 2016-10 bis 2026-11, nach
+  Kosten. Stand: +12,7 % im Jahr, Fenstermedian +46 %, Güte 0,57, im schwachen Viertel 0,13, Umschlag 50 %, größter Rückgang
+  −37 %. Geprüft: +9,2 % im Jahr, Fenstermedian +34 %, besser in 28 % der Fenster (Median der Differenz −9,2 Punkte), Güte
+  0,43, im schwachen Viertel 0,11, Umschlag 38 %, größter Rückgang −37 %. In allen drei Zeiträumen schlechter.
+- **Entscheidung:** verworfen. Gehaltene Titel blockieren mit harter Grenze Branchen und Regionen, bessere neue Titel kommen
+  nicht hinein (Umschlag sinkt). Die Grenze bleibt weich; 11.23 hält die Lücke fest.
+
 ## 23.11.2026 · verworfen · Schlussdividende dem Vorjahr zuordnen, Sonderdividenden nach Höhe
 
 - **Anlass:** Die Opus-Bewertung von 150 Titeln fand als häufigste Datenfehler Dividenden nach Zahlungsjahr (29 Titel) und
