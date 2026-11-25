@@ -12,6 +12,43 @@ und Tests im selben Schritt, und die Version steigt.
 Die Einträge vor Version 1.0 sind rückwirkend aus der Entwicklungsgeschichte zusammengestellt. Sie nennen nur Kennzahlen, die
 damals festgehalten wurden; Abschnittsnummern beziehen sich auf Version 1.0.
 
+## 25.11.2026 · verworfen · Rückfluss vom heutigen Stand
+
+- **Anlass:** Im Webinar setzt der Autor bei Imperial Brands die letzte Dividende und das laufende Rückkaufprogramm an
+  (3,09 GBP je Aktie); der Vorschlag der Strategie lag bei 2,17 GBP.
+- **Regel:** Strategie 3.4 und 3.5, offene Frage 11.25.
+- **Vorher:** Netto-Rückkäufe als Mittel der letzten fünf Jahre; nach einer Kürzung höchstens die Hochrechnung aus dem
+  Durchschnitt der Dividende. **Geprüft:** A) Netto-Rückkäufe des letzten Jahres; B) zusätzlich die letzte Dividende auch nach
+  einer Kürzung. Der Rückflussdeckel blieb.
+- **Kennzahlen:** Rückblick vom 25.11.2026 auf dem lokalen Datenstand ohne eingestellte Titel, Profil fokussiert, 2016-10 bis
+  2026-11, nach Kosten, ohne Zufallsauswahl. Stand: +20,7 % im Jahr, Fenstermedian +67 %, Güte 0,77, im schwachen Viertel
+  0,35, Umschlag 68 %, größter Rückgang −34 %. A: +15,6 % im Jahr, Fenstermedian +57 %, besser in 28 % der Fenster (Median der
+  Differenz −21,3 Punkte), Güte 0,66, im schwachen Viertel 0,34, Umschlag 69 %, größter Rückgang −36 %. B: +14,4 % im Jahr,
+  Fenstermedian +67 %, besser in 38 % der Fenster (Median der Differenz −23,7 Punkte), Güte 0,59, im schwachen Viertel 0,46,
+  Umschlag 68 %, größter Rückgang −36 %. Beide in den ersten zwei von drei Zeiträumen deutlich schlechter.
+- **Entscheidung:** verworfen. Schon ohne die eingestellten Titel, unter denen die schuldenfinanzierten Rückkäufer liegen
+  (8.3), kostet das letzte Jahr als Maß rund 5 Punkte im Jahr: Ein einzelnes großes Programm hebt Titel nach oben, die es
+  nicht wiederholen. Die Abweichung vom Autor bleibt; er kennt das laufende Programm, die Regel nur die Zahl des letzten
+  Jahres. Für einzelne Titel bleibt das Rückflussniveau von Hand.
+
+## 25.11.2026 · nicht angenommen · Basislimits von 20 % und 10 %
+
+- **Anlass:** Im Webinar nennt der Autor Höchstgewichte von etwa 10 %, 5 % und 2 bis 3 % im globalen Depot und das Doppelte
+  im fokussierten; das entspricht Basislimits von 10 % und 20 %.
+- **Regel:** Strategie 7.3, offene Frage 11.4.
+- **Vorher:** Basislimit 15 % (fokussiert) und 6,5 % (global). **Geprüft:** 20 % und 10 %, alles andere gleich.
+- **Kennzahlen:** Rückblick vom 25.11.2026 auf dem lokalen Datenstand ohne eingestellte Titel, 2016-10 bis 2026-11, nach
+  Kosten, ohne Zufallsauswahl. Fokussiert, Stand: +20,7 % im Jahr, Fenstermedian +67 %, Güte 0,77, im schwachen Viertel 0,35,
+  Umschlag 68 %, größter Rückgang −34 %, 9,8 Titel. Geprüft: +20,9 % im Jahr, Fenstermedian +64 %, besser in 34 % der Fenster
+  (Median der Differenz −3,6 Punkte), Güte 0,76, im schwachen Viertel 0,19, Umschlag 74 %, größter Rückgang −32 %, 7,6 Titel.
+  Global, Stand: +14,8 % im Jahr, Fenstermedian +46 %, Güte 0,65, im schwachen Viertel 0,23, Umschlag 50 %, größter Rückgang
+  −38 %, 22,1 Titel. Geprüft: +15,7 % im Jahr, Fenstermedian +63 %, besser in 52 % der Fenster (Median der Differenz 0,0
+  Punkte), Güte 0,68, im schwachen Viertel 0,12, Umschlag 57 %, größter Rückgang −32 %, 15,0 Titel.
+- **Entscheidung:** fokussiert verworfen (weniger Titel, schwaches Viertel deutlich schlechter, kein Vorsprung im Median).
+  Global nicht angenommen: Der Vorsprung liegt im Mittel und im Fenstermedian, die Hälfte der Fenster ist schlechter und das
+  schwache Viertel fällt auf die Hälfte. Offen bleibt der Lauf mit den eingestellten Titeln und die Frage, ob der Autor seine
+  Limits ausschöpft; mit vollem Auffüllen hält das globale Profil 15 statt 22 Titel.
+
 ## 25.11.2026 · verworfen · Gehaltene Titel vorab zur Branchen- und Regionsgrenze zählen
 
 - **Anlass:** Im Wikifolio Test lag Consumer Cyclical im Zielportfolio bei 24,5 % statt höchstens 20 %. Gehaltene Titel

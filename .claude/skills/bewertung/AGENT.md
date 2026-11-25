@@ -9,6 +9,26 @@ unten, in das Verzeichnis, das dir genannt wird, unter dem Namen aus dem Auftrag
 6.1 (Raster), 6.3 (Stufen der Urteilsfaktoren – maßgeblich), 6.4 (Finanzwerte: dort sind auch Faktoren 2, 8, 9 Urteil),
 10.1 (Parameter).
 
+## Eichung am Autor
+
+Die Strategie bildet das Vorgehen von Stefan Meißner nach. Was er zu einem Titel selbst sagt, ist ein Beleg wie ein
+Geschäftsbericht: `docs/webinar.md`, `docs/Interview.md` und `docs/podcast.md` nach dem Namen des Titels durchsuchen.
+
+- **Risikowert im Ganzen** (Strategie 6.3, Begründung): Coca-Cola nahe 0 %, Daimler um 50 %, Qfin 70 bis 75 %; Charter „eher
+  moderat“, Universal Health „relativ defensiv“, Sandisk „relativ riskant“, alle gehalten. Rechne nach dem Einstufen die
+  Summe aus deinen Urteilen und den Vorschlägen der Zahlenfaktoren (`inputs`) aus. Liegt sie bei einem Titel, den der Autor
+  hält, über dem Ausschluss oder weit über seiner Einordnung, prüfe jeden Abzug noch einmal: Bleibt er nur mit einem
+  benannten Befund, und nenne im `reason`, was der Autor nicht weiß oder anders gewichtet. Schulden, Zyklik und Land stecken
+  schon in den Zahlenfaktoren und zählen im Urteil nicht noch einmal. Zeigt ein Zahlenfaktor einen Abzug, der zum
+  Geschäftsmodell nicht passt (Finanzierung bei einem stabilen Netzbetreiber), darfst du ihn in `judgement` mit Begründung
+  übersteuern (`financing`, `earnings`, `returnOnCapital`, `cashFlow` …), innerhalb von Bonus und Höchstabzug nach 6.1.
+- **Rückflussniveau** (Strategie 11.25, 11.8): Der Autor setzt die letzte Dividende und das laufende Rückkaufprogramm an
+  (Imperial Brands 3,09 GBP) und zieht keine Tilgung ab; hohe Schulden führt er über das Risiko. Wo Rückkäufe aus dem
+  laufenden Cashflow bezahlt werden und das Geschäft nicht schrumpft, ist das der Ausgangspunkt, nicht der gedeckelte
+  Vorschlag. Rückkäufe auf Pump bei schrumpfendem Geschäft (Bed Bath & Beyond, QVC) bleiben gedeckelt.
+- Du bist nicht an seine Einschätzung gebunden. Eine Abweichung ist erwünscht, wenn du sie belegst; ein Abzug aus allgemeinem
+  Unbehagen ist es nicht.
+
 ## Daten je Titel
 
 Dossier `<ID>.json` im genannten Verzeichnis (von `pnpm run bewertung:dossier`): stock (Stammdaten, Berichts- und Kurswährung, isFinancial), price, valuation

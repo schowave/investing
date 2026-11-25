@@ -770,8 +770,19 @@ Ein schwächeres Jahr, Kostendruck, ein schwacher Markt, ein gefallener Kurs ode
 einstuft, und an Qualitätswerten: Die sechs Faktoren ergeben zusammen bei Wal-Mart, Coca-Cola und Nestlé etwa 0 % (Buch für
 Wal-Mart: 5 % Bonus), bei BASF 22 % (Buch: 5 %).
 
+Zweiter Maßstab ist der Risikowert im Ganzen, wie ihn der Autor über seine Höchstgewichte zu erkennen gibt (Webinar; gerechnet
+mit einem Basislimit von 10 % im globalen Depot, 11.4): Coca-Cola mit etwa 10 % liegt nahe 0, Daimler mit etwa 5 % um 50 %,
+ein chinesisches Fintech wie Qfin mit 2 bis 3 % bei 70 bis 75 %, also noch unter dem Ausschluss. Charter nennt er trotz hoher
+Schulden „eher moderat“, Universal Health „relativ defensiv“, Sandisk „relativ riskant“; er hält alle drei. Hebt ein Urteil
+einen Titel, den der Autor hält, über den Ausschluss, braucht es einen benannten Befund, den er nicht kennt oder anders
+gewichtet. Am 25.11.2026 lagen von 18 Titeln aus seinen Depots 9 über dem Ausschluss; nach einer Neubeurteilung mit diesem
+Maßstab auf einer Testkopie waren es 5, jeder mit einem Befund aus dem Jahr 2026 (Qfin, X Financial, JD.com, Mutares, Sandisk).
+Coca-Cola kam auf 0 %, Imperial Brands auf 28 %, Mercedes-Benz auf 56 %, allerdings erst, nachdem die von der Finanzsparte
+verzerrten Zahlenfaktoren von Hand berichtigt waren (11.7).
+
 **Herkunft.** Anforderungen und Höchstabzüge: Buch Kap. 5.8. Die Stufen sind eigene Setzung. Das Interview stützt die
 Auslegung: Planbarkeit trennt für den Autor Coca-Cola von SpaceX, und ein Wechsel im Vorstand ist für sich kein Befund (Adobe).
+Die Einordnung einzelner Titel im Ganzen stammt aus dem Webinar.
 
 **Schwächen.** Die Stufen sind nicht an späteren Ergebnissen geeicht; ob die Urteilsfaktoren die Auswahl verbessern, ist offen
 (11.17).
@@ -1291,7 +1302,11 @@ etwa 10 % für einen defensiven Titel (Coca-Cola), 5 % für einen mittleren (Dai
 (Qfin), im fokussierten das Doppelte; das entspricht `Basislimit · (1 − Risikowert)` mit diesen Basislimits. **Stand.** Die Folien (Stand 23.11.2026) zeigen im globalen Depot drei Positionen über dem Basislimit des globalen Profils
 (Comcast 8,7 %, Charter 8,3 %, Universal Health 7,8 %) und im fokussierten Charter mit 15,8 %. Mit 12,5 % träfe das Limit
 Comcast und Charter fast genau, mit 10 % bei einem Risikowert von 13 und 17 %. Der Autor füllt aber nur die oberen Positionen
-auf; die Strategie füllt jede bis zum Limit und käme mit höheren Limits auf weniger Titel. Nicht geprüft.
+auf; die Strategie füllt jede bis zum Limit und käme mit höheren Limits auf weniger Titel. Geprüft am 25.11.2026 ohne die
+eingestellten Titel (Änderungsprotokoll): fokussiert verworfen (7,6 statt 9,8 Titel, Güte im schwachen Viertel 0,19 statt
+0,35); global nicht angenommen (15 statt 22 Titel, Fenstermedian +63 % statt +46 %, aber nur in 52 % der Fenster besser und
+Güte im schwachen Viertel 0,12 statt 0,23). Offen: der Lauf mit den eingestellten Titeln und ein Verfahren, das wie der Autor
+nur die oberen Positionen auffüllt.
 
 ### 11.5 Wachstum aus dem Umsatz bei Zyklikern
 
@@ -1448,4 +1463,6 @@ Aktie). Die Strategie mittelt die Netto-Rückkäufe über `rueckkaeufe.jahre` un
 (Vorschlag am 25.11.2026: 2,17 GBP; innere Rendite 8,0 % statt etwa 11,4 % beim selben Kurs). Netto-Rückkäufe des letzten
 Jahres statt des Mittels (Variante A) und zusätzlich die letzte Dividende auch nach einer Kürzung (Variante B) sollten die
 Reihung verbessern, ohne schuldenfinanzierte Rückkäufer bei schrumpfendem Geschäft nach oben zu bringen; der Rückflussdeckel
-bleibt. **Stand.** Nicht geprüft.
+bleibt. **Stand.** Geprüft und verworfen (Änderungsprotokoll vom 25.11.2026): A rund 5, B rund 6 Punkte im Jahr schlechter,
+besser nur in 28 und 38 % der Fenster, schon ohne die eingestellten Titel. Ein einzelnes Jahr hebt Titel mit einem einmaligen
+Programm nach oben. Die Abweichung vom Autor bleibt; für einzelne Titel gilt das Rückflussniveau von Hand.
