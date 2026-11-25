@@ -10,7 +10,7 @@ const basis: Basis = { payoutLevel: 3, growth: 0.05, earningsLevel: 6, numberRis
 describe("reviewOf", () => {
   it("verlangt ohne Eingabe von Hand keine Prüfung", () => {
     const review = reviewOf({ assessedOn: null, today: "2026-11-19", before: null, now: basis });
-    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [], calcChanged: false });
+    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [], calcChanged: false, priceDrop: null });
     expect(needsReview(review)).toBe(false);
   });
 
@@ -54,6 +54,19 @@ describe("reviewOf", () => {
       now: { ...basis, earningsLevel: -1.2 },
     });
     expect(review.changes).toEqual(["Gewinnniveau -1,00 → -1,20 (−20 %)"]);
+  });
+
+  it("verlangt die Prüfung, wenn der Kurs seit der Bewertung um mehr als ein Viertel gefallen ist", () => {
+    const at = (priceNow: number | null, priceBefore: number | null = 100) =>
+      reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: basis, now: basis, priceBefore, priceNow });
+    expect(at(75).priceDrop).toBeNull();
+    expect(needsReview(at(75))).toBe(false);
+    expect(at(70).priceDrop).toBeCloseTo(0.3);
+    expect(needsReview(at(70))).toBe(true);
+    // Ein gestiegener Kurs und ein fehlender Kurs lösen nichts aus.
+    expect(at(180).priceDrop).toBeNull();
+    expect(at(null).priceDrop).toBeNull();
+    expect(at(70, null).priceDrop).toBeNull();
   });
 
   it("vergleicht nicht, wenn kein Tagesstand aus der Zeit der Bewertung vorliegt", () => {
@@ -103,6 +116,7 @@ describe("Prüfstand aus der Datenbank", () => {
       overdue: false,
       changes: [],
       calcChanged: false,
+      priceDrop: null,
     });
 
     // Neue Abschlüsse: Der freie Cashflow trägt nur noch 2,50 statt 3,00 je Aktie.
@@ -114,6 +128,27 @@ describe("Prüfstand aus der Datenbank", () => {
     const later = computeValuation(db, stock, "2026-06-02").review;
     expect(later.changes).toEqual(["Rückflussniveau 3,00 → 2,50 (−17 %)"]);
     expect(later.overdue).toBe(true);
+    db.close();
+  });
+
+  it("misst den Kursrückgang am Kurs vom Tag der Bewertung und hält einen Split nicht für einen Sturz", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    db.saveRawCloses(stock.id, [{ date: "2025-05-30", close: 40 }]);
+    assess(db, stock, [{ key: "risk.moat", value: 0.05 }], "2025-06-01");
+
+    db.saveRawCloses(stock.id, [{ date: "2025-06-20", close: 28 }]);
+    const fallen = computeValuation(db, stock, "2025-06-21").review;
+    expect(fallen.priceDrop).toBeCloseTo(0.3);
+    expect(needsReview(fallen)).toBe(true);
+
+    // Split 2:1 nach der Bewertung: 40 von damals sind 20 in heutiger Stückelung, 19 heute also kein Sturz.
+    db.saveSplits(stock.id, [{ date: "2025-06-25", ratio: 2 }]);
+    db.saveRawCloses(stock.id, [{ date: "2025-06-26", close: 19 }]);
+    expect(computeValuation(db, stock, "2025-06-27").review.priceDrop).toBeNull();
     db.close();
   });
 

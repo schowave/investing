@@ -45,7 +45,7 @@ import { parseInflationForecasts } from "../data/reference.ts";
 import { FACTOR_QUESTIONS, JUDGED_FACTORS } from "../judgement/factors.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
 import { MAX_PRICE_AGE_DAYS } from "./recompute.ts";
-import { REVIEW_MONTHS, reviewOf } from "./review.ts";
+import { PRICE_DROP, REVIEW_MONTHS, reviewOf } from "./review.ts";
 import { STRATEGY_VERSION } from "./run.ts";
 import { keyedValues, markdownTables, parseValue, prose, strategyHead, withoutHead } from "./strategyDocument.ts";
 import { MIN_MARKET_CAP_EUR } from "./universe.ts";
@@ -449,6 +449,16 @@ const CHECKS: Record<string, Check> = {
         reviewOf({ assessedOn: "2026-01-01", today: "2026-02-01", before: basis, now: { ...basis, numberRisk: 0.1 + shift } }).changes;
       expect(changesAfter(v)).toEqual([]);
       expect(changesAfter(v + 0.001)).toHaveLength(1);
+    },
+  },
+  "pruefung.kursrueckgang": {
+    unit: "%",
+    check: (v) => {
+      expect(PRICE_DROP).toBe(v);
+      const dropAt = (priceNow: number) =>
+        reviewOf({ assessedOn: "2026-01-01", today: "2026-02-01", before: basis, now: basis, priceBefore: 100, priceNow }).priceDrop;
+      expect(dropAt(100 * (1 - v))).toBeNull();
+      expect(dropAt(100 * (1 - v) - 0.1)).toBeCloseTo(v + 0.001);
     },
   },
   // Werte der Umsetzung und des Rückblicks (10.3).

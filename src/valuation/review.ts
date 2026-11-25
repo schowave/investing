@@ -3,7 +3,8 @@
 // Der Autor versieht jede Bewertung mit einem Datum und gleicht monatlich ab, ob sich die Zahlen seither verschoben
 // haben: Bei wenigen Prozent bleibt die Bewertung stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an
 // (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Strategie 5.2: Was über sie hinausgeht,
-// deckt die Bewertung nicht mehr ab.
+// deckt die Bewertung nicht mehr ab. Dazu kommt der Kurs: Fällt er stark, hinterfragt der Autor seine Fundamentaldaten
+// (Webinar, `docs/webinar.md`); verkauft wird deshalb nicht.
 
 import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS, toEuroTerms } from "../calc/index.ts";
 
@@ -11,6 +12,8 @@ import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS, toEuroTerms } f
 export const REVIEW_MONTHS = 12;
 /** Der Risikowert aus Zahlen hat sich um mindestens so viele Punkte verschoben. */
 const RISK_SHIFT = 0.05;
+/** Der Kurs ist seit der Bewertung um mehr als diesen Anteil gefallen (Strategie 7.5, `pruefung.kursrueckgang`). */
+export const PRICE_DROP = 0.25;
 
 /** Die Zahlen, auf denen eine Bewertung steht: Vorschläge aus den Abschlüssen, ohne das Urteil des Nutzers. */
 export interface Basis {
@@ -44,6 +47,8 @@ export interface Review {
   changes: string[];
   /** Die Rechnung hat sich seit der Bewertung geändert; die Verschiebungen können auch daher kommen. */
   calcChanged: boolean;
+  /** Kursrückgang seit der Bewertung als Anteil (0,3 = 30 % gefallen), wenn er über `PRICE_DROP` liegt; sonst `null`. */
+  priceDrop: number | null;
 }
 
 const number = (value: number, digits: number) =>
@@ -94,9 +99,14 @@ export function reviewOf(args: {
   now: Basis;
   calcChanged?: boolean;
   inflationGap?: number;
+  /** Kurs am Tag der Bewertung, um spätere Splits bereinigt, und Kurs heute; beide in derselben Währung. */
+  priceBefore?: number | null;
+  priceNow?: number | null;
 }): Review {
   const { assessedOn, before, now } = args;
-  if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false };
+  if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false, priceDrop: null };
+  const { priceBefore, priceNow } = args;
+  const drop = priceBefore && priceNow && priceBefore > 0 && priceNow > 0 ? 1 - priceNow / priceBefore : 0;
   const spread = DEFAULT_SCENARIO_SPREAD;
   const changes =
     before === null
@@ -112,10 +122,11 @@ export function reviewOf(args: {
     overdue: monthsLater(assessedOn, REVIEW_MONTHS) < args.today,
     changes,
     calcChanged: before !== null && (args.calcChanged ?? false),
+    priceDrop: drop > PRICE_DROP + 1e-9 ? drop : null,
   };
 }
 
 /** Die Bewertung sollte wieder angesehen werden. */
 export function needsReview(review: Review): boolean {
-  return review.overdue || review.changes.length > 0;
+  return review.overdue || review.changes.length > 0 || review.priceDrop !== null;
 }

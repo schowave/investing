@@ -143,6 +143,12 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
 
   // Verglichen wird mit dem Tagesstand vom Tag der Bewertung. Ihn speichern der Abgleich und das Speichern der Bewertung.
   const before = assessedOn === null ? null : storedBaseline(db.valuationDetailsAsOf(stock.id, assessedOn));
+  // Der Kurs von damals in heutiger Stückelung, sonst sähe ein Split wie ein Kurssturz aus.
+  const storedPrice = assessedOn === null ? null : db.valuationPriceAsOf(stock.id, assessedOn);
+  const priceBefore =
+    storedPrice === null || assessedOn === null
+      ? null
+      : history.splits.filter((s) => s.date > assessedOn && s.ratio > 0).reduce((value, s) => value / s.ratio, storedPrice);
   const review = reviewOf({
     assessedOn,
     today: date,
@@ -150,6 +156,8 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
     now: basisOf(proposals),
     inflationGap,
     calcChanged: before !== null && before.calcVersion !== CALC_VERSION,
+    priceBefore,
+    priceNow: price,
   });
 
   return { stock, priceDate: latest?.date ?? null, proposals, valuation, review };

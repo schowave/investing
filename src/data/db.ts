@@ -722,16 +722,24 @@ export class Database {
    * `null`, wenn es keinen gibt.
    */
   valuationDetailsAsOf(stockId: string, date: string): unknown {
+    return this.#valuationAsOf(stockId, date)?.details ?? null;
+  }
+
+  /** Kurs (Berichtswährung) des Tagesstands, der an einem Tag galt; Auswahl wie `valuationDetailsAsOf`. */
+  valuationPriceAsOf(stockId: string, date: string): number | null {
+    return this.#valuationAsOf(stockId, date)?.price ?? null;
+  }
+
+  #valuationAsOf(stockId: string, date: string): { details: unknown; price: number | null } | undefined {
     const pick = (condition: SQL, order: SQL) =>
       this.#db
-        .select({ details: t.valuations.details })
+        .select({ details: t.valuations.details, price: t.valuations.price })
         .from(t.valuations)
         .where(and(eq(t.valuations.stockId, stockId), condition))
         .orderBy(order)
         .limit(1)
         .get();
-    const row = pick(lte(t.valuations.date, date), desc(t.valuations.date)) ?? pick(gt(t.valuations.date, date), asc(t.valuations.date));
-    return row?.details ?? null;
+    return pick(lte(t.valuations.date, date), desc(t.valuations.date)) ?? pick(gt(t.valuations.date, date), asc(t.valuations.date));
   }
 
   /** Gespeicherte Tagesstände einer Aktie, jüngster zuerst. */

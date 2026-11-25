@@ -47,7 +47,8 @@ Die Rechnung hat fünf Schritte:
 
 Urteil gehört zur Methode. Sechs Risikofaktoren lassen sich nur beurteilen, nicht ausrechnen, und jede Eingabe einer Aktie
 (Rückflussniveau, Wachstum, jeder Risikofaktor) kann von Hand gesetzt werden, wenn die Herleitung aus den Zahlen das
-Unternehmen verfehlt. Jede Bewertung trägt ein Datum und wird geprüft, wenn sie alt wird oder sich die Zahlen verschieben.
+Unternehmen verfehlt. Jede Bewertung trägt ein Datum und wird geprüft, wenn sie alt wird, sich die Zahlen verschieben oder
+der Kurs stark fällt.
 
 Die Strategie setzt keine Stop-Loss-Marken, prognostiziert keine Währungen und berücksichtigt keine Steuern. Fällt ein Kurs
 bei unveränderten Aussichten, steigt die innere Rendite; das ist ein Grund nachzukaufen, nicht zu verkaufen.
@@ -965,16 +966,22 @@ auch die Vorschläge aus den Zahlen festgehalten. Eine vollständige Bewertung i
 - sich die Vorschläge seither über die Bandbreite (5.2) hinaus verschoben haben: Rückflussniveau oder Gewinnniveau um mehr als
   `bandbreite.rueckfluss` ihres Betrags, Wachstum um mehr als `bandbreite.wachstum` (in Euro-Kaufkraft, für beide Stände mit dem
   heutigen Inflationsabstand), die Summe der Zahlenfaktoren um mehr als `pruefung.risiko`, oder ein Vorschlag ist neu
-  hinzugekommen oder weggefallen. Auch eine geänderte Rechenregel verschiebt Vorschläge und löst die Prüfung aus.
+  hinzugekommen oder weggefallen. Auch eine geänderte Rechenregel verschiebt Vorschläge und löst die Prüfung aus, oder
+- der Kurs seither um mehr als `pruefung.kursrueckgang` gefallen ist (in der Berichtswährung, der Kurs vom Tag der Bewertung
+  um spätere Splits bereinigt).
 
-Der Titel bleibt bis zur Prüfung Kandidat. Analystenschätzungen gehen nicht ein.
+Der Titel bleibt bis zur Prüfung Kandidat. Ein gefallener Kurs ist kein Verkaufsgrund (7.4); er löst nur die Prüfung aus.
+Analystenschätzungen gehen nicht ein.
 
 **Begründung.** Kleinere Verschiebungen deckt die Bandbreite ab; was über sie hinausgeht, deckt die Bewertung nicht mehr.
+Abschlüsse kommen einmal im Jahr; ein stark gefallener Kurs zeigt früher an, dass sich an den Aussichten etwas geändert haben
+kann. Manchmal hat der Markt recht.
 
 **Herkunft.** Der Autor versieht jede Bewertung mit einem Datum und gleicht monatlich ab, ob sich die Zahlen seither
 verschoben haben: Bei wenigen Prozent bleibt sie stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an
-(Interview). Jährliche Prüfung: Buch, ohne Folge bei Überfälligkeit. Die Schwellen sind eigene Setzung; das Interview nennt
-„plus minus wenige Prozent“.
+(Interview). Jährliche Prüfung: Buch, ohne Folge bei Überfälligkeit. Kursrückgang: Webinar („stark fallende Kurse führen
+auch dazu, dass ich meine Fundamentaldaten hinterfragen sollte“), ohne Zahl. Die Schwellen sind eigene Setzung; das Interview
+nennt „plus minus wenige Prozent“.
 
 **Schwächen.** Keine bekannt; der Abgleich stützt sich nur auf Abschlüsse, nicht auf neue Schätzungen (11.13).
 
@@ -1200,6 +1207,7 @@ Ergebnis eines Laufs, kein Parameter).
 | `huerde.ersatzwert`                  | 3 %             | 7.1       | eigene Setzung            | Hürde, solange keine Anleiherendite vorliegt                                                                         |
 | `pruefung.monate`                    | 12 Monate       | 7.5       | Buch                      | Jährliche Prüfung                                                                                                    |
 | `pruefung.risiko`                    | 5 Prozentpunkte | 7.5       | eigene Setzung            | Verschiebung der Zahlenfaktoren, die eine Prüfung auslöst; das Interview nennt „wenige Prozent“                      |
+| `pruefung.kursrueckgang`             | 25 %            | 7.5       | Webinar, eigene Setzung   | Kursrückgang seit der Bewertung, der eine Prüfung auslöst; der Autor nennt „stark fallende Kurse“ ohne Zahl          |
 
 ### 10.2 Eigene Setzungen ohne eigenen Zahlenwert
 

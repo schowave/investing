@@ -422,6 +422,8 @@ export default async function StockPage(props: {
           {review.overdue && `Sie ist vom ${isoDate(review.assessedOn)} und damit älter als ${REVIEW_MONTHS} Monate. `}
           {review.changes.length > 0 &&
             `Seit dem ${isoDate(review.assessedOn)} haben sich die Vorschläge aus den Zahlen verschoben: ${review.changes.join("; ")}. `}
+          {review.priceDrop !== null &&
+            `Der Kurs ist seit dem ${isoDate(review.assessedOn)} um ${Math.round(review.priceDrop * 100)} % gefallen; das ist kein Verkaufssignal, aber ein Anlass, die Annahmen zu hinterfragen. `}
           {review.changes.length > 0 &&
             review.calcChanged &&
             "Die Rechnung hat sich seither geändert; ein Teil der Verschiebung kann daher kommen statt aus neuen Zahlen. "}

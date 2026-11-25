@@ -89,7 +89,9 @@ einen Wert von Hand.
 - **Tag der Bewertung (Strategie 7.5):** der Tag, an dem zuletzt ein Wert von Hand gespeichert wurde. Speichern ohne Änderung
   bestätigt die Bewertung mit dem heutigen Datum und hält die Vorschläge dieses Tages als Tagesstand fest. Rangliste,
   Aktienseite und der Zähler in der Navigation zeigen den Hinweis „prüfen“; die Aktienseite nennt, was sich verschoben hat, und
-  sagt dazu, wenn die Rechnung (`CALC_VERSION`) sich seither geändert hat.
+  sagt dazu, wenn die Rechnung (`CALC_VERSION`) sich seither geändert hat. Für den Kursrückgang (`pruefung.kursrueckgang`)
+  vergleicht sie den Kurs des Tagesstands vom Tag der Bewertung, um spätere Splits bereinigt, mit dem heutigen, beide in der
+  Berichtswährung; bei Titeln mit Kurs in anderer Währung steckt der Wechselkurs mit darin.
 - **Unvollständig bewertete gehaltene Titel:** bekommen keinen Verkaufsvorschlag, sondern den Hinweis „erst bewerten“, außer
   der Risikowert aus den gesetzten Faktoren erreicht auch nach Abzug der größtmöglichen Urteilsboni noch den Ausschluss
   (`MAX_JUDGEMENT_BONUS` in `src/valuation/portfolioView.ts`; Strategie 7.4).

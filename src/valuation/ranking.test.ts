@@ -27,7 +27,7 @@ function valued(
       riskFloor: options.riskFloor ?? options.riskScore ?? 0.1,
       returns,
     },
-    review: { assessedOn: "2026-01-01", overdue: options.review ?? false, changes: [], calcChanged: false },
+    review: { assessedOn: "2026-01-01", overdue: options.review ?? false, changes: [], calcChanged: false, priceDrop: null },
   } as unknown as StockValuation;
 }
 
