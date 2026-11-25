@@ -46,7 +46,7 @@ if (!process.argv.includes("--ohne-index")) {
     console.warn(`Ohne Vergleichsindex: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
-/** Rendite des Vergleichsindex (MSCI World, thesaurierend) vom Tag des Eintrags bis zum letzten Kurs; `null` ohne Index. */
+/** Rendite des Vergleichsindex (MSCI ACWI IMI, thesaurierend) vom Tag des Eintrags bis zum letzten Kurs; `null` ohne Index. */
 const indexSince = (date: string): number | null => {
   const last = index?.points.at(-1);
   const entry = index ? closeAtOrBefore(index, date) : null;
@@ -56,7 +56,7 @@ const indexSince = (date: string): number | null => {
 console.log(
   "Rendite seit dem Eintrag in Euro: Kurs plus Ausschüttungen (nicht wiederangelegt), ohne Kosten und Steuern; Bargeld zählt 0, Dividenden zum heutigen Wechselkurs.",
 );
-console.log("Arm zahlen = Datenvorrat ohne Urteile, urteil = Watchlist mit Urteilen. Index = MSCI World (EUNL.DE), voll investiert.");
+console.log("Arm zahlen = Datenvorrat ohne Urteile, urteil = Watchlist mit Urteilen. Index = MSCI ACWI IMI (SPYI.DE), voll investiert.");
 console.log("Datum       Profil      Arm     Version  Titel  investiert  Kurse da  Alter   nur Kurs   mit Dividende   Index");
 for (const s of snapshots) {
   const r = snapshotResult(s, priceNow, dividendsSince, splitFactor);

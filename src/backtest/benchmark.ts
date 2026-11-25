@@ -1,4 +1,5 @@
-// Vergleichsindex: Kurse eines thesaurierenden Indexfonds in Euro (Standard: iShares Core MSCI World, EUNL.DE).
+// Vergleichsindex: Kurse eines thesaurierenden Indexfonds in Euro (Standard: SPDR MSCI ACWI IMI, SPYI.DE). Der Autor des
+// Vorbilds misst sich an diesem Fonds (Webinar): ganzer Markt mit Schwellenländern und kleineren Werten, wie der Datenbestand.
 // Quelle ist die inoffizielle Chart-Schnittstelle von Yahoo Finance; sie kann sich ändern. Fehlt der Index, läuft der
 // Rückblick ohne Vergleich weiter.
 
@@ -23,7 +24,7 @@ const Chart = z.object({
   }),
 });
 
-export const DEFAULT_BENCHMARK = "EUNL.DE";
+export const DEFAULT_BENCHMARK = "SPYI.DE";
 
 export function parseChart(symbol: string, json: unknown): PriceSeries {
   const result = Chart.parse(json).chart.result[0]!;

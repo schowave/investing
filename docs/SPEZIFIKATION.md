@@ -465,8 +465,11 @@ Verfahren:
 
 Vergleichsgrößen:
 
-- **Index:** iShares Core MSCI World (EUNL.DE, thesaurierend, Euro). Die Kurse kommen von der inoffiziellen Schnittstelle von
-  Yahoo Finance; fehlen sie, läuft der Rückblick ohne Vergleich.
+- **Index:** SPDR MSCI ACWI IMI (SPYI.DE, thesaurierend, Euro), der Fonds, an dem sich der Autor des Vorbilds misst (Webinar):
+  ganzer Markt mit Schwellenländern und kleineren Werten. Bis zum 25.11.2026 war es der iShares Core MSCI World (EUNL.DE);
+  ältere Läufe und die Zahlen in Strategie 8.2 beziehen sich auf ihn. Die Kurse kommen von der inoffiziellen Schnittstelle von
+  Yahoo Finance; fehlen sie, läuft der Rückblick ohne Vergleich. Die Reihe von SPYI.DE hat 2017 zwei Tage mit Fehlkursen
+  (Anfang Juni und Anfang Juli, je rund +13 % und am Folgetag zurück); sie liegen auf keinem Monatsschluss.
 - **Zufallsauswahl:** dieselben Kandidaten (nach Hürde und Filtern), Risikoabzüge, Limits und Kosten; die Rangfolge wird je
   Titel und Kalenderjahr gewürfelt (gezogene Rendite 10 bis 30 %, gehaltene Titel behalten den Aufschlag der Tauschschwelle).
   200 Läufe mit festen Startwerten; der Bericht nennt auch deren Umschlag. Sie zeigt, was das Ranking über Zufall hinaus

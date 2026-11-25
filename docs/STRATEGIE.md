@@ -1009,7 +1009,8 @@ Der Rückblick rechnet, was das Zielportfolio des fokussierten Profils seit Okto
   im Rückblick überhaupt vorkommen.
 - **Handel:** zum Schlusskurs des Stichtags, mit Kosten je Handelsumsatz; Bargeld wird verzinst. Endet die Kursreihe eines
   Titels, wird im dritten Monat ohne Kurs ein Verlust angesetzt (auch bei Übernahmen gegen bar).
-- **Vergleiche:** der iShares Core MSCI World (thesaurierend, in Euro) und eine Zufallsauswahl: dieselben Kandidaten,
+- **Vergleiche:** ein thesaurierender Fonds auf den MSCI ACWI IMI in Euro (bis 25.11.2026 und in 8.2: iShares Core MSCI World;
+  der Autor misst sich am ACWI IMI, Webinar) und eine Zufallsauswahl: dieselben Kandidaten,
   Risikoabzüge, Limits und Kosten, aber eine je Titel und Jahr gewürfelte Reihenfolge, in vielen Läufen. Sie zeigt, was die
   Reihung über Zufall hinaus beiträgt.
 - **Fenster und Güte:** Neben dem ganzen Zeitraum werden rollende Dreijahresfenster ausgewertet (Start alle drei Monate). Die
@@ -1097,7 +1098,7 @@ Rendite, Risikowert, Branche, Region, Kurs von damals; die Rangfolge hängt nich
 Aufschlag). Damit lässt sich später das Ranking messen und nicht nur die Auswahl, die davon übrig bleibt: Trägt es, liegt die
 gleich gewichtete Rendite der Ränge 1 bis 10 über der der Ränge 31 bis 100, über viele Monate und nicht in einem. Die
 Auswertung (`pnpm run forward`) rechnet in Euro mit Kurs und Ausschüttungen seit dem Eintrag (nicht wiederangelegt, ohne
-Kosten und Steuern, Ausschüttungen zum heutigen Wechselkurs) und stellt den MSCI World daneben; der Indexkurs wird beim Auswerten
+Kosten und Steuern, Ausschüttungen zum heutigen Wechselkurs) und stellt den MSCI ACWI IMI daneben; der Indexkurs wird beim Auswerten
 bei Yahoo geholt und nicht mitgeschrieben, ebenso die Ausschüttungen, die in der Datenbank stehen.
 Splits seit dem Eintrag werden im Kurs von damals berücksichtigt. Kleine Unschärfen bleiben: Der Kurs von damals ist der
 letzte gespeicherte Schlusskurs (bei einem Abgleich am frühen Morgen der des Vortags), der Indexkurs der des Eintragstags oder davor;
