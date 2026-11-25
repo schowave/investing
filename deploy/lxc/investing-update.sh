@@ -36,6 +36,13 @@ for f in investing-update.service investing-update.timer investing-sync.service 
   fi
 done
 if [ "$units_changed" = 1 ]; then systemctl daemon-reload; fi
+# Der Timer für den Abgleich kam nach der Erstinstallation dazu; nur install.sh schaltete ihn ein. Ein kopierter, aber
+# nicht eingeschalteter Timer läuft nie (so stand der Abgleich vom 20. bis 25.11.2026). An und aus geht über die Seite
+# „Abgleich“: Der Timer stellt den Lauf nur ein, wenn der nächtliche Abgleich dort an ist.
+if ! systemctl is-enabled --quiet investing-sync.timer; then
+  systemctl enable --now investing-sync.timer
+  log "investing-sync.timer eingeschaltet"
+fi
 
 version="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$image")"
 log "neue Version $version wird gestartet"
