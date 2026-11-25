@@ -15,7 +15,19 @@ describe("parseEodhdSnapshot", () => {
         },
         Technicals: { "52WeekHigh": "15.95" },
         Highlights: { QuarterlyRevenueGrowthYOY: "" },
-        Earnings: { History: { a: { date: "2026-09-30", epsActual: "0.32", epsEstimate: 0.22 }, b: { epsActual: 1 } } },
+        Earnings: {
+          History: { a: { date: "2026-09-30", epsActual: "0.32", epsEstimate: 0.22 }, b: { epsActual: 1 } },
+          Trend: {
+            "2026-12-31": {
+              period: "0y",
+              earningsEstimateNumberOfAnalysts: "13.0000",
+              epsTrendCurrent: "3.99",
+              epsTrend30daysAgo: "4.04",
+              epsTrend90daysAgo: null,
+            },
+            kaputt: 5,
+          },
+        },
         InsiderTransactions: { "0": { date: "2026-03-01", ownerName: " B ", transactionAmount: "10" } },
         AnalystRatings: { Rating: 4.1, TargetPrice: "x" },
       }),
@@ -30,6 +42,7 @@ describe("parseEodhdSnapshot", () => {
         { date: "2026-03-01", owner: "B", acquiredDisposed: null, code: null, amount: 10, price: null, heldAfter: null },
       ],
       analystRatings: { rating: 4.1, targetPrice: null },
+      estimateTrend: [{ period: "0y", analysts: 13, current: 3.99, daysAgo: { 7: null, 30: 4.04, 60: null, 90: null } }],
     });
   });
 

@@ -45,7 +45,7 @@ import { parseInflationForecasts } from "../data/reference.ts";
 import { FACTOR_QUESTIONS, JUDGED_FACTORS } from "../judgement/factors.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
 import { MAX_PRICE_AGE_DAYS } from "./recompute.ts";
-import { PRICE_DROP, REVIEW_MONTHS, reviewOf } from "./review.ts";
+import { ESTIMATE_MIN_ANALYSTS, ESTIMATE_SHIFT, estimateShiftOf, PRICE_DROP, REVIEW_MONTHS, reviewOf } from "./review.ts";
 import { STRATEGY_VERSION } from "./run.ts";
 import { keyedValues, markdownTables, parseValue, prose, strategyHead, withoutHead } from "./strategyDocument.ts";
 import { MIN_MARKET_CAP_EUR } from "./universe.ts";
@@ -102,7 +102,7 @@ const isoAfter = (date: string, months: number, days = 0) => {
   return d.toISOString().slice(0, 10);
 };
 
-type Unit = "%" | "Prozentpunkte" | "Jahre" | "Monate" | "Tage" | "-fach" | "Mrd. €" | "Mio. €" | "Läufe";
+type Unit = "%" | "Prozentpunkte" | "Jahre" | "Monate" | "Tage" | "-fach" | "Mrd. €" | "Mio. €" | "Läufe" | "Analysten";
 interface Check {
   unit: Unit;
   check: (v: number) => void;
@@ -459,6 +459,32 @@ const CHECKS: Record<string, Check> = {
         reviewOf({ assessedOn: "2026-01-01", today: "2026-02-01", before: basis, now: basis, priceBefore: 100, priceNow }).priceDrop;
       expect(dropAt(100 * (1 - v))).toBeNull();
       expect(dropAt(100 * (1 - v) - 0.1)).toBeCloseTo(v + 0.001);
+    },
+  },
+  "pruefung.schaetzung": {
+    unit: "%",
+    check: (v) => {
+      expect(ESTIMATE_SHIFT).toBe(v);
+      const at = (shift: number) =>
+        reviewOf({ assessedOn: "2026-01-01", today: "2026-03-01", before: basis, now: basis, estimateShift: { shift, days: 30 } })
+          .estimateShift;
+      expect(at(-v)).toBeNull();
+      expect(at(-v - 0.001)).toEqual({ shift: -v - 0.001, days: 30 });
+      expect(at(v + 0.001)).not.toBeNull();
+    },
+  },
+  "pruefung.schaetzung_analysten": {
+    unit: "Analysten",
+    check: (v) => {
+      expect(ESTIMATE_MIN_ANALYSTS).toBe(v);
+      const withAnalysts = (analysts: number) =>
+        estimateShiftOf({
+          assessedOn: "2026-01-01",
+          fetchedOn: "2026-03-01",
+          trend: [{ period: "0y", analysts, current: 8, daysAgo: { 7: 10, 30: 10, 60: 10, 90: 10 } }],
+        });
+      expect(withAnalysts(v - 1)).toBeNull();
+      expect(withAnalysts(v)?.shift).toBeCloseTo(-0.2);
     },
   },
   // Werte der Umsetzung und des Rückblicks (10.3).

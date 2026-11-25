@@ -5,10 +5,11 @@
 
 import { z } from "zod";
 import { type Database, type Stock, sourceOfNote } from "../data/db.ts";
+import { storedEstimateTrend } from "../data/eodhdSnapshot.ts";
 import { currentProposals } from "../judgement/factors.ts";
 import { dataWarnings } from "./dataChecks.ts";
 import type { Basis, Review } from "./review.ts";
-import { basisOf, reviewOf } from "./review.ts";
+import { basisOf, estimateShiftOf, reviewOf } from "./review.ts";
 import type { InputKey, InputValues, Proposals, Valuation } from "./valuation.ts";
 import { dividendsByYear, evaluate, INPUT_KEYS, priceInReportingCurrency, proposeInputs, shareJump, splitBasis } from "./valuation.ts";
 
@@ -149,6 +150,8 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
     storedPrice === null || assessedOn === null
       ? null
       : history.splits.filter((s) => s.date > assessedOn && s.ratio > 0).reduce((value, s) => value / s.ratio, storedPrice);
+  // Nur für bewertete Titel: Die Rohantwort zu lesen kostet, und ohne Bewertung gibt es nichts zu prüfen.
+  const estimates = assessedOn === null ? null : storedEstimateTrend(db, stock.id);
   const review = reviewOf({
     assessedOn,
     today: date,
@@ -158,6 +161,7 @@ export function computeValuation(db: Database, stock: Stock, date: string, optio
     calcChanged: before !== null && before.calcVersion !== CALC_VERSION,
     priceBefore,
     priceNow: price,
+    estimateShift: estimates && assessedOn !== null ? estimateShiftOf({ assessedOn, ...estimates }) : null,
   });
 
   return { stock, priceDate: latest?.date ?? null, proposals, valuation, review };

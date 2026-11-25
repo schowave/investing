@@ -47,8 +47,8 @@ Die Rechnung hat fünf Schritte:
 
 Urteil gehört zur Methode. Sechs Risikofaktoren lassen sich nur beurteilen, nicht ausrechnen, und jede Eingabe einer Aktie
 (Rückflussniveau, Wachstum, jeder Risikofaktor) kann von Hand gesetzt werden, wenn die Herleitung aus den Zahlen das
-Unternehmen verfehlt. Jede Bewertung trägt ein Datum und wird geprüft, wenn sie alt wird, sich die Zahlen verschieben oder
-der Kurs stark fällt.
+Unternehmen verfehlt. Jede Bewertung trägt ein Datum und wird geprüft, wenn sie alt wird, sich die Zahlen oder die
+Gewinnschätzungen der Analysten verschieben oder der Kurs stark fällt.
 
 Die Strategie setzt keine Stop-Loss-Marken, prognostiziert keine Währungen und berücksichtigt keine Steuern. Fällt ein Kurs
 bei unveränderten Aussichten, steigt die innere Rendite; das ist ein Grund nachzukaufen, nicht zu verkaufen.
@@ -979,22 +979,32 @@ auch die Vorschläge aus den Zahlen festgehalten. Eine vollständige Bewertung i
   heutigen Inflationsabstand), die Summe der Zahlenfaktoren um mehr als `pruefung.risiko`, oder ein Vorschlag ist neu
   hinzugekommen oder weggefallen. Auch eine geänderte Rechenregel verschiebt Vorschläge und löst die Prüfung aus, oder
 - der Kurs seither um mehr als `pruefung.kursrueckgang` gefallen ist (in der Berichtswährung, der Kurs vom Tag der Bewertung
-  um spätere Splits bereinigt).
+  um spätere Splits bereinigt), oder
+- sich die Gewinnschätzung der Analysten je Aktie für das laufende oder das nächste Geschäftsjahr seither um mehr als
+  `pruefung.schaetzung` verschoben hat, nach oben oder unten. Es zählt die größere der beiden Verschiebungen und nur eine
+  Schätzung von mindestens `pruefung.schaetzung_analysten`, deren früherer Stand über 0 liegt. Der Anbieter nennt den Stand
+  vor 7, 30, 60 und 90 Tagen; verglichen wird mit dem ältesten davon, der nicht vor dem Tag der Bewertung liegt. In den
+  ersten sieben Tagen nach der Bewertung und bei einer Bewertung, die älter ist als 90 Tage, reicht der Vergleich deshalb
+  nicht bis zu ihr zurück.
 
 Der Titel bleibt bis zur Prüfung Kandidat. Ein gefallener Kurs ist kein Verkaufsgrund (7.4); er löst nur die Prüfung aus.
-Analystenschätzungen gehen nicht ein.
+Analystenschätzungen lösen ebenfalls nur die Prüfung aus; in Rückflussniveau, Wachstum und Rendite gehen sie nicht ein.
 
 **Begründung.** Kleinere Verschiebungen deckt die Bandbreite ab; was über sie hinausgeht, deckt die Bewertung nicht mehr.
-Abschlüsse kommen einmal im Jahr; ein stark gefallener Kurs zeigt früher an, dass sich an den Aussichten etwas geändert haben
-kann. Manchmal hat der Markt recht.
+Abschlüsse kommen einmal im Jahr; ein stark gefallener Kurs und eine verschobene Gewinnschätzung zeigen früher an, dass sich
+an den Aussichten etwas geändert haben kann. Manchmal hat der Markt recht. Die Schätzung selbst ist kein verlässlicher Wert,
+ihre Veränderung aber ein brauchbarer Hinweis.
 
 **Herkunft.** Der Autor versieht jede Bewertung mit einem Datum und gleicht monatlich ab, ob sich die Zahlen seither
 verschoben haben: Bei wenigen Prozent bleibt sie stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an
 (Interview). Jährliche Prüfung: Buch, ohne Folge bei Überfälligkeit. Kursrückgang: Webinar („stark fallende Kurse führen
-auch dazu, dass ich meine Fundamentaldaten hinterfragen sollte“), ohne Zahl. Die Schwellen sind eigene Setzung; das Interview
-nennt „plus minus wenige Prozent“.
+auch dazu, dass ich meine Fundamentaldaten hinterfragen sollte“), ohne Zahl. Gewinnschätzungen: Webinar; der Autor prüft
+monatlich, ob sie sich gegenüber dem Vormonat stark verändert haben, und bewertet dann neu. Die Schwellen sind eigene Setzung;
+das Interview nennt „plus minus wenige Prozent“.
 
-**Schwächen.** Keine bekannt; der Abgleich stützt sich nur auf Abschlüsse, nicht auf neue Schätzungen (11.13).
+**Schwächen.** Der Vergleich der Schätzungen reicht höchstens 90 Tage zurück und bezieht sich auf den Tag, an dem die Daten
+des Titels zuletzt geladen wurden; bei Titeln ohne oder mit wenigen Analysten fehlt er. Ob Schätzungen auch das Niveau
+verbessern, ist offen (11.13).
 
 ## 8. Rückblick: Ergebnisse und ihre Grenzen
 
@@ -1157,8 +1167,8 @@ Eigenkapitalquote und die Bestätigung von Verlusten durch das EBIT), der Ersatz
 Risikowerts in eine Ausfallwahrscheinlichkeit, die Anleiherendite als Hürde, die Bandbreite, die Tauschschwelle als
 Aufschlag, die Mindesthistorie und die Schwellen für die Prüfung der Bewertungen.
 
-Bekannte Abweichungen vom Vorgehen des Autors: Er stützt Niveau und monatlichen Abgleich auf Analystenschätzungen, die
-Strategie rechnet nur aus Abschlüssen (11.13). Er bewertet Unternehmen ohne Ausschüttung über den Gewinn und eine spätere
+Bekannte Abweichungen vom Vorgehen des Autors: Er stützt auch das Niveau auf Analystenschätzungen, die Strategie rechnet
+es nur aus Abschlüssen und nutzt die Schätzungen allein als Auslöser der Prüfung (7.5, 11.13). Er bewertet Unternehmen ohne Ausschüttung über den Gewinn und eine spätere
 Ausschüttung, die Strategie rechnet bei einem Rückfluss von 0 keine Rendite (11.12). Er füllt nur die oberen Positionen bis
 zum Limit auf, die Strategie jede, und seine Limits liegen höher (11.4). Er setzt Dividende und Rückkäufe vom heutigen Stand
 an, die Strategie aus der Reihe (11.25). Er führt hohe Schulden nur über das Risiko, die Strategie zieht zusätzlich eine
@@ -1184,42 +1194,44 @@ hält die Änderung auf. Nicht so geprüft sind die Zahlen in Formeln und Beispi
 belegt, siehe Abnahmefälle der Anwendung), der Fließtext außerhalb der Regeln, ausgeschriebene Zahlwörter und Abschnitt 8 (das
 Ergebnis eines Laufs, kein Parameter).
 
-| Schlüssel                            | Wert            | Abschnitt | Herkunft                  | Grund                                                                                                                |
-| ------------------------------------ | --------------- | --------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `reihe.jahre`                        | 10 Jahre        | 3.1       | Buch                      | Die volle Reihe deckt in der Regel einen Konjunkturzyklus ab                                                         |
-| `reihe.mindestjahre`                 | 5 Jahre         | 3.1       | eigene Setzung            | Der Autor hält jüngere Börsenwerte; aus weniger Jahren lassen sich weder Niveau noch Wachstum ablesen                |
-| `dividende.kuerzungstoleranz`        | 3 %             | 3.4       | eigene Setzung            | Kleine Rückgänge durch Rundung, Aktienzahl und Wechselkurse sind keine Kürzung                                       |
-| `rueckkaeufe.jahre`                  | 5 Jahre         | 3.5       | eigene Setzung            | Die Folien zählen Rückkäufe ohne Methode; mehrere Jahre glätten einzelne Programme                                   |
-| `cashflow.jahre`                     | 5 Jahre         | 3.6       | eigene Setzung            | Durchschnitt des Cashflows für den Rückflussdeckel                                                                   |
-| `zyklus.mindestjahre`                | 6 Jahre         | 3.6       | eigene Setzung            | Der Median der Reihe gilt nur, wenn sie länger ist als das Durchschnittsfenster                                      |
-| `verguetung.ausreisser`              | 100-fach        | 3.6       | eigene Setzung            | Erkennt grobe Datenfehler (Murphy Oil meldet zwei Jahre das Tausendfache); kleinere bleiben unerkannt                |
-| `verguetung.ausreisser_mindestjahre` | 3 Jahre         | 3.6       | eigene Setzung            | Ohne genug positive Jahre gibt es keinen verlässlichen Median                                                        |
-| `schulden.ebitda_vielfaches`         | 3-fach          | 3.6       | eigene Setzung            | Nettoschulden bis zu diesem Vielfachen des EBITDA gelten als tragbar                                                 |
-| `schulden.tilgungsjahre`             | 10 Jahre        | 3.6       | eigene Setzung            | Zeitraum, in dem ein Überhang rechnerisch getilgt wird                                                               |
-| `wachstum.obergrenze`                | 8,5 %           | 4.1       | Buch                      | Das Buch setzt bei BASF und Wal-Mart diesen Wert statt der historischen an                                           |
-| `wachstum.preissteigerung`           | 2 %             | 4.1, 4.5  | eigene Setzung            | Wachstum aus Preissteigerungen, das kein einbehaltenes Kapital braucht                                               |
-| `wachstum.untergrenze`               | −5 %            | 4.2, 4.3  | eigene Setzung            | Das Buch rechnet nur wachsende Titel; ein dauerhafter starker Rückgang ist kein Dauerzustand                         |
-| `wachstum.obergrenze_umsatz`         | 3 %             | 4.3       | eigene Setzung            | Ohne bestimmbares Gewinnwachstum nicht mehr als das Dauerwachstum                                                    |
-| `wachstum.abschmelzjahre`            | 15 Jahre        | 4.4       | Buch, eigene Setzung      | Buch: höchstens so lange überdurchschnittliches Wachstum; das lineare Abschmelzen ist eigene Setzung                 |
-| `wachstum.dauerwachstum`             | 3 %             | 4.4       | Buch, eigene Setzung      | Die einfache Formel der ewigen Rente nur bis hierher; kein Unternehmen wächst dauerhaft schneller als die Wirtschaft |
-| `quote.rendite_einbehalten`          | 10 %            | 4.5       | Buch                      | Kap. 5.5: Mindestrendite auf einbehaltenes Kapital; darunter wird das Einbehaltene nur anteilig angerechnet          |
-| `waehrung.prognosejahre`             | 4 Jahre         | 5.3       | eigene Setzung            | Mittel der Inflationsprognosen des IWF für die Folgejahre                                                            |
-| `bandbreite.rueckfluss`              | 10 %            | 5.2, 7.5  | eigene Setzung            | Macht die Unsicherheit des Rückflusses sichtbar; zugleich Schwelle für die Prüfung der Bewertung                     |
-| `bandbreite.wachstum`                | 1 Prozentpunkt  | 5.2, 7.5  | eigene Setzung            | Macht die Unsicherheit des Wachstums sichtbar; zugleich Schwelle für die Prüfung der Bewertung                       |
-| `finanzwerte.ersatz_finanzierung`    | 10 %            | 6.4       | eigene Setzung            | Mittlerer Abzug der Nicht-Finanzwerte mit plausibler Rendite                                                         |
-| `finanzwerte.ersatz_kapitalrendite`  | 5 %             | 6.4       | eigene Setzung            | Ebenso                                                                                                               |
-| `finanzwerte.ersatz_marge`           | 2,5 %           | 6.4       | eigene Setzung            | Ebenso                                                                                                               |
-| `risiko.grenze_hervorragend`         | 20 %            | 6.5       | Buch                      | Obergrenze der Klasse „hervorragend“                                                                                 |
-| `risiko.grenze_durchschnittlich`     | 50 %            | 6.5       | Buch                      | Obergrenze der Klasse „durchschnittlich“                                                                             |
-| `risiko.ausschluss`                  | 75 %            | 6.5, 7.1  | Buch                      | Ab hier Spekulation und ausgeschlossen                                                                               |
-| `ausfall.sockel`                     | 0,5 %           | 6.5       | eigene Setzung            | Ausfallwahrscheinlichkeit beim Risikowert 0; Imperial Brands läge damit bei dem Wert der Folien                      |
-| `ausfall.je_risikowert`              | 5 %             | 6.5       | eigene Setzung            | Anstieg der Ausfallwahrscheinlichkeit je 100 % Risikowert                                                            |
-| `huerde.aufschlag`                   | 0 Prozentpunkte | 7.1       | Interview, eigene Setzung | Aktien müssen Anleihen schlagen; das Risiko steckt schon in Ausfallwahrscheinlichkeit und Positionslimit             |
-| `huerde.mindestwert`                 | 0 %             | 7.1       | eigene Setzung            | Keine feste Untergrenze bei sehr niedrigen Zinsen                                                                    |
-| `huerde.ersatzwert`                  | 3 %             | 7.1       | eigene Setzung            | Hürde, solange keine Anleiherendite vorliegt                                                                         |
-| `pruefung.monate`                    | 12 Monate       | 7.5       | Buch                      | Jährliche Prüfung                                                                                                    |
-| `pruefung.risiko`                    | 5 Prozentpunkte | 7.5       | eigene Setzung            | Verschiebung der Zahlenfaktoren, die eine Prüfung auslöst; das Interview nennt „wenige Prozent“                      |
-| `pruefung.kursrueckgang`             | 25 %            | 7.5       | Webinar, eigene Setzung   | Kursrückgang seit der Bewertung, der eine Prüfung auslöst; der Autor nennt „stark fallende Kurse“ ohne Zahl          |
+| Schlüssel                            | Wert            | Abschnitt | Herkunft                  | Grund                                                                                                                                                                                                                     |
+| ------------------------------------ | --------------- | --------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reihe.jahre`                        | 10 Jahre        | 3.1       | Buch                      | Die volle Reihe deckt in der Regel einen Konjunkturzyklus ab                                                                                                                                                              |
+| `reihe.mindestjahre`                 | 5 Jahre         | 3.1       | eigene Setzung            | Der Autor hält jüngere Börsenwerte; aus weniger Jahren lassen sich weder Niveau noch Wachstum ablesen                                                                                                                     |
+| `dividende.kuerzungstoleranz`        | 3 %             | 3.4       | eigene Setzung            | Kleine Rückgänge durch Rundung, Aktienzahl und Wechselkurse sind keine Kürzung                                                                                                                                            |
+| `rueckkaeufe.jahre`                  | 5 Jahre         | 3.5       | eigene Setzung            | Die Folien zählen Rückkäufe ohne Methode; mehrere Jahre glätten einzelne Programme                                                                                                                                        |
+| `cashflow.jahre`                     | 5 Jahre         | 3.6       | eigene Setzung            | Durchschnitt des Cashflows für den Rückflussdeckel                                                                                                                                                                        |
+| `zyklus.mindestjahre`                | 6 Jahre         | 3.6       | eigene Setzung            | Der Median der Reihe gilt nur, wenn sie länger ist als das Durchschnittsfenster                                                                                                                                           |
+| `verguetung.ausreisser`              | 100-fach        | 3.6       | eigene Setzung            | Erkennt grobe Datenfehler (Murphy Oil meldet zwei Jahre das Tausendfache); kleinere bleiben unerkannt                                                                                                                     |
+| `verguetung.ausreisser_mindestjahre` | 3 Jahre         | 3.6       | eigene Setzung            | Ohne genug positive Jahre gibt es keinen verlässlichen Median                                                                                                                                                             |
+| `schulden.ebitda_vielfaches`         | 3-fach          | 3.6       | eigene Setzung            | Nettoschulden bis zu diesem Vielfachen des EBITDA gelten als tragbar                                                                                                                                                      |
+| `schulden.tilgungsjahre`             | 10 Jahre        | 3.6       | eigene Setzung            | Zeitraum, in dem ein Überhang rechnerisch getilgt wird                                                                                                                                                                    |
+| `wachstum.obergrenze`                | 8,5 %           | 4.1       | Buch                      | Das Buch setzt bei BASF und Wal-Mart diesen Wert statt der historischen an                                                                                                                                                |
+| `wachstum.preissteigerung`           | 2 %             | 4.1, 4.5  | eigene Setzung            | Wachstum aus Preissteigerungen, das kein einbehaltenes Kapital braucht                                                                                                                                                    |
+| `wachstum.untergrenze`               | −5 %            | 4.2, 4.3  | eigene Setzung            | Das Buch rechnet nur wachsende Titel; ein dauerhafter starker Rückgang ist kein Dauerzustand                                                                                                                              |
+| `wachstum.obergrenze_umsatz`         | 3 %             | 4.3       | eigene Setzung            | Ohne bestimmbares Gewinnwachstum nicht mehr als das Dauerwachstum                                                                                                                                                         |
+| `wachstum.abschmelzjahre`            | 15 Jahre        | 4.4       | Buch, eigene Setzung      | Buch: höchstens so lange überdurchschnittliches Wachstum; das lineare Abschmelzen ist eigene Setzung                                                                                                                      |
+| `wachstum.dauerwachstum`             | 3 %             | 4.4       | Buch, eigene Setzung      | Die einfache Formel der ewigen Rente nur bis hierher; kein Unternehmen wächst dauerhaft schneller als die Wirtschaft                                                                                                      |
+| `quote.rendite_einbehalten`          | 10 %            | 4.5       | Buch                      | Kap. 5.5: Mindestrendite auf einbehaltenes Kapital; darunter wird das Einbehaltene nur anteilig angerechnet                                                                                                               |
+| `waehrung.prognosejahre`             | 4 Jahre         | 5.3       | eigene Setzung            | Mittel der Inflationsprognosen des IWF für die Folgejahre                                                                                                                                                                 |
+| `bandbreite.rueckfluss`              | 10 %            | 5.2, 7.5  | eigene Setzung            | Macht die Unsicherheit des Rückflusses sichtbar; zugleich Schwelle für die Prüfung der Bewertung                                                                                                                          |
+| `bandbreite.wachstum`                | 1 Prozentpunkt  | 5.2, 7.5  | eigene Setzung            | Macht die Unsicherheit des Wachstums sichtbar; zugleich Schwelle für die Prüfung der Bewertung                                                                                                                            |
+| `finanzwerte.ersatz_finanzierung`    | 10 %            | 6.4       | eigene Setzung            | Mittlerer Abzug der Nicht-Finanzwerte mit plausibler Rendite                                                                                                                                                              |
+| `finanzwerte.ersatz_kapitalrendite`  | 5 %             | 6.4       | eigene Setzung            | Ebenso                                                                                                                                                                                                                    |
+| `finanzwerte.ersatz_marge`           | 2,5 %           | 6.4       | eigene Setzung            | Ebenso                                                                                                                                                                                                                    |
+| `risiko.grenze_hervorragend`         | 20 %            | 6.5       | Buch                      | Obergrenze der Klasse „hervorragend“                                                                                                                                                                                      |
+| `risiko.grenze_durchschnittlich`     | 50 %            | 6.5       | Buch                      | Obergrenze der Klasse „durchschnittlich“                                                                                                                                                                                  |
+| `risiko.ausschluss`                  | 75 %            | 6.5, 7.1  | Buch                      | Ab hier Spekulation und ausgeschlossen                                                                                                                                                                                    |
+| `ausfall.sockel`                     | 0,5 %           | 6.5       | eigene Setzung            | Ausfallwahrscheinlichkeit beim Risikowert 0; Imperial Brands läge damit bei dem Wert der Folien                                                                                                                           |
+| `ausfall.je_risikowert`              | 5 %             | 6.5       | eigene Setzung            | Anstieg der Ausfallwahrscheinlichkeit je 100 % Risikowert                                                                                                                                                                 |
+| `huerde.aufschlag`                   | 0 Prozentpunkte | 7.1       | Interview, eigene Setzung | Aktien müssen Anleihen schlagen; das Risiko steckt schon in Ausfallwahrscheinlichkeit und Positionslimit                                                                                                                  |
+| `huerde.mindestwert`                 | 0 %             | 7.1       | eigene Setzung            | Keine feste Untergrenze bei sehr niedrigen Zinsen                                                                                                                                                                         |
+| `huerde.ersatzwert`                  | 3 %             | 7.1       | eigene Setzung            | Hürde, solange keine Anleiherendite vorliegt                                                                                                                                                                              |
+| `pruefung.monate`                    | 12 Monate       | 7.5       | Buch                      | Jährliche Prüfung                                                                                                                                                                                                         |
+| `pruefung.risiko`                    | 5 Prozentpunkte | 7.5       | eigene Setzung            | Verschiebung der Zahlenfaktoren, die eine Prüfung auslöst; das Interview nennt „wenige Prozent“                                                                                                                           |
+| `pruefung.kursrueckgang`             | 25 %            | 7.5       | Webinar, eigene Setzung   | Kursrückgang seit der Bewertung, der eine Prüfung auslöst; der Autor nennt „stark fallende Kurse“ ohne Zahl                                                                                                               |
+| `pruefung.schaetzung`                | 20 %            | 7.5       | Webinar, eigene Setzung   | Verschiebung der Gewinnschätzung seit der Bewertung, die eine Prüfung auslöst; der Autor nennt „stark verändert“ ohne Zahl. Bei 10 % schlug am 25.11.2026 in 30 Tagen ein Drittel der Watchlist an, bei 20 % ein Sechstel |
+| `pruefung.schaetzung_analysten`      | 3 Analysten     | 7.5       | eigene Setzung            | Die Schätzung eines oder zweier Analysten springt zu leicht                                                                                                                                                               |
 
 ### 10.2 Eigene Setzungen ohne eigenen Zahlenwert
 
@@ -1372,10 +1384,13 @@ ab dann eine Ausschüttungsquote ansetzen; Beispiel Sandisk, bewertet am erwarte
 ### 11.13 Analystenschätzungen
 
 **Vermutung.** Gewinnniveau und Prüfung der Bewertung werden mit Analystenschätzungen genauer; der Autor stützt beides darauf.
-**Stand.** Nicht geprüft; die Strategie rechnet nur aus Abschlüssen. Im Webinar beschreibt der Autor den Abgleich genauer: Er
+**Stand.** Für die Prüfung umgesetzt am 25.11.2026 (7.5): Eine Verschiebung der Schätzung über `pruefung.schaetzung` löst sie
+aus. Für das Niveau nicht geprüft; die Strategie rechnet es nur aus Abschlüssen. Im Webinar beschreibt der Autor den Abgleich genauer: Er
 prüft monatlich rund 80 Unternehmen darauf, ob sich die Schätzungen gegenüber dem Vormonat stark verschoben haben; kleine
 Verschiebungen gleicht er mit einem Faktor aus, bei großen bewertet er neu. Eine Gewinnwarnung ändert bei ihm die Annahmen
-sofort, in der Strategie erst mit dem nächsten Abschluss. Der Datenbestand hält bisher keine Zeitreihe der Schätzungen.
+sofort; in der Strategie zeigt sie sich seit dem 25.11.2026 als fällige Prüfung, in den Zahlen erst mit dem nächsten
+Abschluss. Der Anbieter liefert zu jeder Schätzung den Stand vor 7, 30, 60 und 90 Tagen; eine eigene Zeitreihe hält der
+Datenbestand nicht.
 
 ### 11.14 Abstand zur Anleiherendite und zum Weltindex
 

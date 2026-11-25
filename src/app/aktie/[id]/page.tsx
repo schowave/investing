@@ -424,6 +424,8 @@ export default async function StockPage(props: {
             `Seit dem ${isoDate(review.assessedOn)} haben sich die Vorschläge aus den Zahlen verschoben: ${review.changes.join("; ")}. `}
           {review.priceDrop !== null &&
             `Der Kurs ist seit dem ${isoDate(review.assessedOn)} um ${Math.round(review.priceDrop * 100)} % gefallen; das ist kein Verkaufssignal, aber ein Anlass, die Annahmen zu hinterfragen. `}
+          {review.estimateShift !== null &&
+            `Die Analysten haben ihre Gewinnschätzung in den letzten ${review.estimateShift.days} Tagen um ${Math.round(Math.abs(review.estimateShift.shift) * 100)} % ${review.estimateShift.shift < 0 ? "gesenkt" : "angehoben"}; in die Rendite geht das nicht ein, es ist ein Anlass, Niveau und Wachstum anzusehen. `}
           {review.changes.length > 0 &&
             review.calcChanged &&
             "Die Rechnung hat sich seither geändert; ein Teil der Verschiebung kann daher kommen statt aus neuen Zahlen. "}

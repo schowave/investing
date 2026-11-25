@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Database } from "../data/db.ts";
 import { steadyYears, stock } from "../test/fixtures.ts";
 import type { Basis } from "./review.ts";
-import { basisOf, needsReview, reviewOf } from "./review.ts";
+import { basisOf, estimateShiftOf, needsReview, reviewOf } from "./review.ts";
 import { assess, CALC_VERSION, computeValuation, storedBaseline, valueStock } from "./run.ts";
 
 const basis: Basis = { payoutLevel: 3, growth: 0.05, earningsLevel: 6, numberRisk: 0.2 };
@@ -10,7 +10,7 @@ const basis: Basis = { payoutLevel: 3, growth: 0.05, earningsLevel: 6, numberRis
 describe("reviewOf", () => {
   it("verlangt ohne Eingabe von Hand keine Prüfung", () => {
     const review = reviewOf({ assessedOn: null, today: "2026-11-19", before: null, now: basis });
-    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [], calcChanged: false, priceDrop: null });
+    expect(review).toEqual({ assessedOn: null, overdue: false, changes: [], calcChanged: false, priceDrop: null, estimateShift: null });
     expect(needsReview(review)).toBe(false);
   });
 
@@ -69,6 +69,24 @@ describe("reviewOf", () => {
     expect(at(70, null).priceDrop).toBeNull();
   });
 
+  it("verlangt die Prüfung, wenn sich die Gewinnschätzung um mehr als ein Fünftel verschoben hat", () => {
+    const at = (shift: number | null) =>
+      reviewOf({
+        assessedOn: "2026-06-01",
+        today: "2026-11-19",
+        before: basis,
+        now: basis,
+        estimateShift: shift === null ? null : { shift, days: 90 },
+      });
+    expect(at(null).estimateShift).toBeNull();
+    expect(at(-0.15).estimateShift).toBeNull();
+    expect(needsReview(at(-0.15))).toBe(false);
+    expect(at(-0.25).estimateShift).toEqual({ shift: -0.25, days: 90 });
+    expect(needsReview(at(-0.25))).toBe(true);
+    // Auch eine deutliche Anhebung ist ein Anlass: Das Niveau kann zu niedrig sein.
+    expect(needsReview(at(0.3))).toBe(true);
+  });
+
   it("vergleicht nicht, wenn kein Tagesstand aus der Zeit der Bewertung vorliegt", () => {
     expect(reviewOf({ assessedOn: "2026-06-01", today: "2026-11-19", before: null, now: basis }).changes).toEqual([]);
   });
@@ -96,6 +114,38 @@ describe("Grundlage einer Bewertung", () => {
   });
 });
 
+describe("estimateShiftOf", () => {
+  const row = (period: string, current: number | null, before: number | null, analysts: number | null = 8) => ({
+    period,
+    analysts,
+    current,
+    daysAgo: { 7: before === null ? null : before * 0.99, 30: before, 60: before, 90: before === null ? null : before * 1.5 },
+  });
+  const shift = (assessedOn: string, trend: ReturnType<typeof row>[]) => estimateShiftOf({ assessedOn, fetchedOn: "2026-11-20", trend });
+
+  it("misst über den längsten Rückblick, der nicht vor die Bewertung zurückreicht", () => {
+    const trend = [row("0y", 9, 10)];
+    // 20 Tage alt: nur der Stand vor 7 Tagen (9,9) liegt nach der Bewertung.
+    expect(shift("2026-10-31", trend)).toEqual({ shift: expect.closeTo(9 / 9.9 - 1, 9), days: 7 });
+    expect(shift("2026-10-01", trend)).toEqual({ shift: expect.closeTo(-0.1, 9), days: 30 });
+    expect(shift("2026-06-01", trend)).toEqual({ shift: expect.closeTo(9 / 15 - 1, 9), days: 90 });
+  });
+
+  it("gibt nichts zurück, wenn die Bewertung jünger ist als der kürzeste Rückblick", () => {
+    expect(shift("2026-11-16", [row("0y", 5, 10)])).toBeNull();
+  });
+
+  it("nimmt die größere Verschiebung aus laufendem und nächstem Geschäftsjahr, nicht die Quartale", () => {
+    expect(shift("2026-10-01", [row("0q", 1, 10), row("0y", 9.5, 10), row("+1y", 12, 10)])?.shift).toBeCloseTo(0.2);
+  });
+
+  it("übergeht Schätzungen ohne Stand, um null herum oder mit zu wenig Analysten", () => {
+    expect(shift("2026-10-01", [row("0y", null, 10), row("+1y", 5, null)])).toBeNull();
+    expect(shift("2026-10-01", [row("0y", 0.5, -0.2), row("+1y", 1, 0)])).toBeNull();
+    expect(shift("2026-10-01", [row("0y", 5, 10, 2), row("+1y", 5, 10, null)])).toBeNull();
+  });
+});
+
 describe("Prüfstand aus der Datenbank", () => {
   afterEach(() => vi.useRealTimers());
 
@@ -117,6 +167,7 @@ describe("Prüfstand aus der Datenbank", () => {
       changes: [],
       calcChanged: false,
       priceDrop: null,
+      estimateShift: null,
     });
 
     // Neue Abschlüsse: Der freie Cashflow trägt nur noch 2,50 statt 3,00 je Aktie.
@@ -149,6 +200,24 @@ describe("Prüfstand aus der Datenbank", () => {
     db.saveSplits(stock.id, [{ date: "2025-06-25", ratio: 2 }]);
     db.saveRawCloses(stock.id, [{ date: "2025-06-26", close: 19 }]);
     expect(computeValuation(db, stock, "2025-06-27").review.priceDrop).toBeNull();
+    db.close();
+  });
+
+  it("liest die Verschiebung der Gewinnschätzung aus der gespeicherten Rohantwort", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2025-06-01T09:00:00Z"));
+    const db = new Database(":memory:");
+    db.addStockIfMissing(stock);
+    db.saveFundamentals(stock.id, steadyYears(), "eodhd");
+    assess(db, stock, [{ key: "risk.moat", value: 0.05 }], "2025-06-01");
+    expect(computeValuation(db, stock, "2025-07-15").review.estimateShift).toBeNull();
+
+    vi.setSystemTime(new Date("2025-07-15T09:00:00Z"));
+    const trend = { period: "0y", earningsEstimateNumberOfAnalysts: "12.0000", epsTrendCurrent: "3.5", epsTrend30daysAgo: "5.0" };
+    db.saveRawDocument(stock.id, "eodhd-fundamentals", JSON.stringify({ Earnings: { Trend: { "2025-12-31": trend } } }));
+    const review = computeValuation(db, stock, "2025-07-15").review;
+    expect(review.estimateShift).toEqual({ shift: expect.closeTo(-0.3, 9), days: 30 });
+    expect(needsReview(review)).toBe(true);
     db.close();
   });
 

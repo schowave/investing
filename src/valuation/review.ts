@@ -4,7 +4,8 @@
 // haben: Bei wenigen Prozent bleibt die Bewertung stehen, bei mehr sieht er sich das Unternehmen im Ganzen wieder an
 // (Interview, `docs/Interview.md`). Hier ist die Schwelle die Bandbreite aus Strategie 5.2: Was über sie hinausgeht,
 // deckt die Bewertung nicht mehr ab. Dazu kommt der Kurs: Fällt er stark, hinterfragt der Autor seine Fundamentaldaten
-// (Webinar, `docs/webinar.md`); verkauft wird deshalb nicht.
+// (Webinar, `docs/webinar.md`); verkauft wird deshalb nicht. Ebenso die Gewinnschätzungen der Analysten: Der Autor
+// sieht monatlich nach, ob sie sich stark verschoben haben, und bewertet dann neu. In die Rendite gehen sie nicht ein.
 
 import { DEFAULT_SCENARIO_SPREAD, RISK_FACTOR_IDS, RISK_FACTORS, toEuroTerms } from "../calc/index.ts";
 
@@ -14,6 +15,50 @@ export const REVIEW_MONTHS = 12;
 const RISK_SHIFT = 0.05;
 /** Der Kurs ist seit der Bewertung um mehr als diesen Anteil gefallen (Strategie 7.5, `pruefung.kursrueckgang`). */
 export const PRICE_DROP = 0.25;
+/** Die Gewinnschätzung hat sich seit der Bewertung um mehr als diesen Anteil verschoben (`pruefung.schaetzung`). */
+export const ESTIMATE_SHIFT = 0.2;
+/** So viele Analysten müssen hinter einer Schätzung stehen, damit sie zählt (`pruefung.schaetzung_analysten`). */
+export const ESTIMATE_MIN_ANALYSTS = 3;
+/** Rückblicke, die der Anbieter zum Stand der Schätzung liefert, in Tagen. */
+const ESTIMATE_LOOKBACKS = [90, 60, 30, 7] as const;
+
+/** Verlauf einer Gewinnschätzung, wie ihn der Anbieter liefert (`EstimateTrend` in `data/eodhdSnapshot.ts`). */
+export interface EstimateRow {
+  period: string | null;
+  analysts: number | null;
+  current: number | null;
+  daysAgo: Readonly<Record<(typeof ESTIMATE_LOOKBACKS)[number], number | null>>;
+}
+
+export interface EstimateShift {
+  /** Verschiebung als Anteil des früheren Stands, z. B. −0,15. */
+  shift: number;
+  /** Rückblick in Tagen, über den sie gemessen ist. */
+  days: number;
+}
+
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+/**
+ * Größte Verschiebung der Gewinnschätzung für das laufende und das nächste Geschäftsjahr seit der Bewertung. Der Anbieter
+ * kennt nur feste Rückblicke vom Tag des Abrufs aus; es gilt der längste, der nicht vor den Tag der Bewertung zurückreicht.
+ * `null`, wenn die Bewertung jünger ist als der kürzeste Rückblick oder keine Schätzung mit genug Analysten vorliegt.
+ */
+export function estimateShiftOf(args: { assessedOn: string; fetchedOn: string; trend: readonly EstimateRow[] }): EstimateShift | null {
+  const age = daysBetween(args.assessedOn, args.fetchedOn);
+  const days = ESTIMATE_LOOKBACKS.find((lookback) => lookback <= age);
+  if (days === undefined) return null;
+  let shift: number | null = null;
+  for (const row of args.trend) {
+    if (row.period !== "0y" && row.period !== "+1y") continue;
+    const before = row.daysAgo[days];
+    // Um einen Gewinn nahe 0 oder im Minus sagt eine Verschiebung in Prozent nichts.
+    if (row.current === null || before === null || before <= 0 || (row.analysts ?? 0) < ESTIMATE_MIN_ANALYSTS) continue;
+    const change = row.current / before - 1;
+    if (shift === null || Math.abs(change) > Math.abs(shift)) shift = change;
+  }
+  return shift === null ? null : { shift, days };
+}
 
 /** Die Zahlen, auf denen eine Bewertung steht: Vorschläge aus den Abschlüssen, ohne das Urteil des Nutzers. */
 export interface Basis {
@@ -49,6 +94,8 @@ export interface Review {
   calcChanged: boolean;
   /** Kursrückgang seit der Bewertung als Anteil (0,3 = 30 % gefallen), wenn er über `PRICE_DROP` liegt; sonst `null`. */
   priceDrop: number | null;
+  /** Verschiebung der Gewinnschätzung seit der Bewertung, wenn sie über `ESTIMATE_SHIFT` liegt; sonst `null`. */
+  estimateShift: EstimateShift | null;
 }
 
 const number = (value: number, digits: number) =>
@@ -102,9 +149,12 @@ export function reviewOf(args: {
   /** Kurs am Tag der Bewertung, um spätere Splits bereinigt, und Kurs heute; beide in derselben Währung. */
   priceBefore?: number | null;
   priceNow?: number | null;
+  /** Verschiebung der Gewinnschätzung seit der Bewertung (`estimateShiftOf`). */
+  estimateShift?: EstimateShift | null;
 }): Review {
   const { assessedOn, before, now } = args;
-  if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false, priceDrop: null };
+  if (assessedOn === null) return { assessedOn, overdue: false, changes: [], calcChanged: false, priceDrop: null, estimateShift: null };
+  const estimate = args.estimateShift ?? null;
   const { priceBefore, priceNow } = args;
   const drop = priceBefore && priceNow && priceBefore > 0 && priceNow > 0 ? 1 - priceNow / priceBefore : 0;
   const spread = DEFAULT_SCENARIO_SPREAD;
@@ -123,10 +173,11 @@ export function reviewOf(args: {
     changes,
     calcChanged: before !== null && (args.calcChanged ?? false),
     priceDrop: drop > PRICE_DROP + 1e-9 ? drop : null,
+    estimateShift: estimate !== null && Math.abs(estimate.shift) > ESTIMATE_SHIFT + 1e-9 ? estimate : null,
   };
 }
 
 /** Die Bewertung sollte wieder angesehen werden. */
 export function needsReview(review: Review): boolean {
-  return review.overdue || review.changes.length > 0 || review.priceDrop !== null;
+  return review.overdue || review.changes.length > 0 || review.priceDrop !== null || review.estimateShift !== null;
 }

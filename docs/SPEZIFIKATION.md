@@ -91,7 +91,10 @@ einen Wert von Hand.
   Aktienseite und der Zähler in der Navigation zeigen den Hinweis „prüfen“; die Aktienseite nennt, was sich verschoben hat, und
   sagt dazu, wenn die Rechnung (`CALC_VERSION`) sich seither geändert hat. Für den Kursrückgang (`pruefung.kursrueckgang`)
   vergleicht sie den Kurs des Tagesstands vom Tag der Bewertung, um spätere Splits bereinigt, mit dem heutigen, beide in der
-  Berichtswährung; bei Titeln mit Kurs in anderer Währung steckt der Wechselkurs mit darin.
+  Berichtswährung; bei Titeln mit Kurs in anderer Währung steckt der Wechselkurs mit darin. Die Gewinnschätzungen
+  (`pruefung.schaetzung`) stehen in der gespeicherten Fundamentals-Antwort des Anbieters (`Earnings.Trend`, Zeiträume `0y` und
+  `+1y`, Stand heute und vor 7, 30, 60, 90 Tagen); „heute“ ist der Tag des Abrufs, neue Abrufe braucht der Auslöser nicht. Er
+  wird nur für Titel mit einer Bewertung von Hand gelesen.
 - **Unvollständig bewertete gehaltene Titel:** bekommen keinen Verkaufsvorschlag, sondern den Hinweis „erst bewerten“, außer
   der Risikowert aus den gesetzten Faktoren erreicht auch nach Abzug der größtmöglichen Urteilsboni noch den Ausschluss
   (`MAX_JUDGEMENT_BONUS` in `src/valuation/portfolioView.ts`; Strategie 7.4).

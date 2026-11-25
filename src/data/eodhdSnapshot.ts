@@ -35,6 +35,16 @@ export interface EodhdSnapshot {
     heldAfter: number | null;
   }[];
   analystRatings: { rating: number | null; targetPrice: number | null } | null;
+  /** Gewinnschätzungen je Aktie mit ihrem Verlauf, je Zeitraum (`0y` laufendes, `+1y` nächstes Geschäftsjahr, `0q`, `+1q`). */
+  estimateTrend: EstimateTrend[];
+}
+
+export interface EstimateTrend {
+  period: string | null;
+  analysts: number | null;
+  current: number | null;
+  /** Stand der Schätzung vor so vielen Tagen, vom Abruf aus gerechnet. */
+  daysAgo: { 7: number | null; 30: number | null; 60: number | null; 90: number | null };
 }
 
 /** Beträge kommen als Zahl oder Text; leer, fehlend oder nicht lesbar heißt `null`. */
@@ -67,6 +77,24 @@ function listOf<T>(row: z.ZodType<T>) {
 
 const Officer = z.looseObject({ Name: Text, Title: Text }).transform((o) => [o.Name, o.Title].filter(Boolean).join(", "));
 const Quarter = z.looseObject({ date: z.string(), epsActual: Num, epsEstimate: Num, surprisePercent: Num });
+const Trend = z
+  .looseObject({
+    period: Text,
+    earningsEstimateNumberOfAnalysts: Num,
+    epsTrendCurrent: Num,
+    epsTrend7daysAgo: Num,
+    epsTrend30daysAgo: Num,
+    epsTrend60daysAgo: Num,
+    epsTrend90daysAgo: Num,
+  })
+  .transform(
+    (t): EstimateTrend => ({
+      period: t.period,
+      analysts: t.earningsEstimateNumberOfAnalysts,
+      current: t.epsTrendCurrent,
+      daysAgo: { 7: t.epsTrend7daysAgo, 30: t.epsTrend30daysAgo, 60: t.epsTrend60daysAgo, 90: t.epsTrend90daysAgo },
+    }),
+  );
 const Insider = z
   .looseObject({
     transactionDate: Text,
@@ -105,8 +133,8 @@ const Answer = z
     Technicals: Section.optional(),
     Highlights: Section.optional(),
     Earnings: z
-      .looseObject({ History: listOf(Quarter) })
-      .catch({ History: [] })
+      .looseObject({ History: listOf(Quarter), Trend: listOf(Trend) })
+      .catch({ History: [], Trend: [] })
       .optional(),
     InsiderTransactions: listOf(Insider),
     AnalystRatings: z.looseObject({ Rating: Num, TargetPrice: Num }).nullish().catch(null),
@@ -137,6 +165,7 @@ export function parseEodhdSnapshot(json: string): EodhdSnapshot {
     },
     insiderTransactions: root.InsiderTransactions,
     analystRatings: root.AnalystRatings ? { rating: root.AnalystRatings.Rating, targetPrice: root.AnalystRatings.TargetPrice } : null,
+    estimateTrend: root.Earnings?.Trend ?? [],
   };
 }
 
@@ -144,4 +173,10 @@ export function parseEodhdSnapshot(json: string): EodhdSnapshot {
 export function storedSnapshot(db: Database, stockId: string): EodhdSnapshot | null {
   const body = db.rawDocument(stockId, FUNDAMENTALS_KIND)?.body;
   return body === undefined ? null : parseEodhdSnapshot(body);
+}
+
+/** Verlauf der Gewinnschätzungen mit dem Tag des Abrufs, auf den sich „vor 30 Tagen“ bezieht; `null` ohne Rohantwort. */
+export function storedEstimateTrend(db: Database, stockId: string): { fetchedOn: string; trend: EstimateTrend[] } | null {
+  const document = db.rawDocument(stockId, FUNDAMENTALS_KIND);
+  return document ? { fetchedOn: document.fetchedAt.slice(0, 10), trend: parseEodhdSnapshot(document.body).estimateTrend } : null;
 }

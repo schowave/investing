@@ -65,6 +65,7 @@ const UNITS: readonly [RegExp, string, number][] = [
   [/^Monate?\b/, "Monate", 1],
   [/^Tage?\b/, "Tage", 1],
   [/^Läufe?\b/, "Läufe", 1],
+  [/^Analysten\b/, "Analysten", 1],
 ];
 
 export interface ParsedValue {
