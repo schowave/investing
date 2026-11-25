@@ -190,8 +190,9 @@ Finanzwerte.
 Vergütung in Aktien wieder ausgibt, verwässert die Eigentümer und kommt deshalb davon ab. Ein Durchschnitt über mehrere Jahre
 glättet einzelne große Programme.
 
-**Herkunft.** Die Folien zählen Rückkäufe zum Rückfluss, nennen aber keine Methode. Netto-Rechnung und Durchschnitt sind eigene
-Setzung.
+**Herkunft.** Die Folien zählen Rückkäufe zum Rückfluss. Die Netto-Rechnung aus den drei Posten der Kapitalflussrechnung
+(Rückkäufe, Ausgabe neuer Aktien, Vergütung in Aktien) nennt der Autor im Webinar. Der Durchschnitt über mehrere Jahre ist
+eigene Setzung; der Autor geht vom heutigen Stand aus (11.25).
 
 **Schwächen.** Ob zurückgekaufte Aktien die Aktienzahl tatsächlich senken, prüft die Regel nicht. Unter „Rückkäufe“ führt der
 Anbieter auch Tilgungen und Rücknahmen von Vorzugsaktien oder Anleihen (Stabilus, Hua Xia); eine Mengenprobe über die
@@ -239,7 +240,8 @@ Gläubigern; hohe Schulden dürfen einen Titel nicht attraktiver machen.
 
 **Herkunft.** Eigene Setzungen. Die Zyklusregel folgt der eigenen Recherche (Quelle R, Abschnitt 4.2); die Erkennung eines
 Zyklus über Faktor 1 ist keine Quelle. Der Abzug der Vergütung ist an den Abschlüssen von Adobe, Salesforce, Meta, Alphabet und
-SAP nachgerechnet (Quelle R, Abschnitt 4.5).
+SAP nachgerechnet (Quelle R, Abschnitt 4.5); auch der Autor zieht sie vom freien Cashflow ab („bereinigter Free Cashflow“,
+Webinar). Die Tilgung hoher Schulden zieht er nicht ab: Schulden führt er nur über das Risiko (11.8).
 
 **Schwächen.** Der Deckel ist zu hart, wo der freie Cashflow niedrig ist, weil investiert wird, oder eine Finanzsparte ihn
 verzerrt (11.7); die Tilgungsregel trifft dauerhaft hoch verschuldete Geschäftsmodelle (11.8); die Zyklusregel greift nur,
@@ -326,7 +328,8 @@ Aktie steigen, stehen aber schon im Rückfluss und würden sonst zweimal zählen
 ist der Wert je Aktie der niedrigere.
 
 **Herkunft.** Obergrenze: Buch, das bei BASF und Wal-Mart diesen Wert statt der historischen ansetzt. Grenze aus Umsatz und
-Einbehaltung, Messung am ganzen Unternehmen und Preissteigerung: eigene Setzungen.
+Einbehaltung und Preissteigerung: eigene Setzungen. Messung am ganzen Unternehmen: eigene Setzung nach dem Webinar, in dem
+der Autor Rückkäufe zum Rückfluss zählt und das Wachstum je Aktie, das sie erzeugen, dafür nicht ansetzt.
 
 **Schwächen.** Keine bekannt; ob die Obergrenze für alle Branchen passt, ist nicht geprüft.
 
@@ -819,7 +822,10 @@ sicheren zu stehen.
 **Begründung.** Das Risiko wirkt zweimal: in der Rendite über `p` und in der Positionsgröße über das Positionslimit (7.2).
 
 **Herkunft.** Klassen und Ausschluss: Buch Kap. 5.8. Die Zuordnung zur Ausfallwahrscheinlichkeit ist eigene Setzung; die
-Quellen nennen keine Zahl. Imperial Brands (1,8 % in den Folien) läge bei 26 % Risikowert.
+Quellen nennen keine Zahl. Imperial Brands (1,8 % in den Folien) läge bei 26 % Risikowert. Der Autor meint mit der
+Ausfallwahrscheinlichkeit mehr als die Insolvenz: auch ein Unternehmen, das überlebt, aber nichts mehr ausschüttet
+(Heidelberger Druckmaschinen), und eine Kapitalerhöhung in der Not, die die alten Eigentümer verwässert (Citigroup); sie
+soll deshalb nicht zu niedrig angesetzt werden (Webinar).
 
 **Schwächen.** Die Zuordnung ist gesetzt, nicht an historischen Ausfällen geeicht (11.1).
 
@@ -1104,6 +1110,7 @@ Im Text wird mit dem Namen der Quelle verwiesen („Buch Kap. 5.8“, „Intervi
 | Wikifolios           | Wikifolio-Handelsideen „FocusedYieldInvesting“ und „Global Yield Investing“                                                                                                                                                                                                                                                                                                         | zwei Portfolio-Profile; Risiko bestimmt Abschlag und Positionsgröße                                                                            | Bestätigung, Grundlage der Profile                       |
 | Interview            | Interview mit dem Autor im Podcast „Bulle & Mensch“ (eigene Mitschrift)                                                                                                                                                                                                                                                                                                             | Rückflüsse in zwei Phasen, Auswahl nach Rang ohne Renditeziel, kein Bargeld, Größenordnung der Ausfallwahrscheinlichkeit, monatlicher Abgleich | maßgeblich für 4.5, 7.1 und 7.5                          |
 | Gespräch Börsenradio | Gespräch mit dem Autor, Börsenradio, „Wikifolio-Trader der Woche“ (eigene Mitschrift)                                                                                                                                                                                                                                                                                               | Positionen mit Zahlen: Höegh Autoliners, Safe Bulkers, Lion Finance, Stalexport; Risikomerkmale; Inflation in Kasachstan                       | Prüfsteine für kurze Reihen (3.1) und Sonderfälle        |
+| Webinar              | Vortrag des Autors im Webinar „Experten-Talk“ bei finanzen.net, November 2026 (eigene Mitschrift)                                                                                                                                                                                                                                                                                   | Rückflüsse und Netto-Rückkäufe, Bedeutung der Ausfallwahrscheinlichkeit, Höchstgewichte nach Risiko, monatlicher Abgleich; Charter, Sandisk    | Bestätigung; Grundlage von 11.4, 11.8, 11.25             |
 | Quelle R             | Eigene Recherche „Bewertungsansatz im Spiegel der Primärquellen“, Stand 20.11.2026. Abschnitte 2.1 bis 2.9: Bausteine mit Belegen (Buffett, Munger, Damodaran, Graham, Mauboussin, Ausfallraten nach Bonitätsklasse); 3: Quellenverzeichnis; 4.1 bis 4.6: Vorschläge (Wachstumsgrenzen in Fremdwährung, Zykliker, Sicherheitsmarge, Ausfallwahrscheinlichkeit, Vergütung in Aktien) | Abgleich der Methode mit Primärquellen                                                                                                         | Grundlage einzelner eigener Setzungen und offener Fragen |
 
 Wo die Quellen keine Zahl nennen, steht eine eigene Setzung. Alle eigenen Setzungen stehen in Abschnitt 10.
@@ -1134,7 +1141,9 @@ Aufschlag, die Mindesthistorie und die Schwellen für die Prüfung der Bewertung
 Bekannte Abweichungen vom Vorgehen des Autors: Er stützt Niveau und monatlichen Abgleich auf Analystenschätzungen, die
 Strategie rechnet nur aus Abschlüssen (11.13). Er bewertet Unternehmen ohne Ausschüttung über den Gewinn und eine spätere
 Ausschüttung, die Strategie rechnet bei einem Rückfluss von 0 keine Rendite (11.12). Er füllt nur die oberen Positionen bis
-zum Limit auf, die Strategie jede (11.4).
+zum Limit auf, die Strategie jede, und seine Limits liegen höher (11.4). Er setzt Dividende und Rückkäufe vom heutigen Stand
+an, die Strategie aus der Reihe (11.25). Er führt hohe Schulden nur über das Risiko, die Strategie zieht zusätzlich eine
+Tilgung vom Rückfluss ab (11.8).
 
 ### 9.4 Hinweis
 
@@ -1247,7 +1256,9 @@ Dokument und die Version.
 Bonitätsklasse, ordnet besser als die lineare. **Stand.** Quelle R (Abschnitte 2.6 und 4.4) zeigt: Der Sockel liegt für die
 besten Unternehmen etwa fünfmal über den Ausfallraten, die Spanne (Faktor 8,5 zwischen Risikowert 0 und dem Ausschluss) ist
 enger als in den Daten (Faktor 25 zwischen den Klassen A und B). Eine konvexe Zuordnung passt aber nicht zum einzigen bekannten
-Wert des Autors (Imperial Brands in den Folien); deshalb noch nicht geprüft.
+Wert des Autors (Imperial Brands in den Folien); deshalb noch nicht geprüft. Gegen die Eichung an Ausfallraten von Anleihen
+spricht auch das Webinar: Für den Aktionär zählen neben der Insolvenz das Unternehmen, das überlebt und nichts mehr
+ausschüttet, und die Verwässerung in der Not (6.5). Der hohe Sockel ist danach gewollt.
 
 ### 11.2 Sicherheitsmarge in der Hürde
 
@@ -1265,11 +1276,13 @@ verbessert die Rendite nach Steuern. **Stand.** Nicht geprüft; der Rückblick r
 
 ### 11.4 Basislimits gegen die Wikifolios
 
-**Vermutung.** Ein Basislimit von 12,5 % (Buch) und Auffüllen nur der oberen Positionen bildet die Depots des Autors genauer ab
-als die heutigen Limits. **Stand.** Die Folien (Stand 23.11.2026) zeigen im globalen Depot drei Positionen über dem Basislimit des globalen Profils
+**Vermutung.** Ein Basislimit von 10 % im globalen und 20 % im fokussierten Profil bildet die Depots des Autors genauer ab
+als die heutigen Limits und verschlechtert den Rückblick nicht. Im Webinar nennt der Autor als Höchstgewicht im globalen Depot
+etwa 10 % für einen defensiven Titel (Coca-Cola), 5 % für einen mittleren (Daimler) und 2 bis 3 % für einen sehr riskanten
+(Qfin), im fokussierten das Doppelte; das entspricht `Basislimit · (1 − Risikowert)` mit diesen Basislimits. **Stand.** Die Folien (Stand 23.11.2026) zeigen im globalen Depot drei Positionen über dem Basislimit des globalen Profils
 (Comcast 8,7 %, Charter 8,3 %, Universal Health 7,8 %) und im fokussierten Charter mit 15,8 %. Mit 12,5 % träfe das Limit
-Comcast und Charter fast genau. Der Autor füllt aber nur die oberen Positionen auf; die Strategie füllt jede bis zum Limit und
-käme mit 12,5 % auf halb so viele Titel. Nicht geprüft.
+Comcast und Charter fast genau, mit 10 % bei einem Risikowert von 13 und 17 %. Der Autor füllt aber nur die oberen Positionen
+auf; die Strategie füllt jede bis zum Limit und käme mit höheren Limits auf weniger Titel. Nicht geprüft.
 
 ### 11.5 Wachstum aus dem Umsatz bei Zyklikern
 
@@ -1302,7 +1315,9 @@ Schulden zählen doppelt: als Tilgung im Rückflussdeckel (3.6) und im Risikofak
 nicht weiter verfolgt (25.11.2026). Im Rückblick mit eingestellten Titeln (8.3) gehören die größten Verluste zu genau diesem
 Muster, obwohl Tilgung und Risikofaktor schon griffen: schuldenfinanzierte Rückkäufe bei schrumpfendem Geschäft (Bed Bath &
 Beyond, QVC, Tupperware). Eine Lockerung müsste diese Titel weiter fernhalten; geprüft wird sie erst mit einem Merkmal, das
-stabile Schuldner (Kabelnetz, Versorger) von solchen Fällen trennt.
+stabile Schuldner (Kabelnetz, Versorger) von solchen Fällen trennt. Die Regel widerspricht dem Autor: Im Webinar ist Charter
+seine größte Position mit „eher moderatem“ Risiko, die Schulden nennt er als Risiko („für den Teil gibt es eine
+Ausfallkomponente“) und zählt die Rückkäufe voll. Bis zu einer Regel bleibt für solche Titel das Rückflussniveau von Hand.
 
 ### 11.9 Rückflussniveau von Hand in Höhe des gedeckelten Vorschlags
 
@@ -1323,12 +1338,17 @@ auf 68 % und fiele mit jedem Abzug im Urteil über den Ausschluss; der Autor hä
 ### 11.12 Unternehmen ohne Ausschüttung
 
 **Vermutung.** Eine Rendite aus Gewinn und einer später beginnenden Ausschüttung, wie der Autor sie rechnet, erweitert die
-Auswahl ohne Schaden. Heute rechnet die Strategie bei einem Rückfluss von 0 keine Rendite. **Stand.** Nicht geprüft.
+Auswahl ohne Schaden. Heute rechnet die Strategie bei einem Rückfluss von 0 keine Rendite. **Stand.** Nicht geprüft. Das
+Webinar nennt das Vorgehen: Gewinn und um die Vergütung in Aktien bereinigten freien Cashflow einige Jahre fortschreiben und
+ab dann eine Ausschüttungsquote ansetzen; Beispiel Sandisk, bewertet am erwarteten Gewinn der nächsten zwei Jahre mit Abschlag.
 
 ### 11.13 Analystenschätzungen
 
 **Vermutung.** Gewinnniveau und Prüfung der Bewertung werden mit Analystenschätzungen genauer; der Autor stützt beides darauf.
-**Stand.** Nicht geprüft; die Strategie rechnet nur aus Abschlüssen.
+**Stand.** Nicht geprüft; die Strategie rechnet nur aus Abschlüssen. Im Webinar beschreibt der Autor den Abgleich genauer: Er
+prüft monatlich rund 80 Unternehmen darauf, ob sich die Schätzungen gegenüber dem Vormonat stark verschoben haben; kleine
+Verschiebungen gleicht er mit einem Faktor aus, bei großen bewertet er neu. Eine Gewinnwarnung ändert bei ihm die Annahmen
+sofort, in der Strategie erst mit dem nächsten Abschluss. Der Datenbestand hält bisher keine Zeitreihe der Schätzungen.
 
 ### 11.14 Abstand zur Anleiherendite und zum Weltindex
 
@@ -1411,3 +1431,12 @@ schlechter. Die Grenze wirkt bewusst weich.
 **Vermutung.** Beteiligungsgesellschaften, deren Wert überwiegend an einer Beteiligung hängt (3i mit Action), gehören für die
 Branchengrenze in die Branche dieser Beteiligung, nicht zu den Finanzwerten. Heute blockiert die Grenze für Financial
 Services solche Titel neben Banken. **Stand.** Nicht geprüft.
+
+### 11.25 Rückfluss vom heutigen Stand
+
+**Vermutung.** Der Autor setzt die letzte Dividende und das laufende Rückkaufprogramm an (Webinar, Imperial Brands: 3,09 GBP je
+Aktie). Die Strategie mittelt die Netto-Rückkäufe über `rueckkaeufe.jahre` und senkt nach einer Kürzung das Dividendenniveau
+(Vorschlag am 25.11.2026: 2,17 GBP; innere Rendite 8,0 % statt etwa 11,4 % beim selben Kurs). Netto-Rückkäufe des letzten
+Jahres statt des Mittels (Variante A) und zusätzlich die letzte Dividende auch nach einer Kürzung (Variante B) sollten die
+Reihung verbessern, ohne schuldenfinanzierte Rückkäufer bei schrumpfendem Geschäft nach oben zu bringen; der Rückflussdeckel
+bleibt. **Stand.** Nicht geprüft.

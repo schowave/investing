@@ -52,7 +52,7 @@ der Strategie nicht.
   Abdrücke lehnt er ab. Bei `--amend` prüft er den ganzen neuen Commit; Merges und `fixup!`/`squash!` lässt er durch.
   Ob der Inhalt der Dokumente stimmt, prüft der Hook nicht; er erinnert nur.
 - **Quellen der Strategie und ihre Dateien:** Strategie 9.1 nennt die Quellen für Leser ohne Zugang zum Repository; hier die
-  Ablage: Interview im Podcast „Bulle & Mensch“ → `docs/Interview.md`; Gespräch Börsenradio → `docs/podcast.md`; Quelle R
+  Ablage: Interview im Podcast „Bulle & Mensch“ → `docs/Interview.md`; Gespräch Börsenradio → `docs/podcast.md`; Webinar → `docs/webinar.md`; Quelle R
   (eigene Recherche) → `docs/Recherche-Bewertungsansatz.md` (Abschnittsnummern wie in Strategie zitiert). Folien „Yield Investing“ (Stand 23.11.2026), Buch und
   Wikifolios liegen nicht im Repository.
 
