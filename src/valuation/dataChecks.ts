@@ -135,6 +135,7 @@ export function dataWarnings({ stock, years, payments, netBuybacksPerShare, pric
   // werden nur die letzten drei Jahre, die das Dividendenniveau tragen.
   const kind = (p: { period?: string }) => (/final/i.test(p.period ?? "") ? "final" : (p.period ?? "").trim().toLowerCase());
   const regular = (payments ?? []).filter((p) => !/special|extra/i.test(p.period ?? ""));
+  // biome-ignore lint/complexity/useMathMinMax: Datumstexte; Math.max machte daraus NaN.
   const latest = regular.reduce((max, p) => (p.date > max ? p.date : max), "");
   const days = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000;
   const recentPayments = regular.filter((p) => latest !== "" && days(p.date, latest) <= 3 * 365);

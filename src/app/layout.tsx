@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     { href: "/", label: "Rangliste", count: open, countLabel: "offene oder zu prüfende Bewertungen" },
     { href: "/portfolio", label: "Portfolios" },
     { href: "/vorrat", label: "Datenvorrat" },
+    { href: "/analyse", label: "Analyse" },
     { href: "/abgleich", label: "Abgleich", count: db.activeJobs().length, countLabel: "laufende oder wartende Läufe" },
     { href: "/strategie", label: "Strategie" },
   ];
