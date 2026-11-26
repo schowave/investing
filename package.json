@@ -33,18 +33,18 @@
     "bewertung:vorfilter": "node --env-file-if-exists=.env.local scripts/prefilter.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.8",
-    "@types/node": "26.6.6",
-    "@types/react": "19.3.0",
+    "@biomejs/biome": "2.6.9",
+    "@types/node": "26.6.7",
+    "@types/react": "19.3.1",
     "@types/react-dom": "19.3.0",
     "@vitest/coverage-v8": "5.1.1",
     "drizzle-kit": "1.0.0-beta.22",
-    "knip": "6.45.1",
+    "knip": "6.48.0",
     "typescript": "7.0.2",
     "vitest": "5.1.1"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.10.0",
+    "@anthropic-ai/sdk": "1.14.0",
     "@google/genai": "3.6.1",
     "drizzle-orm": "1.0.0-beta.22",
     "markdown-it": "15.0.3",
